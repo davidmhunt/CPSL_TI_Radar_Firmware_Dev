@@ -36,6 +36,35 @@ The Docker container runs on **Ubuntu 24.04** and installs the following toolcha
 
 *Note: Code Composer Studio (CCS) v12 and MATLAB Runtime R2023b are **not required** for rebuilding or running the applications.*
 
+## Pre-requisites: Downloading TI Installers
+
+Before building the Docker container, you must manually download the following five installers from the Texas Instruments portal (many require logging into your myTI account) and place them in a directory named `downloads/` at the root of this repository:
+
+1.  **TI mmWave MCU+SDK (v04.04.00.01)**
+    *   **Filename:** `mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin`
+    *   **Download Page:** [MMWAVE-MCUPLUS-SDK Download Page](https://www.ti.com/tool/download/MMWAVE-MCUPLUS-SDK/04.04.00.01)
+2.  **TI mmWave SDK (v03.06.02.00-LTS)**
+    *   **Filename:** `mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin`
+    *   **Download Page:** [MMWAVE-SDK Download Page](https://www.ti.com/tool/download/MMWAVE-SDK/03.06.02.00)
+3.  **TI SysConfig (v1.22.0)**
+    *   **Filename:** `sysconfig-1.22.0_3888-setup-hs.run`
+    *   **Download Page:** [SYSCONFIG Download Page](https://www.ti.com/tool/download/SYSCONFIG/1.22.0)
+4.  **TI Arm Clang Compiler (v2.1.2.LTS)**
+    *   **Filename:** `ti_cgt_armllvm_2.1.2.LTS_linux-x64_installer.bin`
+    *   **Download Page:** [ARM-CGT Download Page (for 2.1.2.LTS)](https://www.ti.com/tool/download/ARM-CGT/2.1.2.LTS)
+5.  **Legacy TI ARM Compiler (v16.9.6.LTS)**
+    *   **Filename:** `ti_cgt_arm_16.9.6.LTS_linux_installer_x86.bin`
+    *   **Download Page:** [ARM-CGT Download Page (for 16.9.6.LTS)](https://www.ti.com/tool/download/ARM-CGT/16.9.6.LTS)
+
+### Setup Directory Structure
+Create the `downloads/` directory and place the files inside:
+```bash
+mkdir -p downloads/
+# (Download and move the 5 installer files above into the downloads/ directory)
+```
+Once the `downloads/` directory is populated, you are ready to build the container.
+
+
 ## Build Instructions
 
 To build the target firmware binaries inside the Docker container:

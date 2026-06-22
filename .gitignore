@@ -1,0 +1,31 @@
+# Build directories and artifacts
+build/
+bin/
+*.o
+*.d
+*.elf
+*.bin
+*.appimage
+*.out
+*.map
+*.release
+*.debug
+
+# Local SDK downloads and installations (to keep the repo clean)
+sdks/
+ti/
+ti-cgt-armllvm*/
+ti-cgt-arm*/
+sysconfig*/
+
+# IDE settings
+.vscode/
+.idea/
+*.suo
+*.user
+
+# Python virtual environment and caches
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/

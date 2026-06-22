@@ -1,2 +1,69 @@
-# CPSL_TI_Radar_Firmware_Dev
-repository for developing custom TI firmware
+# CPSL TI Radar Firmware Development
+
+This repository serves as the centralized development, compilation, and build environment for all Texas Instruments (TI) mmWave radar sensor firmware utilized by the Collaborative Perception and Sensing Lab (CPSL). 
+
+It contains containerized build configurations (Docker/Compose) housing all required compilers and software development kits (SDKs) to develop, build, and deploy firmware without relying on the Code Composer Studio (CCS) GUI.
+
+## Repository Structure
+
+```text
+.
+├── Dockerfile              # Development environment container spec (Ubuntu 24.04)
+├── docker-compose.yaml     # Build targets orchestration
+├── .gitignore              # Ignores local SDK installers, build files, and IDE configs
+├── README.md               # This file
+├── firmware/
+│   ├── cascade/            # AM273x + AWR2243 2-Chip Cascade application firmware
+│   │   ├── Makefile        # Rebuild rules using SysConfig CLI & TI Clang Compiler
+│   │   └── src/            # Source code for DDMA, Calibration, and LVDS demos
+│   └── legacy/             # Single-chip legacy mmWave SDK 3.x firmware builds
+│       ├── Makefile        # Build rules using legacy TI ARM Compiler
+│       └── src/            # Source code for IWR1843, IWR6843, and IWR1443
+└── scripts/
+    ├── flash_cascade.sh    # Headless flashing helper script (calls uart_uniflash.py)
+    └── sbl_configs/        # Secondary Bootloader config schemas for AM273x
+```
+
+## Software Toolchains (Headless Build Container)
+
+The Docker container runs on **Ubuntu 24.04** and installs the following toolchain dependencies:
+- **TI mmWave MCU+SDK (v04.04.00.01)**: The core SDK for the AM273x processor.
+- **TI Clang Compiler Toolchain (`ti-cgt-armllvm`)**: Required compiler for AM273x.
+- **TI mmWave SDK (v03.06+)**: Legacy SDK for single-chip sensors.
+- **TI ARM Compiler (`ti-cgt-arm_16.9.6.LTS`)**: Compiler for SDK 3.x targets.
+- **SysConfig (v1.22.0) CLI**: Configuration generator CLI for pinmux, clocks, and peripheral configurations.
+- **Python 3.x & Flashing Libraries**: `pyserial`, `xmodem`, and `tqdm` for serial flashing over UART.
+
+*Note: Code Composer Studio (CCS) v12 and MATLAB Runtime R2023b are **not required** for rebuilding or running the applications.*
+
+## Build Instructions
+
+To build the target firmware binaries inside the Docker container:
+
+1.  **Build the Toolchain Container**:
+    ```bash
+    docker-compose build
+    ```
+
+2.  **Compile Cascade Firmware (AM273x)**:
+    ```bash
+    docker-compose run build-cascade
+    ```
+    This compiles the source code in `firmware/cascade/` and outputs `.appimage` and `.elf` files in the output directory.
+
+3.  **Compile Legacy Firmware (IWR1843/IWR6843)**:
+    ```bash
+    docker-compose run build-legacy
+    ```
+    This compiles the legacy SDK 3.x source code in `firmware/legacy/` and outputs `.bin` and `.elf` files.
+
+## Flashing Instructions (Headless)
+
+Flashing is handled via a UART serial interface directly from the host machine using mapped docker files.
+
+1.  **Set Jumper for UART Boot Mode**: Place the board's SOP jumpers in UART Boot Mode (refer to hardware schematics) and power-cycle the board.
+2.  **Run Flashing Script**:
+    ```bash
+    ./scripts/flash_cascade.sh /dev/ttyUSB0 ./build/cascade/am273x_cascade.appimage
+    ```
+3.  **Run in Functional Mode**: Power-off the board, place SOP jumpers back into Functional Boot Mode, and power-on the board to execute the flashed image.

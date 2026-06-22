@@ -14,6 +14,7 @@ bin/
 # Local SDK downloads and installations (to keep the repo clean)
 sdks/
 ti/
+downloads/
 ti-cgt-armllvm*/
 ti-cgt-arm*/
 sysconfig*/

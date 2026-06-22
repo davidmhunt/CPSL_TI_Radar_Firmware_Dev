@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Base builder container
+  firmware-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: cpsl-ti-radar-firmware-dev:latest
+    volumes:
+      # Bind-mount the entire repository to access source files and write compile binaries
+      - .:/build_context
+    environment:
+      - CGT_TI_ARM_CLANG_PATH=/opt/ti/ti-cgt-armllvm_2.1.2.LTS
+      - CGT_TI_ARM_PATH=/opt/ti/ti-cgt-arm_16.9.6.LTS
+      - MMWAVE_MCUPLUS_SDK_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_00_01
+      - MMWAVE_SDK_PATH=/opt/ti/mmwave_sdk_03_06_02_00
+      - SYSCONFIG_PATH=/opt/ti/sysconfig_1.22.0
+
+  # Target to compile AM273x + AWR2243 2-Chip Cascade Firmware
+  build-cascade:
+    extends:
+      service: firmware-builder
+    command: /bin/bash -c "chmod +x ./build_cascade.sh 2>/dev/null || true && ./build_cascade.sh"
+
+  # Target to compile legacy IWR1843/IWR6843 SDK Firmware
+  build-legacy:
+    extends:
+      service: firmware-builder
+    command: /bin/bash -c "chmod +x ./build_legacy.sh 2>/dev/null || true && ./build_legacy.sh"
+
+  # Interactive environment for developer debugging
+  dev:
+    extends:
+      service: firmware-builder
+    stdin_open: true
+    tty: true
+    command: /bin/bash

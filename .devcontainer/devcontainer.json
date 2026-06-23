@@ -1,0 +1,20 @@
+{
+  "name": "TI Radar Firmware Dev Env",
+  "dockerComposeFile": "../docker-compose.yaml",
+  "service": "firmware-env",
+  "workspaceFolder": "/build_context",
+  "customizations": {
+    "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash"
+      },
+      "extensions": [
+        "ms-vscode.cpptools",
+        "ms-vscode.cpptools-extension-pack",
+        "ms-python.python",
+        "twixi.serial-monitor"
+      ]
+    }
+  },
+  "shutdownAction": "stopCompose"
+}

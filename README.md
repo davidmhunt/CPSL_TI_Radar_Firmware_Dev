@@ -111,6 +111,23 @@ docker compose run --rm firmware-env
 
 ---
 
+## 💻 VS Code / Cursor Dev Container Integration
+
+For a streamlined development experience, this repository supports Microsoft's **Dev Containers** standard. This allows you to attach your host IDE directly inside the running container environment.
+
+### Why use Dev Containers?
+- **Seamless SDK Browsing**: You can explore and open all SDK source code, header files, and compiler toolchains under `/opt/ti/` directly from your host editor's sidebar.
+- **Full IntelliSense**: Auto-complete, error highlighting, and "Go to Definition" work natively for all TI SDK APIs since the editor runs inside the container context where all headers are indexed.
+- **Integrated Terminal**: Run compilation commands (e.g. `./build_cascade.sh` or `make`) directly from the editor's integrated terminal.
+
+### Setup Instructions
+1. Open the `CPSL_TI_Radar_Firmware_Dev` repository folder in VS Code or Cursor.
+2. Install the **Dev Containers** extension (`ms-vscode-remote.remote-containers`).
+3. Click the green indicator in the bottom-left corner of the editor window and select **"Reopen in Container"** (or open the Command Palette and type `Dev Containers: Reopen in Container`).
+4. Once loaded, you can open any folder (including `/opt/ti`) directly inside the container workspace.
+
+---
+
 ## ⚡ Headless Flashing Instructions
 
 Deploying compiled binaries is handled via the UART bootloader interface on the host machine.

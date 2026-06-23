@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<projectSpec>
+    <applicability>
+        <when>
+            <context
+                deviceFamily="C6000"
+                deviceId="TMS320C66XX.AM273x"
+            />
+        </when>
+    </applicability>
+
+    <!-- Project Settings -->
+    <project
+        title="am273x_mmw_cascade_demo_dss"
+        name = "am273x_mmw_cascade_demo_dss"
+        products="sysconfig:1.22.0;com.ti.MCU_PLUS_SDK_AM273X:8.5.0.24;com.ti.MMWAVE_MCUPLUS_SDK:4.4.0.01"
+        configurations="
+            Debug,
+            Release,
+        "
+        connection="TIXDS110_Connection.xml"
+        toolChain="TI"
+        cgtVersion="8.3.12"
+        device="TMS320C66XX.AM273x"
+        deviceCore="C66xx_DSP"
+        ignoreDefaultDeviceSettings="true"
+        ignoreDefaultCCSSettings="true"
+        endianness="little"
+        outputFormat="ELF"
+        outputType="executable"
+
+        compilerBuildOptions="
+            -I${CG_TOOL_ROOT}/include
+            -I${C66x_MATHLIB_INSTALL_PATH}/packages
+            -I${C66x_DSPLIB_INSTALL_PATH}/packages
+            -I${MCU_PLUS_SDK_PATH}/source
+            -I${MCU_PLUS_SDK_PATH}/source/kernel/freertos/FreeRTOS-Kernel/include
+            -I${MCU_PLUS_SDK_PATH}/source/kernel/freertos/portable/TI_CGT/DSP_C66
+            -I${MCU_PLUS_SDK_PATH}/source/kernel/freertos/config/am273x/c66
+            -I${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpc/objectdetection/objdethwaDDMA/src/
+            -I${PROJECT_LOC}
+            -I${PROJECT_LOC}/ti/demo/am273x/mmw/dss
+            -I${PROJECT_LOC}/ti/demo/am273x/mmw/dss/dssgenerated
+            -mv6600
+            --abi=eabi
+            -q
+            -mi10
+            -mo
+            -pden
+            -pds=238
+            -pds=880
+            -pds1110
+             --gcc -g -O3 -mf3 -mo
+            --emit_warnings_as_errors
+            --define=SUBSYS_DSS
+            --define=_LITTLE_ENDIAN
+            --display_error_number
+            --diag_warning=225
+            --diag_wrap=off
+            --preproc_with_compile
+            --define=DebugP_LOG_ENABLED
+            --define=MMWDEMO_DDM
+            --define=CASCADE_EVM
+            --define=DRIVERS_RADAR_HWA_V2
+            -DAPP_RESOURCE_FILE=&apos;&lt;&apos;ti/demo/am273x/mmw/mmw_resDDM.h&apos;&gt;&apos;
+            -DSOC_AM273X
+        "
+        linkerBuildOptions="
+            -i${MCU_PLUS_SDK_PATH}/source/board/lib
+            -i${MCU_PLUS_SDK_PATH}/source/kernel/freertos/lib
+            -i${MCU_PLUS_SDK_PATH}/source/drivers/lib
+            -i${CG_TOOL_ROOT}/lib
+            -i${PROJECT_LOC}/ti/control/dpm/lib 
+            -i${MMWAVE_SDK_INSTALL_PATH}/ti/utils/mathutils/lib
+            -i${C66x_MATHLIB_INSTALL_PATH}/packages/ti/mathlib/lib
+            -i${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpedma/lib
+            -i${C66x_DSPLIB_INSTALL_PATH}/packages/ti/dsplib/lib
+            -i${PROJECT_LOC}/ti/datapath/dpu/rangeprocDDMA/lib
+            -i${PROJECT_LOC}/ti/datapath/dpu/dopplerprocDDMA/lib
+            -i${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpu/rangecfarprocDDMA/lib
+            -mv6600
+            -g 
+            -m=corner_radar_awr2944_dss.${ConfigName}.map
+            --diag_warning=225
+            --diag_wrap=off
+            --reread_libs
+            --warn_sections
+            --display_error_number
+            --emit_warnings_as_errors
+            --rom_model
+            --diag_error=10015
+            -x
+            -o ${ProjName}.xe66
+            -llibdpm_am273x.ae66 -llibmathutils.ae66 -llibrangeproc_hwa_ddma_cascade_am273x.ae66 -llibdopplerproc_hwa_ddma_cascade_am273x.ae66 -llibdpedma_hwa_am273x.ae66 -lmathlib.ae66 -ldsplib.ae66 -llibrangecfarproc_hwa_ddma_am273x.ae66
+        "
+
+        preannouncebuildStep="Deleting old out files"
+        preBuildStep = "${CCE_INSTALL_ROOT}/utils/cygwin/rm -f ${CCS_PROJECT_DIR}/${ConfigName}/${ProjName}_strip.xe66;"
+        postannouncebuildStep="Preparing RPRC format image"
+        postBuildStep="${CCE_INSTALL_ROOT}/utils/cygwin/rm -f ${CCS_PROJECT_DIR}/${ConfigName}/${ProjName}_strip.rprc;
+                        ${CG_TOOL_ROOT}/bin/strip6x -p ${CCS_PROJECT_DIR}/${ConfigName}/${ProjName}.xe66 -o=${CCS_PROJECT_DIR}/${ConfigName}/${ProjName}_strip.xe66;
+                        ${SYSCONFIG_TOOL_ROOT}/nodejs/node.exe ${COM_TI_MCU_PLUS_SDK_AM273X_INSTALL_DIR}/tools/boot/out2rprc/elf2rprc.js ${CCS_PROJECT_DIR}/${ConfigName}/${ProjName}_strip.xe66;"
+
+
+        enableSysConfigTool="true"
+        sysConfigBuildOptions="
+            -o ${PROJECT_LOC}/ti/demo/am273x/mmw/dss/dssgenerated --context c66ss0 --part Default --package ZCE 
+        "
+
+        description="mmave 2 chip cascade">
+
+        <!-- Project Configurations -->
+        <configuration name="Debug"
+            compilerBuildOptions="
+                -D_DEBUG_=1
+            "
+            linkerBuildOptions="
+                -lfreertos.am273x.c66.ti-c6000.release.lib
+                -ldrivers.am273x.c66.ti-c6000.release.lib
+                -lboard.am273x.c66.ti-c6000.release.lib
+                -llibc.a
+            "
+        ></configuration>
+        <configuration name="Release"
+            compilerBuildOptions="
+                -o3
+                -mf3
+            "
+            linkerBuildOptions="
+                -lfreertos.am273x.c66.ti-c6000.release.lib
+                -ldrivers.am273x.c66.ti-c6000.release.lib
+                -lboard.am273x.c66.ti-c6000.release.lib
+                -llibc.a
+            "
+        ></configuration>
+
+        <!-- Project path variables -->
+        <pathVariable name="MCU_PLUS_SDK_PATH" path="${COM_TI_MCU_PLUS_SDK_AM273X_INSTALL_DIR}" scope="project" />
+        <pathVariable name="MMWAVE_SDK_INSTALL_PATH" path= "${COM_TI_MMWAVE_MCUPLUS_SDK_INSTALL_DIR}" scope="project" />
+        <pathVariable name="MMWAVE_AWR294X_DFP_INSTALL_PATH" path="${COM_TI_MMWAVE_MCUPLUS_SDK_INSTALL_DIR}/../mmwave_dfp_02_04_08_01" scope="project" />
+        <pathVariable name="C66x_DSPLIB_INSTALL_PATH" path="${COM_TI_MMWAVE_MCUPLUS_SDK_INSTALL_DIR}/../dsplib_c66x_3_4_0_0" scope="project" />
+        <pathVariable name="C66x_MATHLIB_INSTALL_PATH" path="${COM_TI_MMWAVE_MCUPLUS_SDK_INSTALL_DIR}/../mathlib_c66x_3_1_2_1" scope="project" />
+        
+        <!-- Project files -->
+        <file path="ti/demo/am273x/mmw/dss/dss_main.c" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/dss/mmw_dss.h" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/dss/data_path.c" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/dss/mmw_lvds_stream.c" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="true" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/dss/mmw_lvds_stream.h" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="true" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/mmw_resDDM.h" targetDirectory="ti/demo/am273x/mmw" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/include/mmw_config.h" targetDirectory="ti/demo/am273x/mmw/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/include/mmw_output.h" targetDirectory="ti/demo/am273x/mmw/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="ti/common/syscommon.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/common/sys_types.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/common/sys_defs.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/common/mmwave_error.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/common/mmwavesdk_version.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/common/sys_common_am273x.h" targetDirectory="ti/common" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="ti/board/antenna_geometry.h" targetDirectory="ti/board" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="ti/datapath/dpu/rangeprocDDMA/lib/librangeproc_hwa_ddma_cascade_am273x.ae66" targetDirectory="ti/datapath/dpu/rangeprocDDMA/lib" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/datapath/dpu/dopplerprocDDMA/lib/libdopplerproc_hwa_ddma_cascade_am273x.ae66" targetDirectory="ti/datapath/dpu/dopplerprocDDMA/lib" openOnCreation="false" excludeFromBuild="false" action="copy"></file>        
+        <file path="ti/control/dpm/lib/libdpm_am273x.ae66" targetDirectory="ti/control/dpm/lib" openOnCreation="false" excludeFromBuild="false" action="copy"></file>        
+
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/utils/mathutils/mathutils.h" targetDirectory="ti/utils/mathutils" openOnCreation="false" excludeFromBuild="false" action="copy"></file>        
+
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/control/dpm/dpm.h" targetDirectory="ti/control/dpm/" openOnCreation="false" excludeFromBuild="false" action="copy"></file>        
+        <file path="ti/control/mmwavelink/mmwavelink.h" targetDirectory="ti/control/mmwavelink" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwave/mmwave.h" targetDirectory="ti/control/mmwave" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_datatypes.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_device.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_sensor.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_monitoring.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_protocol.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/control/mmwavelink/include/rl_messages.h" targetDirectory="ti/control/mmwavelink/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="ti/datapath/dpc/objectdetection/objdethwaDDMA/src/objectdetection.c" targetDirectory="ti/datapath/dpc/objectdetection/objdethwaDDMA/src/" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/datapath/dpc/objectdetection/objdethwaDDMA/objectdetection.h" targetDirectory="ti/datapath/dpc/objectdetection/objdethwaDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/datapath/dpc/objectdetection/objdethwaDDMA/include/objectdetectioninternal.h" targetDirectory="ti/datapath/dpc/objectdetection/objdethwaDDMA/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file> 
+
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dpif_pointcloud.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dpif_types.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dpif_adcdata.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dpif_radarcube.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dp_error.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpif/dpif_detmatrix.h" targetDirectory="ti/datapath/dpif" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpedma/dpedmahwa.h" targetDirectory="ti/datapath/dpedma" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpedma/dpedma.h" targetDirectory="ti/datapath/dpedma" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpu/rangeproc/rangeproc_common.h" targetDirectory="ti/datapath/dpu/rangeproc" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpu/dopplerprocDDMA/dopplerprocDDMAcommon.h" targetDirectory="ti/datapath/dpu/dopplerprocDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        
+        <file path="ti/datapath/dpu/rangeprocDDMA/rangeprochwaDDMA.h" targetDirectory="ti/datapath/dpu/rangeprocDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpu/rangecfarprocDDMA/rangecfarprochwa.h" targetDirectory="ti/datapath/dpu/rangecfarprocDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/datapath/dpu/rangecfarprocDDMA/rangecfarproccommon.h" targetDirectory="ti/datapath/dpu/rangecfarprocDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/datapath/dpu/dopplerprocDDMA/dopplerprochwaDDMA.h" targetDirectory="ti/datapath/dpu/dopplerprocDDMA" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        
+        <file path="ti/alg/gtrack/gtrack.h" targetDirectory="ti/alg/gtrack" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/alg/gtrack/include/gtrack_3d.h" targetDirectory="ti/alg/gtrack/include" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+        <file path="${MMWAVE_SDK_INSTALL_PATH}/ti/platform/am273x/c66x_linker.cmd" openOnCreation="false" excludeFromBuild="false" action="link"></file>
+        <file path="ti/demo/am273x/mmw/dss/mmw_dss_linker.cmd" targetDirectory="ti/demo/am273x/mmw/dss" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+        <file path="ti/demo/am273x/mmw/dss/dss.syscfg" openOnCreation="false" excludeFromBuild="false" action="copy"></file>
+
+    </project>
+</projectSpec>

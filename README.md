@@ -53,6 +53,31 @@ The development environment container runs on **Ubuntu 24.04** and installs the 
 
 ---
 
+## 📦 Git Large File Storage (Git LFS)
+
+This repository utilizes **Git LFS** to version large binary assets (such as generated PDF documentation) to avoid bloating the core Git repository history.
+
+### 🛠️ One-Time Machine Setup
+If you are setting up this workspace on a new machine:
+1. **Install Git LFS**:
+   - **Ubuntu/Linux**: `sudo apt install git-lfs`
+   - **macOS**: `brew install git-lfs`
+   - **Windows**: Download the installer from the [Git LFS Website](https://git-lfs.com/).
+2. **Initialize Git LFS globally** (only needed once per system):
+   ```bash
+   git lfs install
+   ```
+
+### 📥 Cloning and Fetching
+Standard Git clones only download the lightweight pointer files. To retrieve the actual binary files:
+```bash
+git clone https://github.com/davidmhunt/CPSL_TI_Radar_Firmware_Dev.git
+cd CPSL_TI_Radar_Firmware_Dev
+git lfs pull
+```
+
+---
+
 ## 📥 Pre-requisites & Installer Setup
 
 Before building the container, you must obtain the TI software installers and place them in the `downloads/` directory.

@@ -165,3 +165,23 @@ Deploying compiled binaries is handled via the UART bootloader interface on the 
    ./scripts/flash_cascade.sh /dev/ttyUSB0 ./build/cascade/am273x_cascade.appimage
    ```
 3. **Execute**: Power-off, return SOP jumpers to Functional Boot Mode, and power-on the board.
+
+---
+
+## 📖 TI Reference Documentation & Demo Visualizer
+
+To run the out-of-box demo and view its output in the TI mmWave Demo Visualizer, start with TI's EVM user guide:
+
+- **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [Local copy (Git LFS)](firmware/cascade/src/demo/docs/swru639_AWR2243-2X-CAS-EVM_user_guide.pdf) | [Latest version on ti.com](https://www.ti.com/lit/pdf/SWRU639)
+
+The user guide points to these TI resources:
+
+| Resource | Link |
+|---|---|
+| **mmWave Demo Visualizer (cloud)** | [dev.ti.com/gallery/view/mmwave/mmWave_Demo_Visualizer](https://dev.ti.com/gallery/view/mmwave/mmWave_Demo_Visualizer) |
+| **Radar Toolbox (TI Resource Explorer)** | [dev.ti.com/tirex/global?id=radar_toolbox](https://dev.ti.com/tirex/global?id=radar_toolbox) |
+| **AWR2243-2X-CAS-EVM Product Page** | [ti.com/tool/AWR2243-2X-CAS-EVM](https://www.ti.com/tool/AWR2243-2X-CAS-EVM) |
+| **DCA1000EVM (raw ADC capture)** | [ti.com/tool/DCA1000EVM](https://www.ti.com/tool/DCA1000EVM) |
+
+> [!NOTE]
+> The local copy is the February 2025 revision of SWRU639. Check the ti.com link for newer revisions.

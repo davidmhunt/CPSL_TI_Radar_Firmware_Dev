@@ -170,8 +170,9 @@ Deploying compiled binaries is handled via the UART bootloader interface on the 
 
 ## 📖 TI Reference Documentation & Demo Visualizer
 
-To run the out-of-box demo and view its output in the TI mmWave Demo Visualizer, start with TI's EVM user guide:
+To run the out-of-box demo and view its output in the TI mmWave Demo Visualizer, start with these guides:
 
+- **Two Chip Cascade User Guide (Radar Toolbox lab)**: [Local copy](firmware/cascade/src/demo/docs/Two_Chip_Cascade_user_guide.html). Step-by-step instructions for flashing the lab binaries, switching between UART/QSPI boot modes, and running the cascade visualizer (standalone executable or MATLAB). Download the file and open it in a browser, because GitHub shows HTML files as source instead of rendering them.
 - **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [Local copy (Git LFS)](firmware/cascade/src/demo/docs/swru639_AWR2243-2X-CAS-EVM_user_guide.pdf) | [Latest version on ti.com](https://www.ti.com/lit/pdf/SWRU639)
 
 The user guide points to these TI resources:

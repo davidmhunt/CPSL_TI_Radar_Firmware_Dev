@@ -1,6 +1,7 @@
-# Build directories and artifacts
-build/
-bin/
+# Build directories and artifacts (anchored to repo root so same-named
+# folders inside the firmware source tree are not silently ignored)
+/build/
+/bin/
 *.o
 *.d
 *.elf
@@ -13,15 +14,20 @@ bin/
 *.aer5f
 *.ae66
 
+# Exceptions: prebuilt cascade libraries the demo links against (sourced from
+# Radar Toolbox 4.00.00.05; libcli has no source in this repo, so it must be tracked)
+!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*_cascade_am273x.aer5f
+!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*_cascade_am273x.ae66
+# Exception: TI prebuilt cascade demo image referenced by prebuilt_binaries/demo.cfg
+!firmware/cascade/src/demo/prebuilt_binaries/*.appimage
+
 # Local SDK downloads and installations (to keep the repo clean)
-sdks/
-ti/
-!firmware/cascade/src/demo/src/awr2243/ti/
-downloads/*
-!downloads/download.sh
-ti-cgt-armllvm*/
-ti-cgt-arm*/
-sysconfig*/
+/sdks/
+/ti/
+/downloads/*
+!/downloads/download.sh
+/ti-cgt-*/
+/sysconfig*/
 
 # IDE settings
 .vscode/

@@ -126,7 +126,7 @@ firmware/cascade/src/demo/
 ```
 
 ### 3.1 Overview of Sourced SDK Folders
-The files in the `src/awr2243/ti/` directory are structured to match the layout of the TI mmWave MCU+ SDK (`/opt/ti/mmwave_mcuplus_sdk_04_04_01_02/ti/`). They contain custom, optimized components required for the 2-chip Cascade Demo that are not present or differ from the standard single-chip SDK examples.
+The files in the `src/awr2243/ti/` directory are structured to match the layout of the TI mmWave MCU+ SDK (`/opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/`). They contain custom, optimized components required for the 2-chip Cascade Demo that are not present or differ from the standard single-chip SDK examples.
 
 *   **`ti/alg/` (Algorithms):** Contains target clustering and tracking source files under `alg/gtrack/`. This implements the GTrack algorithm (Extended Kalman filter tracking) running on the MSS.
 *   **`ti/board/` (Board Configurations):** Contains `board/antenna_geometry.h` which specifies virtual channel spacing and coordinates based on the physical EVM antenna layout.
@@ -160,7 +160,7 @@ From the root of the repository, execute the following commands on the host mach
   * `build/cascade/am273x_cascade.appimage` (Signed multi-core flash image containing MSS, DSS, and the AWR2243 BSS patches)
 
 ### 4.2 How the Makefile Works
-The makefile located at `/opt/ti/mmwave_mcuplus_sdk_04_04_01_02/ti/demo/am273x/mmw/makefile` compiles the binaries. It utilizes:
+The makefile located at `/opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/demo/am273x/mmw/makefile` compiles the binaries. It utilizes:
 1. **SysConfig Generation:** Generates pinmux and peripheral initializers from the `mss.syscfg` and `dss.syscfg` files.
 2. **MSS Compilation:** Invokes the TI Arm Clang Compiler (`tiarmclang`) to build R5F object files and link them using `mmw_mss_linker.cmd`.
 3. **DSS Compilation:** Invokes the C6000 Compiler (`cl6x`) to build DSP object files and link them using `mmw_dss_linker.cmd`.
@@ -186,15 +186,15 @@ If you want to perform manual compiling, debugging, or build only a specific sub
 
    export MMWAVE_SDK_TOOLS_INSTALL_PATH=/opt/ti
    export CCS_INSTALL_PATH=/opt/ti
-   export MMWAVE_SDK_INSTALL_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_01_02
-   export R5F_CLANG_INSTALL_PATH=/opt/ti/ti-cgt-armllvm_2.1.2.LTS
+   export MMWAVE_SDK_INSTALL_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_00_01
+   export R5F_CLANG_INSTALL_PATH=/opt/ti/ti-cgt-armllvm_2.1.1.LTS
    export CCS_BIN_PATH=/usr/bin
    export CCS_CYGWIN_PATH=/usr/bin
-   export SYSCONFIG_INSTALL_PATH=/opt/ti/sysconfig_1.14.0
+   export SYSCONFIG_INSTALL_PATH=/opt/ti/sysconfig_1.22.0
    export XDC_INSTALL_PATH=/opt/ti/xdctools_3_50_08_24_core
    export MCU_PLUS_AM273X_INSTALL_PATH=/opt/ti/mcu_plus_sdk_am273x_08_05_00_24
-   export MMWAVE_XWR2XXX_DFP_INSTALL_PATH=/opt/ti/mmwave_dfp_02_02_04_00
-   export C66X_CODEGEN_INSTALL_PATH=/opt/ti/ti-cgt-c6000_8.3.3
+   export MMWAVE_XWR2XXX_DFP_INSTALL_PATH=/opt/ti/mmwave_dfp_02_04_08_01
+   export C66X_CODEGEN_INSTALL_PATH=/opt/ti/ti-cgt-c6000_8.3.12
    export C66x_DSPLIB_INSTALL_PATH=/opt/ti/dsplib_c66x_3_4_0_0
    export C66x_MATHLIB_INSTALL_PATH=/opt/ti/mathlib_c66x_3_1_2_1
    ```
@@ -202,19 +202,19 @@ If you want to perform manual compiling, debugging, or build only a specific sub
 3. **Verify the Environment Settings:**
    Run the SDK check script to verify the compiler and paths:
    ```bash
-   cd /opt/ti/mmwave_mcuplus_sdk_04_04_01_02/scripts/unix
+   cd /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/scripts/unix
    source ./checkenv.sh
    ```
 
 4. **Sync Local Source to SDK Path:**
    Copy the modified source code from the host workspace mount (`/build_context`) to the container SDK folders:
    ```bash
-   cp -rf /build_context/firmware/cascade/src/demo/src/awr2243/ti/* /opt/ti/mmwave_mcuplus_sdk_04_04_01_02/ti/
+   cp -rf /build_context/firmware/cascade/src/demo/src/awr2243/ti/* /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/
    ```
 
 5. **Navigate to the Compile Directory:**
    ```bash
-   cd /opt/ti/mmwave_mcuplus_sdk_04_04_01_02/ti/demo/am273x/mmw
+   cd /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/demo/am273x/mmw
    ```
 
 6. **Execute Targeted Compilation Commands:**

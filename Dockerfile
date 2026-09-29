@@ -43,14 +43,16 @@ RUN mkdir -p /opt/ti
 # Set up build context mount directory
 WORKDIR /build_context
 
-# Define environment variables for compilation tools (pointing to the mounted /opt/ti)
-ENV MMWAVE_MCUPLUS_SDK_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_01_02
+# Define environment variables for compilation tools (installed under /opt/ti).
+# Cascade versions match firmware/cascade/src/demo/src/awr2243/*.projectspec.
+ENV MMWAVE_MCUPLUS_SDK_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_00_01
 ENV MMWAVE_SDK_PATH=/opt/ti/mmwave_sdk_03_06_02_00-LTS
-ENV CGT_TI_ARM_CLANG_PATH=/opt/ti/ti-cgt-armllvm_2.1.2.LTS
+ENV CGT_TI_ARM_CLANG_PATH=/opt/ti/ti-cgt-armllvm_2.1.1.LTS
+ENV CGT_TI_C6000_PATH=/opt/ti/ti-cgt-c6000_8.3.12
 ENV CGT_TI_ARM_PATH=/opt/ti/ti-cgt-arm_20.2.7.LTS
-ENV SYSCONFIG_PATH=/opt/ti/sysconfig_1.28.0
+ENV SYSCONFIG_PATH=/opt/ti/sysconfig_1.22.0
 ENV RADAR_TOOLBOX_INSTALL_PATH=/opt/ti/radar_toolbox_4_00_00_05
-ENV PATH="/opt/ti/sysconfig_1.28.0:${PATH}"
+ENV PATH="/opt/ti/sysconfig_1.22.0:${PATH}"
 
 # Copy installer executables from host downloads directory
 # (Expected to be placed in the local downloads/ folder prior to building)
@@ -59,13 +61,15 @@ COPY downloads/ /tmp/downloads/
 # Install TI tools in unattended (silent) mode to /opt/ti
 RUN chmod +x /tmp/downloads/*.bin /tmp/downloads/*.run 2>/dev/null || true \
     && echo "Installing SysConfig..." \
-    && /tmp/downloads/sysconfig-1.28.0_4712-setup.run --mode unattended --prefix /opt/ti/sysconfig_1.28.0 \
+    && /tmp/downloads/sysconfig-1.22.0_3893-setup.run --mode unattended --prefix /opt/ti/sysconfig_1.22.0 \
     && echo "Installing TI Clang Compiler..." \
-    && /tmp/downloads/ti_cgt_armllvm_2.1.2.LTS_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
+    && /tmp/downloads/ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
+    && echo "Installing TI C6000 Compiler..." \
+    && /tmp/downloads/ti_cgt_c6000_8.3.12_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
     && echo "Installing TI ARM Compiler (Legacy)..." \
     && /tmp/downloads/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
     && echo "Installing mmWave MCU+ SDK..." \
-    && /tmp/downloads/mmwave_mcuplus_sdk_04_04_01_02-Linux-x86-Install.bin --mode unattended --prefix /opt/ti \
+    && /tmp/downloads/mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin --mode unattended --prefix /opt/ti \
     && echo "Installing legacy mmWave SDK..." \
     && /tmp/downloads/mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin --mode unattended --prefix /opt/ti \
     && echo "Installing TI Radar Toolbox..." \

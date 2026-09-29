@@ -39,11 +39,14 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ## 🛠️ Software Toolchains (Headless Build Container)
 
 The development environment container runs on **Ubuntu 24.04** and installs the following toolchain dependencies:
-- **TI mmWave MCU+SDK (v04.04.01.02)**: The core SDK for the AM273x processor.
+- **TI mmWave MCU+SDK (v04.04.00.01)**: The core SDK for the AM273x processor (bundles MCU+ SDK AM273x 08.05.00.24 and mmWave DFP 02.04.08.01).
 - **TI mmWave SDK (v03.06.02.00-LTS)**: Legacy SDK for single-chip sensors (IWR1843/IWR6843).
-- **SysConfig (v1.14.0 / v1.28.0)**: Configuration generator CLI.
-- **TI Arm Clang Compiler (v2.1.2.LTS)**: Required for the MCU+ SDK / AM273x target.
+- **SysConfig (v1.22.0)**: Configuration generator CLI.
+- **TI Arm Clang Compiler (v2.1.1.LTS)**: Required for the MCU+ SDK / AM273x R5F (MSS) target.
+- **TI C6000 Compiler (v8.3.12)**: Required for the AM273x C66x DSP (DSS) target.
 - **TI ARM CGT Compiler (v20.2.7.LTS)**: Required for the legacy SDK / single-chip target.
+
+> Cascade toolchain versions follow the demo's CCS projectspecs (`firmware/cascade/src/demo/src/awr2243/*.projectspec`); keep them in sync when upgrading.
 - **TI Radar Toolbox (v4.00.00.05)**: Contains tutorials, example labs, and documentation for radar sensors.
 - **Mono Runtime**: Enables headless generation of flash meta-images.
 - **Python 3.x & Flashing Libraries**: Serial communication helper libraries (`pyserial`, `xmodem`, and `tqdm`) for UART bootloader deployment.
@@ -83,7 +86,7 @@ git lfs pull
 Before building the container, you must obtain the TI software installers and place them in the `downloads/` directory.
 
 ### ⚡ Automated Download (Recommended)
-We provide a helper script to automatically pull all four installers directly from TI's server:
+We provide a helper script to automatically pull all installers (except the Radar Toolbox) directly from TI's server:
 ```bash
 chmod +x downloads/download.sh
 ./downloads/download.sh
@@ -94,10 +97,11 @@ If you prefer to download them manually, place the following exact filenames in 
 
 | Tool / Dependency | Version | Filename | Direct Download Link | Page Link |
 |---|---|---|---|---|
-| **TI mmWave MCU+SDK** | 04.04.01.02 | `mmwave_mcuplus_sdk_04_04_01_02-Linux-x86-Install.bin` | [Direct Download](https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-U4MY7aGNn5/04.04.01.02/mmwave_mcuplus_sdk_04_04_01_02-Linux-x86-Install.bin) | [Download Page](https://www.ti.com/tool/download/MMWAVE-MCUPLUS-SDK) |
+| **TI mmWave MCU+SDK** | 04.04.00.01 | `mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin` | [Direct Download](https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-U4MY7aGNn5/04.04.00.01/mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin) | [Download Page](https://www.ti.com/tool/download/MMWAVE-MCUPLUS-SDK) |
 | **TI mmWave SDK** | 03.06.02.00-LTS | `mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin` | [Direct Download](https://dr-download.ti.com/software-development/software-development-kit-sdk/MD-PIrUeCYr3X/03.06.02.00-LTS/mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin) | [Download Page](https://www.ti.com/tool/download/MMWAVE-SDK) |
-| **TI SysConfig** | 1.28.0 | `sysconfig-1.28.0_4712-setup.run` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-nsUM6f7Vvb/1.28.0.4712/sysconfig-1.28.0_4712-setup.run) | [Download Page](https://www.ti.com/tool/download/SYSCONFIG) |
-| **TI Arm Clang Compiler** | 2.1.2.LTS | `ti_cgt_armllvm_2.1.2.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-ayxs93eZNN/2.1.2.LTS/ti_cgt_armllvm_2.1.2.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/ARM-CGT-CLANG) |
+| **TI SysConfig** | 1.22.0 | `sysconfig-1.22.0_3893-setup.run` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-nsUM6f7Vvb/1.22.0.3893/sysconfig-1.22.0_3893-setup.run) | [Download Page](https://www.ti.com/tool/download/SYSCONFIG/1.22.0.3893) |
+| **TI Arm Clang Compiler** | 2.1.1.LTS | `ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-ayxs93eZNN/2.1.1.LTS/ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/ARM-CGT-CLANG) |
+| **TI C6000 Compiler** | 8.3.12 | `ti_cgt_c6000_8.3.12_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-vqU2jj6ibH/8.3.12/ti_cgt_c6000_8.3.12_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/C6000-CGT/8.3.12) |
 | **TI ARM CGT Compiler** | 20.2.7.LTS | `ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-sDOoXkUcde/20.2.7.LTS/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/ARM-CGT) |
 | **TI Radar Toolbox** | 4.00.00.05 | `radar_toolbox_4_00_00_05.zip` | *Manual download via TIREX interface* | [Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05) \| [Latest Information Page](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__AEIJm0rwIeU.2P1OBWwlaA__radar_toolbox__1AslXXD__LATEST) |
 

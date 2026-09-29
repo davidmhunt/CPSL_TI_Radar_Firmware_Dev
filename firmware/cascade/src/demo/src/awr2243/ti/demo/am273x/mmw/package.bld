@@ -1,0 +1,37 @@
+/******************************************************************************
+ * FILE PURPOSE: Build description
+ ******************************************************************************
+ * FILE NAME: package.bld
+ *
+ * DESCRIPTION:
+ *  This file contains the build specification
+ *
+ * Copyright (C) 2011 Texas Instruments, Inc.
+ *****************************************************************************/
+
+/* List of all subdirectories that combine to make the package */
+var subDirectories = [ ".", "profiles" , "dss" , "mss", "include", "docs"];
+
+/* Package name */
+var pkgName = Pkg.name.replace(/\./g, "_");
+
+/* Cycle through all the sub-directories and build all the files */
+for (var i = 0; i < subDirectories.length; i++)
+{
+	/* Debug Message: */
+	print ("Building directory " + subDirectories[i]);
+
+    /* Load the capsule in the sub directory. */
+    var caps = xdc.loadCapsule (subDirectories[i]+"/Module.xs");
+    caps.modBuild();
+}
+
+/* Package the makefiles: */
+Pkg.otherFiles[Pkg.otherFiles.length++] = "makefile";
+
+/* Package the DEMO Executable */
+Pkg.otherFiles[Pkg.otherFiles.length++] = "*.xer4f";
+Pkg.otherFiles[Pkg.otherFiles.length++] = "*.xe674";
+Pkg.otherFiles[Pkg.otherFiles.length++] = "*.bin";
+Pkg.otherFiles[Pkg.otherFiles.length++] = "*.map";
+

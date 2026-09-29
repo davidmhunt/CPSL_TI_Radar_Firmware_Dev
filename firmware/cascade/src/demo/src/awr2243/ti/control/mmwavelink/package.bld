@@ -1,0 +1,49 @@
+/******************************************************************************
+ * FILE PURPOSE: Build description
+ ******************************************************************************
+ * FILE NAME: package.bld
+ *
+ * DESCRIPTION:
+ *  This file contains the build specification
+ *
+ * Copyright (C) 2011 Texas Instruments, Inc.
+ *****************************************************************************/
+
+/* List of all subdirectories that combine to make the package */
+var subDirectories = [ "src", "docs", "include", "test", "dfptest" ];
+
+/* Package name */
+var pkgName = Pkg.name.replace(/\./g, "_");
+
+/* Cycle through all the sub-directories and build all the files */
+for (var i = 0; i < subDirectories.length; i++)
+{
+	/* Debug Message: */
+	print ("Building directory " + subDirectories[i]);
+
+    /* Load the capsule in the sub directory. */
+    var caps = xdc.loadCapsule (subDirectories[i]+"/Module.xs");
+    caps.modBuild();
+}
+
+/* Package the remaining files */
+Pkg.otherFiles[Pkg.otherFiles.length++] = "mmwavelink.h";
+Pkg.otherFiles[Pkg.otherFiles.length++] = "makefile";
+Pkg.otherFiles[Pkg.otherFiles.length++] = "linklib.mak";
+
+/****************************************************************************
+ * Package the libraries for all the supported devices
+ ****************************************************************************/
+for (var device=0; device < DeviceType.length; device++)
+{
+    if (DeviceType[device] == "xwr14xx")
+    {
+        Pkg.otherFiles[Pkg.otherFiles.length++] = "lib/libmmwavelink_" + DeviceType[device] + ".aer4f";
+    }
+    else
+    {
+        Pkg.otherFiles[Pkg.otherFiles.length++] = "lib/libmmwavelink_" + DeviceType[device] + ".aer4f";
+        Pkg.otherFiles[Pkg.otherFiles.length++] = "lib/libmmwavelink_" + DeviceType[device] + ".ae674";
+    }
+}
+

@@ -101,6 +101,9 @@ If you prefer to download them manually, place the following exact filenames in 
 | **TI ARM CGT Compiler** | 20.2.7.LTS | `ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-sDOoXkUcde/20.2.7.LTS/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/ARM-CGT) |
 | **TI Radar Toolbox** | 4.00.00.05 | `radar_toolbox_4_00_00_05.zip` | *Manual download via TIREX interface* | [Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05) \| [Latest Information Page](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__AEIJm0rwIeU.2P1OBWwlaA__radar_toolbox__1AslXXD__LATEST) |
 
+
+> **📦 Radar Toolbox 4.00.00.05 (`radar_toolbox_4_00_00_05.zip`)** cannot be fetched by `download.sh`. Download it manually from TI's Resource Explorer: [Radar Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05), then save it as `downloads/radar_toolbox_4_00_00_05.zip`.
+
 ---
 
 ## 🚀 Build Instructions

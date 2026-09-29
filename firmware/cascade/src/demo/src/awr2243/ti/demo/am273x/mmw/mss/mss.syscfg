@@ -1,0 +1,204 @@
+/**
+ * These arguments were used when this file was generated. They will be automatically applied on subsequent loads
+ * via the GUI or CLI. Run CLI with '--help' for additional information on how to override these arguments.
+ * @cliArgs --device "AM273x" --package "ZCE" --part "Default" --context "r5fss0-0" --product "MCU_PLUS_SDK_AM273x.evmAM273x@08.04.00"
+ * @versions {"tool":"1.14.0+2667"}
+ */
+
+/**
+ * Import the modules used in this configuration.
+ */
+const flash      = scripting.addModule("/board/flash/flash", {}, false);
+const flash1     = flash.addInstance();
+const crc        = scripting.addModule("/drivers/crc/crc", {}, false);
+const crc1       = crc.addInstance();
+const edma       = scripting.addModule("/drivers/edma/edma", {}, false);
+const edma1      = edma.addInstance();
+const edma2      = edma.addInstance();
+const gpio       = scripting.addModule("/drivers/gpio/gpio", {}, false);
+const gpio1      = gpio.addInstance();
+const gpio2      = gpio.addInstance();
+const gpio3      = gpio.addInstance();
+const gpio4      = gpio.addInstance();
+const gpio5      = gpio.addInstance();
+const ipc        = scripting.addModule("/drivers/ipc/ipc");
+const mibspi     = scripting.addModule("/drivers/mibspi/mibspi", {}, false);
+const mibspi1    = mibspi.addInstance();
+const mibspi2    = mibspi.addInstance();
+const mibspi3    = mibspi.addInstance();
+const uart       = scripting.addModule("/drivers/uart/uart", {}, false);
+const uart1      = uart.addInstance();
+const uart2      = uart.addInstance();
+const debug_log  = scripting.addModule("/kernel/dpl/debug_log");
+const mpu_armv7  = scripting.addModule("/kernel/dpl/mpu_armv7", {}, false);
+const mpu_armv71 = mpu_armv7.addInstance();
+const mpu_armv72 = mpu_armv7.addInstance();
+const mpu_armv73 = mpu_armv7.addInstance();
+const mpu_armv74 = mpu_armv7.addInstance();
+const mpu_armv75 = mpu_armv7.addInstance();
+const mpu_armv76 = mpu_armv7.addInstance();
+
+/**
+ * Write custom configuration values to the imported modules.
+ */
+flash1.$name                  = "CONFIG_FLASH0";
+flash1.peripheralDriver.$name = "CONFIG_QSPI0";
+
+crc1.$name = "CONFIG_CRC0";
+
+gpio1.pinDir                    = "OUTPUT";
+gpio1.$name                     = "GPIO_NRESET_FE1";
+gpio1.instance                  = "RCSS_GPIO";
+gpio1.RCSS_GPIO.$assign         = "RCSS_GPIO0";
+gpio1.RCSS_GPIO.gpioPin.$assign = "ball.B15";
+
+gpio2.instance                  = "RCSS_GPIO";
+gpio2.$name                     = "RCSS_MIBSPIA_HOST_IRQ";
+gpio2.RCSS_GPIO.$assign         = "RCSS_GPIO0";
+gpio2.RCSS_GPIO.gpioPin.$assign = "ball.U18";
+
+gpio3.$name                     = "RCSS_MIBSPIB_HOST_IRQ";
+gpio3.instance                  = "RCSS_GPIO";
+gpio3.RCSS_GPIO.$assign         = "RCSS_GPIO0";
+gpio3.RCSS_GPIO.gpioPin.$assign = "ball.W18";
+
+gpio4.$name                     = "GPIO_NRESET_FE2";
+gpio4.pinDir                    = "OUTPUT";
+gpio4.instance                  = "RCSS_GPIO";
+gpio4.RCSS_GPIO.$assign         = "RCSS_GPIO0";
+gpio4.RCSS_GPIO.gpioPin.$assign = "ball.A15";
+
+gpio5.$name                    = "CONFIG_GPIO0";
+gpio5.pinDir                   = "OUTPUT";
+gpio5.instance                 = "MSS_GPIO";
+gpio5.MSS_GPIO.gpioPin.pull    = "pu";
+gpio5.MSS_GPIO.$assign         = "MSS_GPIO0";
+gpio5.MSS_GPIO.gpioPin.$assign = "ball.C17";
+
+ipc.vringNumBuf  = 1;
+ipc.vringMsgSize = 1152;
+
+mibspi1.$name                             = "CONFIG_MIBSPI0";
+mibspi1.bitRate                           = 1000000;
+mibspi1.t2cDelay                          = 0x8;
+mibspi1.c2tDelay                          = 0x8;
+mibspi1.wDelay                            = 0x10;
+mibspi1.frameFormat                       = "POL0_PHA1";
+mibspi1.instance                          = "RCSS_MIBSPIA";
+mibspi1.mibspiChannel[0].$name            = "CONFIG_MIBSPI_CH0";
+mibspi1.mibspiChannel[0].RCSS_CSn.$assign = "ball.T19";
+mibspi1.RCSS_MIBSPI.$assign               = "RCSS_MIBSPIA";
+mibspi1.RCSS_MIBSPI.CLK.$assign           = "ball.T18";
+mibspi1.RCSS_MIBSPI.MISO.$assign          = "ball.R17";
+mibspi1.RCSS_MIBSPI.MOSI.$assign          = "ball.R18";
+
+mibspi2.$name                             = "CONFIG_MIBSPI1";
+mibspi2.instance                          = "RCSS_MIBSPIB";
+mibspi2.bitRate                           = 1000000;
+mibspi2.t2cDelay                          = 0x8;
+mibspi2.c2tDelay                          = 0x8;
+mibspi2.wDelay                            = 0x10;
+mibspi2.frameFormat                       = "POL0_PHA1";
+mibspi2.mibspiChannel[0].$name            = "CONFIG_MIBSPI_CH1";
+mibspi2.mibspiChannel[0].RCSS_CSn.$assign = "ball.U17";
+mibspi2.RCSS_MIBSPI.$assign               = "RCSS_MIBSPIB";
+mibspi2.RCSS_MIBSPI.CLK.$assign           = "ball.V19";
+mibspi2.RCSS_MIBSPI.MISO.$assign          = "ball.V18";
+mibspi2.RCSS_MIBSPI.MOSI.$assign          = "ball.U19";
+
+mibspi3.$name                            = "CONFIG_MIBSPI2";
+mibspi3.bitRate                          = 1000000;
+mibspi3.t2cDelay                         = 0x5;
+mibspi3.c2tDelay                         = 0x5;
+mibspi3.dataSize                         = 8;
+mibspi3.frameFormat                      = "POL0_PHA1";
+mibspi3.advanced                         = true;
+mibspi3.instance                         = "MSS_MIBSPIB";
+mibspi3.csHold                           = true;
+mibspi3.MSS_MIBSPI.$assign               = "MSS_MIBSPIB";
+mibspi3.MSS_MIBSPI.CLK.$assign           = "ball.D18";
+mibspi3.MSS_MIBSPI.MISO.$assign          = "ball.C19";
+mibspi3.MSS_MIBSPI.MOSI.$assign          = "ball.C18";
+mibspi3.mibspiChannel[0].$name           = "CONFIG_MIBSPI_CH2";
+mibspi3.mibspiChannel[0].MSS_CSn.$assign = "ball.D19";
+
+edma2.$name                        = "CONFIG_EDMA1";
+edma2.instance                     = "EDMA_MSS_A";
+flash1.peripheralDriver.edmaConfig = edma2;
+mibspi3.edmaConfig                 = edma2;
+edma2.edmaRmDmaCh[0].resourceType  = scripting.forceWrite("ownDmaCh");
+edma2.edmaRmDmaCh[0].$name         = "CONFIG_EDMA_RM5";
+edma2.edmaRmQdmaCh[0].$name        = "CONFIG_EDMA_RM6";
+edma2.edmaRmTcc[0].$name           = "CONFIG_EDMA_RM7";
+edma2.edmaRmParam[0].$name         = "CONFIG_EDMA_RM8";
+edma2.edmaRmReservedDmaCh[0].$name = "CONFIG_EDMA_RM9";
+
+uart1.$name               = "CONFIG_UART1";
+uart1.intrEnable          = "DISABLE";
+uart1.baudRate            = 3125000;
+uart1.MSS_UART.$assign    = "MSS_UARTB";
+uart1.MSS_UART.RX.$used   = false;
+uart1.MSS_UART.TX.$assign = "ball.V9";
+
+uart2.$name               = "CONFIG_UART0";
+uart2.MSS_UART.$assign    = "MSS_UARTA";
+uart2.MSS_UART.RX.$assign = "ball.U3";
+uart2.MSS_UART.TX.$assign = "ball.W2";
+
+edma1.$name                             = "CONFIG_EDMA0";
+mibspi1.edmaConfig                      = edma1;
+mibspi2.edmaConfig                      = edma1;
+uart2.edmaConfig                        = edma1;
+uart1.edmaConfig                        = edma1;
+edma1.edmaRmDmaCh[0].$name              = "CONFIG_EDMA_RM0";
+edma1.edmaRmDmaCh[0].startIndex         = 0;
+edma1.edmaRmDmaCh[0].endIndex           = 32;
+edma1.edmaRmQdmaCh[0].$name             = "CONFIG_EDMA_RM1";
+edma1.edmaRmTcc[0].$name                = "CONFIG_EDMA_RM2";
+edma1.edmaRmTcc[0].startIndex           = 0;
+edma1.edmaRmTcc[0].endIndex             = 32;
+edma1.edmaRmParam[0].$name              = "CONFIG_EDMA_RM3";
+edma1.edmaRmReservedDmaCh[0].$name      = "CONFIG_EDMA_RM4";
+edma1.edmaRmReservedDmaCh[0].startIndex = 0;
+edma1.edmaRmReservedDmaCh[0].endIndex   = 11;
+
+mpu_armv71.$name        = "CONFIG_MPU_REGION0";
+mpu_armv71.attributes   = "Device";
+mpu_armv71.allowExecute = false;
+
+mpu_armv72.$name = "CONFIG_MPU_REGION1";
+mpu_armv72.size  = 14;
+
+mpu_armv73.$name    = "CONFIG_MPU_REGION2";
+mpu_armv73.baseAddr = 0x80000;
+mpu_armv73.size     = 14;
+
+mpu_armv74.$name    = "CONFIG_MPU_REGION3";
+mpu_armv74.baseAddr = 0x10200000;
+mpu_armv74.size     = 20;
+
+mpu_armv75.$name        = "CONFIG_MPU_REGION4";
+mpu_armv75.attributes   = "NonCached";
+mpu_armv75.allowExecute = false;
+mpu_armv75.size         = 14;
+mpu_armv75.baseAddr     = 0x102E4000;
+
+mpu_armv76.$name        = "CONFIG_MPU_REGION5";
+mpu_armv76.baseAddr     = 0x88000000;
+mpu_armv76.allowExecute = false;
+mpu_armv76.size         = 21;
+mpu_armv76.attributes   = "Cached+Sharable";
+
+/**
+ * Pinmux solution for unlocked pins/peripherals. This ensures that minor changes to the automatic solver in a future
+ * version of the tool will not impact the pinmux you originally saw.  These lines can be completely deleted in order to
+ * re-solve from scratch.
+ */
+flash1.peripheralDriver.MSS_QSPI["0"].$suggestSolution = "ball.C2";
+flash1.peripheralDriver.MSS_QSPI["1"].$suggestSolution = "ball.D2";
+flash1.peripheralDriver.MSS_QSPI["2"].$suggestSolution = "ball.D1";
+flash1.peripheralDriver.MSS_QSPI["3"].$suggestSolution = "ball.E2";
+flash1.peripheralDriver.MSS_QSPI.$suggestSolution      = "MSS_QSPI0";
+flash1.peripheralDriver.MSS_QSPI.CLK.$suggestSolution  = "ball.E1";
+flash1.peripheralDriver.MSS_QSPI.CS.$suggestSolution   = "ball.F2";
+gpio5.MSS_GPIO.$suggestSolution                        = "MSS_GPIO0";

@@ -10,10 +10,13 @@ bin/
 *.map
 *.release
 *.debug
+*.aer5f
+*.ae66
 
 # Local SDK downloads and installations (to keep the repo clean)
 sdks/
 ti/
+!firmware/cascade/src/demo/src/awr2243/ti/
 downloads/
 ti-cgt-armllvm*/
 ti-cgt-arm*/

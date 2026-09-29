@@ -17,7 +17,8 @@ bin/
 sdks/
 ti/
 !firmware/cascade/src/demo/src/awr2243/ti/
-downloads/
+downloads/*
+!downloads/download.sh
 ti-cgt-armllvm*/
 ti-cgt-arm*/
 sysconfig*/

@@ -86,7 +86,7 @@ git lfs pull
 Before building the container, you must obtain the TI software installers and place them in the `downloads/` directory.
 
 ### ⚡ Automated Download (Recommended)
-We provide a helper script to automatically pull all installers (except the Radar Toolbox) directly from TI's server:
+We provide a helper script to automatically pull all installers, including the Radar Toolbox, directly from TI's server:
 ```bash
 chmod +x downloads/download.sh
 ./downloads/download.sh
@@ -103,10 +103,9 @@ If you prefer to download them manually, place the following exact filenames in 
 | **TI Arm Clang Compiler** | 2.1.1.LTS | `ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-ayxs93eZNN/2.1.1.LTS/ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/ARM-CGT-CLANG) |
 | **TI C6000 Compiler** | 8.3.12 | `ti_cgt_c6000_8.3.12_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-vqU2jj6ibH/8.3.12/ti_cgt_c6000_8.3.12_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/C6000-CGT/8.3.12) |
 | **TI ARM CGT Compiler** | 20.2.7.LTS | `ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-sDOoXkUcde/20.2.7.LTS/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/ARM-CGT) |
-| **TI Radar Toolbox** | 4.00.00.05 | `radar_toolbox_4_00_00_05.zip` | *Manual download via TIREX interface* | [Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05) \| [Latest Information Page](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__AEIJm0rwIeU.2P1OBWwlaA__radar_toolbox__1AslXXD__LATEST) |
+| **TI Radar Toolbox** | 4.00.00.05 | `radar_toolbox_4_00_00_05.zip` | [Direct Download](https://dr-download.ti.com/software-development/support-software/MD-QCYx8qtXEc/4.00.00.05/radar_toolbox_4_00_00_05.zip) | [Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05) \| [Latest Information Page](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__AEIJm0rwIeU.2P1OBWwlaA__radar_toolbox__1AslXXD__LATEST) |
 
 
-> **📦 Radar Toolbox 4.00.00.05 (`radar_toolbox_4_00_00_05.zip`)** cannot be fetched by `download.sh`. Download it manually from TI's Resource Explorer: [Radar Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05), then save it as `downloads/radar_toolbox_4_00_00_05.zip`.
 
 ---
 

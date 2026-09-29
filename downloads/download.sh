@@ -33,15 +33,9 @@ curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configurati
 echo "Downloading TI C6000 Compiler..."
 curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-vqU2jj6ibH/8.3.12/ti_cgt_c6000_8.3.12_linux-x64_installer.bin"
 
-# 7. TI Radar Toolbox (4.00.00.05)
-echo ""
-echo "=========================================================="
-echo "NOTE: TI Radar Toolbox (4.00.00.05) must be downloaded manually."
-echo "Please visit: https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05"
-echo "Download the package via the TI Resource Explorer UI,"
-echo "rename it to 'radar_toolbox_4_00_00_05.zip', and place it here."
-echo "=========================================================="
-echo ""
+# 7. TI Radar Toolbox (4.00.00.05) — cascade demo sources, prebuilt libs/appimage, visualizer (~1.1 GB)
+echo "Downloading TI Radar Toolbox..."
+curl -L -O -C - "https://dr-download.ti.com/software-development/support-software/MD-QCYx8qtXEc/4.00.00.05/radar_toolbox_4_00_00_05.zip"
 
 echo "=== Download Completion Verification ==="
 ls -lh

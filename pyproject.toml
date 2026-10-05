@@ -1,16 +1,15 @@
-[tool.poetry]
+[project]
 name = "cpsl-ti-radar-firmware-dev"
 version = "0.1.0"
 description = "TI Radar Firmware Dev environment with helper scripts"
-authors = ["David Hunt <david.hunt@duke.edu>"]
+authors = [{ name = "David Hunt", email = "david.hunt@duke.edu" }]
 readme = "README.md"
-package-mode = false
+requires-python = ">=3.12"
+dependencies = [
+    "markdown>=3.7",
+    "pymdown-extensions>=11.0",
+]
 
-[tool.poetry.dependencies]
-python = "^3.12"
-markdown = "^3.7"
-pymdown-extensions = "^11.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv]
+# Helper scripts only — uv manages the environment, nothing is installed as a package.
+package = false

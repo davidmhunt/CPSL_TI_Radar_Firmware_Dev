@@ -3,7 +3,7 @@ set -e
 
 # Versions match the cascade demo CCS projectspecs
 # (projects/awr2243_cascade_ddm/src/mmwave2chipCascade_{mss,dss}.projectspec)
-# plus the legacy single-chip toolchain used by build_legacy.sh.
+# plus the SDK 3.6 installers used by projects/ti_stock_demos (the SDK bundles the compilers it uses).
 
 echo "=== Downloading TI Radar Firmware Dev Installers ==="
 # Always download next to this script, regardless of the caller's working directory
@@ -21,7 +21,7 @@ curl -L -O -C - "https://dr-download.ti.com/software-development/software-develo
 echo "Downloading SysConfig..."
 curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-nsUM6f7Vvb/1.22.0.3893/sysconfig-1.22.0_3893-setup.run"
 
-# 4. TI ARM Compiler (20.2.7.LTS) — legacy single-chip demos
+# 4. TI ARM Compiler (20.2.7.LTS) — installed but unused: SDK 3.6 builds with its own 16.9.6.LTS
 echo "Downloading TI ARM Compiler..."
 curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-sDOoXkUcde/20.2.7.LTS/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin"
 

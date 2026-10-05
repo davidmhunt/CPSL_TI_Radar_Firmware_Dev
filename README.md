@@ -12,8 +12,8 @@ to add a project.
 ./fw list                                          # available projects
 ```
 
-The sections below describe the older `build_*.sh` / `scripts/` flow, which still builds the cascade and legacy
-demos until they move into `projects/`.
+The stock SDK 3.6 IWR1843/IWR6843 demos are the project `ti_stock_demos`; the sections below that mention
+the older `build_*.sh` / `scripts/` flow are being retired.
 
 This repository serves as the centralized development, compilation, and build environment for all Texas Instruments (TI) mmWave radar sensor firmware utilized by the Collaborative Perception and Sensing Lab (CPSL).
 
@@ -31,22 +31,14 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ├── README.md                   # This file
 │
 ├── build/                      # Build outputs directory (created during build)
-│   ├── cascade/                # Generated AM273x appimage and elf artifacts
-│   └── legacy/                 # Generated IWR1843/IWR6843 bin and elf artifacts
+│   └── cascade/                # Old-flow cascade outputs (superseded by projects/*/build/)
 │
 ├── downloads/                  # TI SDK/Toolchain installer downloads folder (ignored by git)
 │   └── download.sh             # Headless download utility script
 │
 ├── fw                          # Project build/flash dispatcher (see projects/README.md)
 ├── projects/                   # Self-contained firmware projects + _template/ + guide
-├── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
-│
-├── firmware/
-│   └── legacy/                 # Single-chip legacy mmWave SDK 3.x firmware builds
-│       └── src/                # Legacy source code directory
-│
-└── scripts/
-    └── build_legacy_demos.sh   # Compilation runner script for legacy demos
+└── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
 ```
 
 ---
@@ -59,7 +51,7 @@ The development environment container runs on **Ubuntu 24.04** and installs the 
 - **SysConfig (v1.22.0)**: Configuration generator CLI.
 - **TI Arm Clang Compiler (v2.1.1.LTS)**: Required for the MCU+ SDK / AM273x R5F (MSS) target.
 - **TI C6000 Compiler (v8.3.12)**: Required for the AM273x C66x DSP (DSS) target.
-- **TI ARM CGT Compiler (v20.2.7.LTS)**: Required for the legacy SDK / single-chip target.
+- **TI ARM CGT Compiler (v20.2.7.LTS)**: Installed but unused; the SDK 3.6 demos build with the SDK's own ARM CGT 16.9.6.LTS and C6000 8.3.3.
 
 > Cascade toolchain versions follow the demo's CCS projectspecs (`projects/awr2243_cascade_ddm/src/*.projectspec`); keep them in sync when upgrading.
 - **TI Radar Toolbox (v4.00.00.05)**: Contains tutorials, example labs, and documentation for radar sensors; also supplies the cascade demo's prebuilt libraries.
@@ -147,14 +139,13 @@ This runs a headless Code Composer Studio 12.8.1 build of the TI cascade project
 
 Set `CCS_CONFIG=Debug` for a debug build. The CCS workspace (with full build logs) is kept in `projects/awr2243_cascade_ddm/build/ccs_workspace/`.
 
-### 3. Compile Legacy Firmware (IWR1843/IWR6843)
-Run the legacy SDK demo builds inside the container:
+### 3. Compile the Stock SDK 3.6 Demos (IWR1843/IWR6843)
 ```bash
-docker compose run --rm firmware-env /build_context/build_legacy.sh
+./fw build ti_stock_demos
 ```
-This generates:
-- `build/legacy/iwr6843_demo.elf` / `iwr6843_demo.bin`
-- `build/legacy/iwr1843_demo.elf` / `iwr1843_demo.bin`
+This builds TI's unmodified mmw demos out of tree (nothing is written into `/opt/ti`) and generates:
+- `projects/ti_stock_demos/build/iwr6843_demo.elf` / `iwr6843_demo.bin`
+- `projects/ti_stock_demos/build/iwr1843_demo.elf` / `iwr1843_demo.bin`
 
 ### 4. Interactive Development
 To start an interactive bash shell in the development container context:

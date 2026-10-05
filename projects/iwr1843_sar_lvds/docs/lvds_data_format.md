@@ -19,25 +19,31 @@ H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 
 **ADC block.** R blocks, one per enabled RX channel in ascending RX order, each Ns complex samples. A sample is two
 int16 (two's complement); their order in device memory follows `adcbufCfg` SampleSwap: 0 = I then Q, 1 = Q then I [5].
 The firmware rejects dataFmt 2 unless `adcbufCfg` has complex output (AdcOutputFmt 0) and ChanInterleave 1, and R·Ns is
-even, so every block is a multiple of 8 B.
+even, so M, B and every packet start are multiples of 8 B (an RX block need not be; step 1 below ignores block
+boundaries).
 
-**Byte order.** The device is little-endian and sends 16-bit units, MSB first per lane. The DCA1000 delivers each 8 bytes
-sent as units `u0 u1 u2 u3` in the order **`u0 u2 u1 u3`**, the order the host driver already decodes for ADC data [2]
+**Byte order.** The device is little-endian and sends 16-bit units, MSB first per lane, which nets out to no byte swap
+inside a unit. The DCA1000 delivers each 8 bytes sent as units `u0 u1 u2 u3` in the order **`u0 u2 u1 u3`**, the order the host driver already decodes for ADC data [2]
 *(bench: same for header and record)*. Parse in two steps: (1) over the **whole packet** (header, ADC and record alike),
 swap bytes 2-3 with bytes 4-5 in every 8-byte group; (2) read the result as little-endian device memory. All offsets
-below are after step 1.
+below are after step 1. Example: the HSI id (LE u64 `0x0CDA0ADC0CDA0ADC`) reads `DC 0A DA 0C DC 0A DA 0C` after step 1,
+`DC 0A DC 0A DA 0C DA 0C` raw [1].
 
 ## 2. Metadata record
 
-**Which record is packet k's.** Arm the DCA1000 capture before `sensorStart`: the capture then begins at packet 0, and
-packet k (k = 0, 1, … in the run) starts at byte k·B, counting bytes lost in UDP drops (the DCA1000 sequence numbers give
-their count). Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
+**Which record is packet k's.** Arm the DCA1000 capture before `sensorStart`, so it begins at packet 0. Place bytes by
+the DCA1000 UDP header (10 B, little-endian: u32 sequence number, then u48 count of data bytes sent before this
+datagram) [7], not by sequence numbers; lost datagrams leave gaps. The count runs from the start of the recording.
+Packet k (k = 0, 1, … in a run) starts k·B bytes after the run's first byte; a following run starts at the byte after the
+previous run's last packet, with its own B. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
 for chirp k−1 or k+1: never use it.
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²). Otherwise discard the whole record, including its `tsTicks` and the saturation result it
-carried (that chirp's saturation is then unknown), keep the packet's ADC data, which is good, and interpolate its time
-from neighbouring packets (± Tc). The `LATE`, `SKIP` and `RESYNC` flags only explain why records around them may fail.
+carried (that chirp's saturation is then unknown), keep the packet's ADC data, which is good, and take its time from the grid: from the nearest valid record j,
+t_k = t_j + (k−j)·Tc + b·Tb, where b counts the frame boundaries (k mod Nc = 0) passed between j and k, Tc = idle +
+rampEnd (µs, `profileCfg`) and Tb = framePeriodicity (ms, `frameCfg`) − Nc·Tc. The `LATE`, `SKIP` and `RESYNC` flags only
+explain failures. Records that keep failing mean the firmware lost count; the ADC data and the grid still hold.
 
 | Off | Type | Field | Meaning |
 |---|---|---|---|
@@ -58,8 +64,8 @@ from neighbouring packets (± Tc). The `LATE`, `SKIP` and `RESYNC` flags only ex
 | 0 | `SAT_VALID` | `satSlices`/`satRefLag` hold a result (§3) |
 | 1 | `SAT_MON` | the saturation monitor is enabled in this run |
 | 2 | `LATE` | interrupt over `adcStart + Ns/fs` late: the write may have missed packet k |
-| 3 | `SKIP` | chirp-start interrupts were missed; their packets fail validation, the counters were realigned to k |
-| 4 | `RESYNC` | a frame start found the counters wrong and reset them |
+| 3 | `SKIP` | chirp-start interrupts were missed; the missed chirps' packets fail validation, counters realigned to k |
+| 4 | `RESYNC` | a frame start found the counters wrong and set them to (frame starts seen − 1, chirp 0); later records validate only if that is right |
 | 5-15 | | 0 |
 
 **Timestamp.** `tsTicks` = the control CPU's RTI free-running counter, read first thing in the chirp-start interrupt
@@ -87,7 +93,7 @@ assume 1: always subtract. A chirp's result can appear twice (same value) or nev
 
 - *Start of a run*: records before the run's first report (k = 0, sometimes k = 1) have `SAT_VALID` = 0.
 - *Frame boundary*: chirp 0 of frame f+1 reports frame f's last chirp (lag 1, across the blank); nothing is lost.
-- *End of a run*: the last chirp's result is never sent, because no later record exists.
+- *End of a run*: the last chirp's result is never delivered: no later record exists, and other-slot copies are never used.
 - *Restart*: `sensorStart` clears the stored result and changes `runIdx`; k restarts at 0. Key results by run.
 
 **Worked example** (3 chirps/frame, monitor on so `SAT_MON` is set, run stopped after packet 6):
@@ -111,12 +117,10 @@ for rec in valid_records:                # slot k%2 of packet k, passed validati
 
 ## 4. Host reconstruction and stock-demo differences
 
-- **Time**: seconds = `tsTicks / 100e6`. Chirp period Tc = idle + rampEnd (`profileCfg`); at a frame boundary (`frameIdx`
-  steps, `chirpInFrame` = 0) the step is Tc + Tb, with blank Tb = framePeriodicity − Nc·Tc.
+- **Time**: seconds = `tsTicks / 100e6`; chirps are Tc apart, Tc + Tb across a frame boundary (§2).
 - **Runs**: a new run starts where `runIdx` changes (or with a new capture); restart k at 0 there.
 - **Resync mid-stream**: in the raw stream, a record starts with `"SA"` `01 00` `"RM"` on an 8-byte boundary. Its slot is `globalChirpIdx & 1`, so its packet starts at pos − M − 32·slot. The other
   slot matches the pattern too, so confirm: the packet B bytes later must hold `globalChirpIdx` + 1 in its own slot.
-  With the header on, the HSI id `0x0CDA0ADC0CDA0ADC` also marks packet starts.
 - **Versus the stock demo** (dataFmt 1/4 plus a per-frame point-cloud packet): the C++ driver assumes dataFmt 1
   framing, so dataFmt 2 needs new host tools.
 
@@ -126,7 +130,8 @@ SDK paths are relative to `mmwave_sdk_03_06_02_00-LTS/packages/ti`; firmware pat
 
 1. HSI header = 16 B data-card header + 36 B SDK header (`dataFmt` 6 = ADC_USER) + `0x0F` padding (SDK
    `utils/hsiheader/hsiprotocol.h:403-590`); `mss/mmw_lvds_stream.c:450` passes `bAlignDataCard = false`, which pads
-   header + data to 16 B (SDK `utils/hsiheader/src/hsiheader.c:286-306`), not TI's "256 B".
+   header + data to 16 B (SDK `utils/hsiheader/src/hsiheader.c:286-306`), not TI's "256 B". HSI fields are little-endian
+   on this device (`hsiprotocol.h:60-90`).
 2. `CPSL_TI_Radar_cpp/src/DCA1000/ADCCubeConverter.cpp:67-86` (layout `two_lane_iq_pairs`); firmware lanes and
    `msbFirst`: `mss/mmw_lvds_stream.c:140-144`.
 3. Chirp start, frame start and chirp available are MSS interrupts 99, 98, 123 (SDK
@@ -138,3 +143,4 @@ SDK paths are relative to `mmwave_sdk_03_06_02_00-LTS/packages/ti`; firmware pat
 6. `rlRxSatMonConf_t`, SDK `control/mmwavelink/include/rl_monitoring.h:1877-1982`; TI *mmWave Radar Interface Control
    Document* rev 2.23 §10.2-10.2.2 (report layout: byte 0 = slices M, then P1 S1 P2 S2 …; secondary slices overlap the
    primaries and are not counted).
+7. `CPSL_TI_Radar_cpp/src/DCA1000/FrameAssembler.cpp:54-63` (sequence number, byte count).

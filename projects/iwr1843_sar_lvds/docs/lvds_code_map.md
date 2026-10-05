@@ -1,9 +1,7 @@
 # LVDS streaming code map (iwr1843_sar_lvds)
 
 Where the TI mmw demo in `src/` streams raw ADC data over LVDS to the DCA1000, and where a per-chirp record
-would hook in. Terms: CBUFF is the SDK's LVDS streaming driver; the HSI header is the per-transfer header the DCA1000
-expects; a HW session streams ADC data from the ADC buffer, a SW session streams CPU buffers; MSS is the Cortex-R4F
-master subsystem; EDMA moves the data. Paths are relative to `projects/iwr1843_sar_lvds/src/`; line numbers were
+would hook in. Terms (CBUFF, HSI header, HW/SW session, MSS) as defined in `sar_feasibility.md`; EDMA moves the data. Paths are relative to `projects/iwr1843_sar_lvds/src/`; line numbers were
 re-checked at `src/` HEAD (`BASELINE_COMMIT` in `project.env` is unmodified TI source). SDK paths are relative to
 `/opt/ti/mmwave_sdk_03_06_02_00-LTS/packages/ti` (build container).
 

@@ -1,11 +1,12 @@
 # SAR feasibility memo: IWR1843, SDK 3.6, 1TX/1RX continuous chirp
 
-What bounds a 1TX/1RX continuous-chirp SAR configuration on the IWR1843 with mmWave SDK 3.6.02.00-LTS, the
-LVDS/DCA1000 data-rate math, and go/no-go criteria. Generic: any cfg within the limits qualifies; (e) works one example. Line numbers were checked in the build container: `rl_sensor.h` is
+Limits, LVDS/DCA1000 data-rate math and go/no-go criteria for a 1TX/1RX continuous-chirp SAR configuration on the
+IWR1843 with mmWave SDK 3.6.02.00-LTS. Generic: any cfg within the limits qualifies; (e) works one example. Line numbers
+were checked in the build container: `rl_sensor.h` is
 `/opt/ti/mmwave_sdk_03_06_02_00-LTS/packages/ti/control/mmwavelink/include/rl_sensor.h`; other SDK paths are relative to
-`.../packages/ti`; `src/` is this project's. Terms: the HSI header (high-speed-interface
-header) is the per-transfer header the DCA1000 expects; CBUFF is the SDK's LVDS streaming driver; a HW session
-streams ADC data from the ADC buffer, a SW session streams CPU buffers; MSS is the Cortex-R4F master subsystem.
+`.../packages/ti`; `src/` is this project's. Terms: the HSI header is the per-transfer header the DCA1000 expects; CBUFF
+is the SDK's LVDS streaming driver; a HW session streams ADC data from the ADC buffer, a SW session streams CPU buffers;
+MSS is the Cortex-R4F master subsystem.
 
 Symbols: Tc chirp period, Ns samples per RX, R RX channels, Nc chirps per frame, Tb inter-frame blank, `nlane` LVDS
 lanes, `Blane` Mbps per lane, `Bchirp` bytes per chirp, v platform speed, d_max along-track limit.
@@ -20,14 +21,14 @@ lanes, `Blane` Mbps per lane, `Bchirp` bytes per chirp, v platform speed, d_max 
 | ADC rate (`digOutSampleRate`) | 2000 to 37500 ksps; max IF bandwidth 15 MHz | `:742` |
 | complex 1x max rate | 18.75 Msps (regular ADC mode); usable IF about 0.8 x fs (engineering margin) | `:750` |
 | samples per RX (Ns) | 2 to MAX. TI's table lists 1024 (4 RX complex) and 2048 (2 RX); **4096 for 1 RX complex (4 B each, 16 KB) is extrapolated, not TI-stated** | `:731-736` |
-| ADC buffer | 32 KB total; ping and pong halves (inferred from per-half chirp thresholds) | `ti/common/sys_common_xwr18xx.h:306`; `drivers/adcbuf/ADCBuf.h:512-566` |
+| ADC buffer | 32 KB total; ping and pong halves (inferred from per-half chirp thresholds) | `common/sys_common_xwr18xx.h:306`; `drivers/adcbuf/ADCBuf.h:512-566` |
 | slope (`freqSlopeConst`) | LSB 48.279 kHz/us, range +-2072 (max 100 MHz/us) | `:709-710` |
 | sweep band | within 76-78 GHz or 77-81 GHz | `:667` |
 | loops, chirp indices, frames | loops 1 to 255; indices 0 to 511; `numFrames` 0 = infinite | `:958`, `:949-953`, `:963` |
 | frame period | 300 us to 1.342 s, LSB 5 ns | `:986-987` |
 | inter-frame blank Tb | see (c) | `:983`, `:4468` |
 | LVDS | 2 lanes x 600 Mbps DDR = 150 MB/s | `src/mss/mmw_lvds_stream.c:154`; `src/mss/mss_main.c:2911-2912` |
-| HPF corners | HPF1 175/235/350/700 kHz; HPF2 350/700/1400/2800 kHz | `rl_sensor.h:774-791`; datasheet SWRS228B 7.7 |
+| HPF corners | HPF1 175/235/350/700 kHz; HPF2 350/700/1400/2800 kHz | `:774-791`; datasheet SWRS228B 7.7 |
 | RX gain | even values 24 to 52 in the API; datasheet specifies 24 to 48 dB, so design to 48 | `:832`; datasheet 7.7 |
 
 Nc = loops x (chirp indices used), so more than 255 chirps per frame needs several identical chirp indices.
@@ -38,8 +39,9 @@ Bytes per chirp (HW session, ADC format, HSI header on), from TI's note at `src/
 
     Bchirp = roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
 
-The header is not stored in the ADC buffer, so it counts against LVDS capacity only, not the 16 KB half. With `Tc` in us and `Blane` in Mbps, LVDS carries `Tc * nlane * Blane / 8` bytes per chirp; the cfg is
-feasible only if `Bchirp <= Tc * nlane * Blane / 8`. Sustained rate is `Bchirp / Tc` MB/s against 150 MB/s. The host driver's
+The header is not stored in the ADC buffer, so it counts against LVDS capacity only, not the 16 KB half. With `Tc` in us and
+`Blane` in Mbps, LVDS carries `Tc * nlane * Blane / 8` bytes per chirp; feasible only if `Bchirp <= Tc * nlane * Blane / 8`.
+Sustained rate is `Bchirp / Tc` MB/s against 150 MB/s. The host driver's
 DCA1000 packet is 1472 B with a 10 B header (`CPSL_TI_Radar_cpp/src/DCA1000/DCA1000Handler.cpp:591`), so packets/s =
 `Bchirp / Tc / 1462`.
 
@@ -48,10 +50,9 @@ DCA1000 packet is 1472 B with a 10 B header (`CPSL_TI_Radar_cpp/src/DCA1000/DCA1
 A frame is Nc chirps then a blank: `Tb = framePeriodicity - Nc * Tc`. **Tb_min defaults to 300 us** (TI's "typically",
 `rl_sensor.h:983`; its table row says the same and that it includes one calibration/monitoring chirp, `:4611-4616`).
 250 us (`:4468`) is TI's floor only when no optional calibration or monitor is enabled and nothing else needs the
-blank. TI splits that floor as 100 us frame preparation + 150 us applying calibration updates (`:4468`), but its
-calibration table gives the apply step as 100 us (`:4558`); this memo does not resolve the two. Optional calibrations
-or monitors that are enabled add their own durations (`:4549-4558`: peak detector 500 us, TX power 800 us, RX gain
-30 us, ...).
+blank. TI splits it as 100 us frame preparation + 150 us applying calibration updates (`:4468`), but its
+calibration table gives the apply step as 100 us (`:4558`); this memo does not resolve the two. Enabled optional calibrations
+or monitors add their own durations (`:4549-4558`: peak detector 500 us, TX power 800 us, RX gain 30 us, ...).
 
 **Open item (bench).** TI's table lists APLL 150 us + Synth VCO 350 us = 500 us (`:4551-4552`) and says these two always run
 internally and "the time required for these calibrations must be allocated" (`:2683-2684`); reports come about every
@@ -75,16 +76,16 @@ The HSI header cannot carry per-chirp counters: its application extension is sta
 (`utils/hsiheader/hsiprotocol.h:567-572`). Use the HW session's `CBUFF_DataFmt_ADC_USER` (`drivers/cbuff/cbuff.h:349`): a user
 record after each chirp's ADC data, updated by the MSS from the chirp interrupts (CHIRP_START 99, CHIRP_AVAIL 123, FRAME_START 98:
 `ti/common/sys_common_xwr18xx_mss.h:352-374`; `MSS_SYS_VCLK` 200 MHz, `:464`, is the candidate timestamp clock). Its bytes add to `Bchirp`.
-Fallback only if that fails: a frame-level record in the demo's per-frame SW session (`src/mss/mss_main.c:2618-2642`).
+Fallback: a frame-level record in the demo's per-frame SW session (`src/mss/mss_main.c:2618-2642`).
 
 ## (e) Worked example (self-contained)
 
-Example inputs (given, not derived): stripmap SAR, one TX and one RX, sweep 77.25-80.75 GHz (3.5 GHz) in a 1500 us ramp
+Example inputs (given, not derived): stripmap SAR, 1TX/1RX, sweep 77.25-80.75 GHz (3.5 GHz) in a 1500 us ramp
 (about 2.33 MHz/us), chirp interval 2 ms (idle 500 us), max range 100 m, v = 0.75 m/s, d_max = 7.11 mm. Beat
 frequency at 100 m: `2 * slope * R / c = 1.557 MHz`.
 
-- Out of limits: an ADC rate of 1.557 Msps is below the 2 Msps minimum. Rate the ADC at the instantaneous
-  ramp rate, not the average over the chirp interval (1.557 x 1500/2000 = 1.17 Msps).
+- Out of limits: an ADC rate of 1.557 Msps is below the 2 Msps minimum; rate the ADC at the instantaneous
+  ramp rate, not the chirp-interval average (1.557 x 1500/2000 = 1.17 Msps).
 - Chosen: slope code 48 (2.317 MHz/us, sweep 3.476 GHz, inside 77-81 GHz); ADC 2.2 Msps (usable IF 1.76 MHz covers
   1.55 MHz); Ns = 2.2 Msps x 1.5 ms = 3300 (13,200 B, inside the 16 KB half).
 - Data: `Bchirp = roundup256(13,200 + 52) = 13,312 B`; 13,312 B / 2 ms = 6.66 MB/s, 4.4 % of 150 MB/s; about 4550 packets/s.
@@ -95,7 +96,7 @@ frequency at 100 m: `2 * slope * R / c = 1.557 MHz`.
 
 ## (f) Go/no-go criteria
 
-Go for a SAR build when all hold:
+Go when all hold:
 
 1. The cfg passes (a), and `Bchirp <= Tc * nlane * Blane / 8` with at least 10x margin against the LVDS capacity.
 2. Tb >= Tb_min as defined in (c), with enabled optional calibrations added, and `v * (Tc + Tb) <= d_max`.

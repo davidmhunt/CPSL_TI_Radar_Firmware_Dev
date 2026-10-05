@@ -106,7 +106,7 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 ## Status
 
 **MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide, example cfg and
-checker: firmware-09 (`docs/sar_cfg_guide.md`). See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
+checker: `docs/sar_cfg_guide.md`. See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
 
 - Build (firmware-08, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
   151940 B; the map takes the CBUFF format table from the project's `cbuff_xwr18xx.oer4f` and places the record slots

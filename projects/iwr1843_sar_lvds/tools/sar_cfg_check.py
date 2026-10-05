@@ -35,7 +35,7 @@ ACCEPTED = {
     "analogMonitor": (2,), "lvdsStreamCfg": (4,), "queryDemoStatus": (0,), "sarStats": (0,),
     "calibData": (3,),
 }
-# Stock-demo commands removed in firmware-07 (README "What changed vs TI"): the CLI answers "not a valid command"
+# Stock-demo commands removed from the stock demo (README "What changed vs TI"): the CLI answers "not a valid command"
 # and a cfg stops there.
 REMOVED = ("guiMonitor", "cfarCfg", "multiObjBeamForming", "calibDcRangeSig", "clutterRemoval",
            "compRangeBiasAndRxChanPhase", "measureRangeBiasAndRxChanPhase", "aoaFovCfg", "cfarFovCfg",

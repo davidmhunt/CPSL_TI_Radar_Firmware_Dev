@@ -12,7 +12,7 @@ Status).
 0                       H                                   M               M+32            B = M+64
 ```
 
-R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. One packet per chirp, back to back, nothing per frame.
+R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. One packet per chirp, back to back.
 H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = H + 4·R·Ns
 + 64`**, no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off, 88.4 µs on the 2 × 600 Mbps link), 13 328 B (on, 88.9 µs).
 
@@ -32,7 +32,7 @@ below are after step 1.
 **Which record is packet k's.** Arm the DCA1000 capture before `sensorStart`: the capture then begins at packet 0, and
 packet k (k = 0, 1, … in the run) starts at byte k·B, counting bytes lost in UDP drops (the DCA1000 sequence numbers give
 their count). Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
-for chirp k−1 or k+1 (two slots let chirp k+1 write while packet k is still being sent): never use it.
+for chirp k−1 or k+1: never use it.
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²). Otherwise discard the whole record, including its `tsTicks` and the saturation result it
@@ -63,8 +63,7 @@ from neighbouring packets (± Tc). The `LATE`, `SKIP` and `RESYNC` flags only ex
 | 5-15 | | 0 |
 
 **Timestamp.** `tsTicks` = the control CPU's RTI free-running counter, read first thing in the chirp-start interrupt
-[3]: **100 MHz (10 ns ticks)**, the profile's time LSB [4], counting from boot through runs, stops and CPU sleep (not reset
-by `sensorStart`). Its 32 bits (wrap 42.95 s) are extended to 64, so it does not wrap. It is the interrupt time: chirp
+[3]: **100 MHz (10 ns ticks)**, the profile's time LSB [4], counting from boot (not reset by `sensorStart`, stops or CPU sleep). Its 32 bits (wrap 42.95 s) are extended to 64, so it does not wrap. It is the interrupt time: chirp
 start plus a few µs of latency *(bench: jitter)*, **not** synchronized to the host, DCA1000 or platform time.
 
 ## 3. Saturation: the lagged field, and how to align it
@@ -115,12 +114,11 @@ for rec in valid_records:                # slot k%2 of packet k, passed validati
 - **Time**: seconds = `tsTicks / 100e6`. Chirp period Tc = idle + rampEnd (`profileCfg`); at a frame boundary (`frameIdx`
   steps, `chirpInFrame` = 0) the step is Tc + Tb, with blank Tb = framePeriodicity − Nc·Tc.
 - **Runs**: a new run starts where `runIdx` changes (or with a new capture); restart k at 0 there.
-- **Resync mid-stream**: in the raw stream, a record starts with `"SA"` `01 00` `"RM"` on an 8-byte boundary (every
-  packet is a multiple of 8 B). Its slot is `globalChirpIdx & 1`, so its packet starts at pos − M − 32·slot. The other
+- **Resync mid-stream**: in the raw stream, a record starts with `"SA"` `01 00` `"RM"` on an 8-byte boundary. Its slot is `globalChirpIdx & 1`, so its packet starts at pos − M − 32·slot. The other
   slot matches the pattern too, so confirm: the packet B bytes later must hold `globalChirpIdx` + 1 in its own slot.
   With the header on, the HSI id `0x0CDA0ADC0CDA0ADC` also marks packet starts.
-- **Versus the stock demo** (dataFmt 1/4 plus a per-frame point-cloud packet): dataFmt 2 is new; the C++ driver assumes
-  dataFmt 1 framing, so dataFmt 2 needs new host tools.
+- **Versus the stock demo** (dataFmt 1/4 plus a per-frame point-cloud packet): the C++ driver assumes dataFmt 1
+  framing, so dataFmt 2 needs new host tools.
 
 ## Sources
 

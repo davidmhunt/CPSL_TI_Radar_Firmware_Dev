@@ -83,15 +83,15 @@ The codebase supports two distinct Multiple-Input Multiple-Output (MIMO) process
 
 ## 3. Directory and File Structure
 
-Below is the directory map of the Cascade project under `firmware/cascade/src/demo/`:
+Below is the directory map of the Cascade project under `projects/awr2243_cascade_ddm/`:
 
 ```text
-firmware/cascade/src/demo/
-├── chirp_configs/                  # Reference chirp configurations (.cfg files)
+projects/awr2243_cascade_ddm/
+├── configs/                        # Reference chirp configurations (.cfg files)
 ├── docs/                           # Documentation (release notes, user guide, and this guide)
 ├── prebuilt_binaries/              # Precompiled .appimage and .elf reference binaries
 │
-└── src/awr2243/                    # Source code root
+└── src/                            # Source code root (the Radar Toolbox awr2243/ folder)
     ├── mmwave2chipCascade_mss.projectspec  # CCS MSS Project definition (Cortex-R5F)
     ├── mmwave2chipCascade_dss.projectspec  # CCS DSS Project definition (C66x DSP)
     │
@@ -140,7 +140,7 @@ The files in the `src/awr2243/ti/` directory are structured to match the layout 
 *   **`ti/utils/` (Utilities):** Includes parser scripts for CLI command processing (`utils/cli/`) and data header formatting configurations for the raw high-speed data stream (`utils/hsiheader/`).
 
 ### 3.2 Compilation/Sync Mechanism
-At build time, these files are overlaid onto the official container-internal SDK path (`/opt/ti/.../ti/`). This ensures that local host edits in your repository's `firmware/` directory are compiled, while maintaining a clean, isolated build environment in Docker.
+At build time, these files are overlaid onto the official container-internal SDK path (`/opt/ti/.../ti/`). This ensures that local host edits in the project's `src/` directory are compiled, while maintaining a clean, isolated build environment in Docker.
 
 ---
 
@@ -149,15 +149,15 @@ At build time, these files are overlaid onto the official container-internal SDK
 The Cascade projects are compiled headlessly inside the Docker environment. There are no Code Composer Studio (CCS) GUI dependencies.
 
 ### 4.1 Automated Build Commands
-From the root of the repository, execute the following commands on the host machine:
+From `firmware_dev/`, execute the following commands on the host machine:
 
 * **Compile DDM/TDM Demos:**
   ```bash
-  docker compose run --rm firmware-env /build_context/build_cascade.sh
+  ./fw build awr2243_cascade_ddm          # CCS_CONFIG=Debug for a debug build
   ```
   This runs the compilation scripts within the container and creates the following host outputs:
-  * `build/cascade/am273x_cascade.elf` (Cortex-R5F MSS ELF debug executable)
-  * `build/cascade/am273x_cascade.appimage` (Signed multi-core flash image containing MSS, DSS, and the AWR2243 BSS patches)
+  * `projects/awr2243_cascade_ddm/build/am273x_cascade.elf` (Cortex-R5F MSS ELF debug executable)
+  * `projects/awr2243_cascade_ddm/build/am273x_cascade.appimage` (Signed multi-core flash image containing MSS, DSS, and the AWR2243 BSS patches)
 
 ### 4.2 How the Makefile Works
 The makefile located at `/opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/demo/am273x/mmw/makefile` compiles the binaries. It utilizes:
@@ -209,7 +209,7 @@ If you want to perform manual compiling, debugging, or build only a specific sub
 4. **Sync Local Source to SDK Path:**
    Copy the modified source code from the host workspace mount (`/build_context`) to the container SDK folders:
    ```bash
-   cp -rf /build_context/firmware/cascade/src/demo/src/awr2243/ti/* /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/
+   cp -rf /build_context/projects/awr2243_cascade_ddm/src/ti/* /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/
    ```
 
 5. **Navigate to the Compile Directory:**

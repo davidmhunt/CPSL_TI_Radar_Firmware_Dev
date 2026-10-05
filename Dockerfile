@@ -45,7 +45,7 @@ RUN mkdir -p /opt/ti
 WORKDIR /build_context
 
 # Define environment variables for compilation tools (installed under /opt/ti).
-# Cascade versions match firmware/cascade/src/demo/src/awr2243/*.projectspec.
+# Cascade versions match projects/awr2243_cascade_ddm/src/*.projectspec.
 ENV MMWAVE_MCUPLUS_SDK_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_00_01
 ENV MMWAVE_SDK_PATH=/opt/ti/mmwave_sdk_03_06_02_00-LTS
 ENV CGT_TI_ARM_CLANG_PATH=/opt/ti/ti-cgt-armllvm_2.1.1.LTS

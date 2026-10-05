@@ -23,7 +23,7 @@ services:
   # Flashing / serial bring-up: same image, with the host's serial devices passed through.
   # /dev is bind-mounted (rather than listing devices) so ports that re-enumerate after the
   # EVM is power-cycled stay visible; the cgroup rules allow ttyUSB (188) and ttyACM (166).
-  #   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0 prebuilt
+  #   ./fw flash awr2243_cascade_ddm /dev/ttyUSB0 prebuilt
   flash:
     extends: firmware-env
     volumes:

@@ -42,15 +42,11 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ├── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
 │
 ├── firmware/
-│   ├── cascade/                # AM273x + AWR2243 2-Chip Cascade application firmware
-│   │   └── src/                # Cascade source code directory
 │   └── legacy/                 # Single-chip legacy mmWave SDK 3.x firmware builds
 │       └── src/                # Legacy source code directory
 │
 └── scripts/
-    ├── build_mcuplus_ddm.sh    # Compilation runner script for Cascade DDM Demo
-    ├── build_legacy_demos.sh   # Compilation runner script for legacy demos
-    └── flash_cascade.sh        # Headless UART flashing for the cascade demo
+    └── build_legacy_demos.sh   # Compilation runner script for legacy demos
 ```
 
 ---
@@ -65,7 +61,7 @@ The development environment container runs on **Ubuntu 24.04** and installs the 
 - **TI C6000 Compiler (v8.3.12)**: Required for the AM273x C66x DSP (DSS) target.
 - **TI ARM CGT Compiler (v20.2.7.LTS)**: Required for the legacy SDK / single-chip target.
 
-> Cascade toolchain versions follow the demo's CCS projectspecs (`firmware/cascade/src/demo/src/awr2243/*.projectspec`); keep them in sync when upgrading.
+> Cascade toolchain versions follow the demo's CCS projectspecs (`projects/awr2243_cascade_ddm/src/*.projectspec`); keep them in sync when upgrading.
 - **TI Radar Toolbox (v4.00.00.05)**: Contains tutorials, example labs, and documentation for radar sensors; also supplies the cascade demo's prebuilt libraries.
 - **Code Composer Studio (v12.8.1)**: Used headless (no GUI) to build the cascade demo from its CCS projectspecs.
 - **Mono Runtime**: Enables headless generation of flash meta-images.
@@ -142,14 +138,14 @@ docker compose build
 ### 2. Compile Cascade Firmware (AM273x)
 Run the Cascade DDM demo build command inside the container:
 ```bash
-docker compose run --rm firmware-env /build_context/build_cascade.sh
+./fw build awr2243_cascade_ddm
 ```
 This runs a headless Code Composer Studio 12.8.1 build of the TI cascade projectspecs (DSS first, then MSS) and generates:
-- `build/cascade/am273x_cascade.appimage` — flashable image (both cores)
-- `build/cascade/am273x_cascade.elf` — MSS (Cortex-R5F) executable
-- `build/cascade/am273x_cascade_dss.xe66` — DSS (C66x) executable
+- `projects/awr2243_cascade_ddm/build/am273x_cascade.appimage` — flashable image (both cores)
+- `projects/awr2243_cascade_ddm/build/am273x_cascade.elf` — MSS (Cortex-R5F) executable
+- `projects/awr2243_cascade_ddm/build/am273x_cascade_dss.xe66` — DSS (C66x) executable
 
-Set `CCS_CONFIG=Debug` for a debug build. The CCS workspace (with full build logs) is kept in `build/cascade/ccs_workspace/`.
+Set `CCS_CONFIG=Debug` for a debug build. The CCS workspace (with full build logs) is kept in `projects/awr2243_cascade_ddm/build/ccs_workspace/`.
 
 ### 3. Compile Legacy Firmware (IWR1843/IWR6843)
 Run the legacy SDK demo builds inside the container:
@@ -175,7 +171,7 @@ For a streamlined development experience, this repository supports Microsoft's *
 ### Why use Dev Containers?
 - **Seamless SDK Browsing**: You can explore and open all SDK source code, header files, and compiler toolchains under `/opt/ti/` directly from your host editor's sidebar.
 - **Full IntelliSense**: Auto-complete, error highlighting, and "Go to Definition" work natively for all TI SDK APIs since the editor runs inside the container context where all headers are indexed.
-- **Integrated Terminal**: Run compilation commands (e.g. `./build_cascade.sh` or `make`) directly from the editor's integrated terminal.
+- **Integrated Terminal**: Run compilation commands (e.g. `./fw build awr2243_cascade_ddm` or `make`) directly from the editor's integrated terminal.
 
 ### Setup Instructions
 1. Open the `CPSL_TI_Radar_Firmware_Dev` repository folder in VS Code or Cursor.
@@ -195,9 +191,9 @@ the **Application/User UART** port.
 2. **Flash** TI's prebuilt demo first (this checks the board, cables, and ports), then our build:
    ```bash
    # TI prebuilt am273x_mmw_cascade_demo_DDM.appimage (from the installed Radar Toolbox)
-   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0 prebuilt
-   # our build (default: build/cascade/am273x_cascade.appimage)
-   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0
+   ./fw flash awr2243_cascade_ddm /dev/ttyUSB0 prebuilt
+   # our build (default: projects/awr2243_cascade_ddm/build/am273x_cascade.appimage)
+   ./fw flash awr2243_cascade_ddm /dev/ttyUSB0
    ```
    The script flashes `sbl_qspi` at `0x0` and the appimage at `0xA0000`. It succeeds only if the tool prints
    `All commands from config file are executed !!!`. Outside Docker, set `TI_ROOT` to a host TI install.
@@ -214,7 +210,7 @@ framing errors:
 ```bash
 docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
     --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
-    --cfg /build_context/firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
+    --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg
 ```
 The demo can only be configured once per boot (TI known issue), so power-cycle the EVM between runs. To only listen
 to a board that is already running, use `--skip-config`.
@@ -225,8 +221,8 @@ to a board that is already running, use `--skip-config`.
 
 To run the out-of-box demo and view its output in the TI mmWave Demo Visualizer, start with these guides:
 
-- **Two Chip Cascade User Guide (Radar Toolbox lab)**: [Local copy](firmware/cascade/src/demo/docs/Two_Chip_Cascade_user_guide.html). Step-by-step instructions for flashing the lab binaries, switching between UART/QSPI boot modes, and running the cascade visualizer (standalone executable or MATLAB). Download the file and open it in a browser, because GitHub shows HTML files as source instead of rendering them.
-- **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [Local copy (Git LFS)](firmware/cascade/src/demo/docs/swru639_AWR2243-2X-CAS-EVM_user_guide.pdf) | [Latest version on ti.com](https://www.ti.com/lit/pdf/SWRU639)
+- **Two Chip Cascade User Guide (Radar Toolbox lab)**: [Local copy](projects/awr2243_cascade_ddm/docs/Two_Chip_Cascade_user_guide.html). Step-by-step instructions for flashing the lab binaries, switching between UART/QSPI boot modes, and running the cascade visualizer (standalone executable or MATLAB). Download the file and open it in a browser, because GitHub shows HTML files as source instead of rendering them.
+- **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [Local copy (Git LFS)](projects/awr2243_cascade_ddm/docs/swru639_AWR2243-2X-CAS-EVM_user_guide.pdf) | [Latest version on ti.com](https://www.ti.com/lit/pdf/SWRU639)
 
 The user guide points to these TI resources:
 

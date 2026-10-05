@@ -1,36 +1,37 @@
 #!/bin/bash
-# Flash the AM273x + AWR2243 2-chip cascade demo over the UART bootloader.
-#
-# Usage: flash_cascade.sh <serial_port> [appimage|prebuilt]
+# Flash the AM273x + AWR2243 2-chip cascade demo over the UART bootloader. Runs INSIDE the
+# firmware container (the `flash` service, host /dev passed through); start it from firmware_dev/ with
+#     ./fw flash awr2243_cascade_ddm <serial_port> [image|prebuilt]
 #   <serial_port>  Application/User UART of the EVM, e.g. /dev/ttyUSB0 or /dev/serial/by-id/...
-#   appimage       Path to an .appimage (default: build/cascade/am273x_cascade.appimage)
+#   image          Path to an .appimage (default: build/am273x_cascade.appimage in this project)
 #   prebuilt       Flash TI's prebuilt am273x_mmw_cascade_demo_DDM.appimage from the Radar Toolbox
 #
 # The board must be in UART boot mode (J6 jumper on the bottom two pins) and power-cycled first.
 # Afterwards move J6 to the top two pins (QSPI boot) and power-cycle to run the demo.
 #
-# Works inside the firmware container (docker compose run --rm flash ...) or natively with
-# TI_ROOT pointing at a host install containing the MCU+ SDK and Radar Toolbox.
+# Exit codes (projects/README.md): 0 flashed and confirmed, 1 failed, 2 bad arguments.
+# Also works natively with TI_ROOT pointing at a host install containing the MCU+ SDK and Radar Toolbox.
 set -euo pipefail
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+source ./project.env
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TI_ROOT="${TI_ROOT:-/opt/ti}"
 MCU_PLUS_SDK_PATH="${MCU_PLUS_SDK_PATH:-${TI_ROOT}/mcu_plus_sdk_am273x_08_05_00_24}"
 RADAR_TOOLBOX_INSTALL_PATH="${RADAR_TOOLBOX_INSTALL_PATH:-${TI_ROOT}/radar_toolbox_4_00_00_05}"
-PREBUILT_DIR="${REPO_ROOT}/firmware/cascade/src/demo/prebuilt_binaries"
+PREBUILT_DIR="$PWD/prebuilt_binaries"
 TOOLBOX_APPIMAGE="${RADAR_TOOLBOX_INSTALL_PATH}/source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/prebuilt_binaries/am273x_mmw_cascade_demo_DDM.appimage"
 UNIFLASH="${MCU_PLUS_SDK_PATH}/tools/boot/uart_uniflash.py"
 
 usage() {
     sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
-    exit 1
+    exit 2
 }
 
 [[ $# -ge 1 && $# -le 2 ]] || usage
 [[ "$1" == "-h" || "$1" == "--help" ]] && usage
 
 PORT="$1"
-IMAGE_ARG="${2:-${REPO_ROOT}/build/cascade/am273x_cascade.appimage}"
+IMAGE_ARG="${2:-$PWD/build/am273x_cascade.appimage}"
 
 if [[ "${IMAGE_ARG}" == "prebuilt" ]]; then
     APPIMAGE="${TOOLBOX_APPIMAGE}"
@@ -67,7 +68,7 @@ import sys
 src, dst = sys.argv[1:]
 anchor = "    ser = open_serial_port(serialport, baudrate)\n"
 text = open(src).read()
-assert text.count(anchor) == 1, "uart_uniflash.py changed; update the flush patch in flash_cascade.sh"
+assert text.count(anchor) == 1, "uart_uniflash.py changed; update the flush patch in flash.sh"
 flush = ("    time.sleep(0.2)\n"
          "    if ser.in_waiting:\n"
          "        print('Discarding {} stale byte(s) from the bootloader'.format(ser.in_waiting))\n"

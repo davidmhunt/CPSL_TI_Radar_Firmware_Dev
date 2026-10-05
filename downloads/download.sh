@@ -2,7 +2,7 @@
 set -e
 
 # Versions match the cascade demo CCS projectspecs
-# (firmware/cascade/src/demo/src/awr2243/mmwave2chipCascade_{mss,dss}.projectspec)
+# (projects/awr2243_cascade_ddm/src/mmwave2chipCascade_{mss,dss}.projectspec)
 # plus the legacy single-chip toolchain used by build_legacy.sh.
 
 echo "=== Downloading TI Radar Firmware Dev Installers ==="

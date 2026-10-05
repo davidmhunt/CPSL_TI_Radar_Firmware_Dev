@@ -13,7 +13,7 @@ From firmware_dev/ (the `flash` service passes the host serial ports through):
 
     docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
         --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
-        --cfg /build_context/firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
+        --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg
 
 or on the host (needs pyserial): tools/cascade_serial_check.py --cli ... --data ... --cfg ...
 
@@ -123,7 +123,7 @@ def frame_period_ms(cfg_path):
             # SDK 3.x (7 args): frameCfg <start> <end> <loops> <frames> <periodMs> <trigSel> <trigDelay>
             #   e.g. xwr18xx/mmw/profiles/profile_2d.cfg: frameCfg 0 1 32 0 100 1 0
             # cascade (9 args): period is the 6th argument
-            #   e.g. chirp_configs/*.cfg: frameCfg 0 7 32 0 192 50 1 0 2
+            #   e.g. projects/awr2243_cascade_ddm/configs/*.cfg: frameCfg 0 7 32 0 192 50 1 0 2
             if parts and parts[0] == "frameCfg":
                 if len(parts) >= 10:
                     return float(parts[6])

@@ -17,10 +17,10 @@
 
 # Exceptions: prebuilt libraries the cascade projectspecs link against (from Radar Toolbox
 # 4.00.00.05; the build falls back to the toolbox copy, but committed copies take precedence)
-!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*.aer5f
-!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*.ae66
+!projects/awr2243_cascade_ddm/src/ti/**/lib/*.aer5f
+!projects/awr2243_cascade_ddm/src/ti/**/lib/*.ae66
 # Exception: TI prebuilt cascade demo image referenced by prebuilt_binaries/demo.cfg
-!firmware/cascade/src/demo/prebuilt_binaries/*.appimage
+!projects/awr2243_cascade_ddm/prebuilt_binaries/*.appimage
 
 # Local SDK downloads and installations (to keep the repo clean)
 /sdks/

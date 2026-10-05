@@ -1,21 +1,27 @@
 #!/bin/bash
-set -e
-
-# Headless CCS build of the AM273x + AWR2243 2-chip cascade DDM demo from its CCS projectspecs
-# (firmware/cascade/src/demo/src/awr2243/mmwave2chipCascade_{dss,mss}.projectspec), matching how
-# TI builds the Radar Toolbox lab. DSS is built first; the MSS post-build step combines both
-# cores into the flashable .appimage.
+# Build the AM273x + AWR2243 2-chip cascade DDM demo. Runs INSIDE the firmware container; start it
+# from firmware_dev/ with
+#     ./fw build awr2243_cascade_ddm            (CCS_CONFIG=Debug for a debug build)
+# Headless CCS build from the CCS projectspecs in src/ (mmwave2chipCascade_{dss,mss}.projectspec),
+# matching how TI builds the Radar Toolbox lab. DSS is built first; the MSS post-build step
+# combines both cores into the flashable .appimage.
+# Contract (projects/README.md): source project.env, work from this folder, write only to ./build/.
+# Don't call git here: the submodule's .git is outside the container; `fw` passes FW_COMMIT.
 #
 # TI_ROOT defaults to the container install dir; set TI_ROOT=~/ti to build natively.
 # CCS_CONFIG selects the projectspec configuration (Release | Debug).
+set -euo pipefail
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+source ./project.env
+
+PROJECT="$(basename "$PWD")"
 TI_ROOT="${TI_ROOT:-/opt/ti}"
-BUILD_CONTEXT="${BUILD_CONTEXT:-/build_context}"
 CCS_CONFIG="${CCS_CONFIG:-Release}"
 
 CCS_ECLIPSE="${TI_ROOT}/ccs/eclipse/eclipse"
-SRC_DIR="${BUILD_CONTEXT}/firmware/cascade/src/demo/src/awr2243"
-OUT_DIR="${BUILD_CONTEXT}/build/cascade"
-STAGE_DIR="${OUT_DIR}/stage"          # patched copy of the source tree the projectspecs import from
+SRC_DIR="$PWD/src"
+OUT_DIR="$PWD/build"
+STAGE_DIR="${OUT_DIR}/stage"          # patched copy of src/ that the projectspecs import from
 WORKSPACE_DIR="${OUT_DIR}/ccs_workspace"
 DSS_PROJECT=am273x_mmw_cascade_demo_dss
 MSS_PROJECT=am273x_mmw_cascade_demo_mss
@@ -48,6 +54,7 @@ ccs() {
 [ -d "${SDK_TOP}" ] || fail "mmWave MCU+ SDK not found at ${SDK_TOP}"
 
 echo "=== Staging cascade source ==="
+mkdir -p "${OUT_DIR}"
 rm -rf "${STAGE_DIR}" "${WORKSPACE_DIR}"
 mkdir -p "${STAGE_DIR}" "${WORKSPACE_DIR}"
 cp -r "${SRC_DIR}/." "${STAGE_DIR}/"
@@ -102,5 +109,18 @@ echo "=== Copying Cascade DDM build outputs ==="
 cp "${APPIMAGE}" "${OUT_DIR}/am273x_cascade.appimage"
 cp "${MSS_OUT}" "${OUT_DIR}/am273x_cascade.elf"
 cp "${DSS_OUT}" "${OUT_DIR}/am273x_cascade_dss.xe66"
-ls -lh "${OUT_DIR}"/am273x_cascade*
+
+# Provenance: what was built, from which commit, with which config.
+cat > "${OUT_DIR}/build_info.txt" <<INFO
+project=${PROJECT}
+board=${BOARD}
+sdk=${SDK} ${SDK_VERSION}
+toolchain=${TOOLCHAIN}
+baseline=${BASELINE} @ ${BASELINE_COMMIT}
+firmware_dev_commit=${FW_COMMIT:-unknown}
+ccs_config=${CCS_CONFIG}
+built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+artifacts=${ARTIFACTS}
+INFO
+ls -l "${OUT_DIR}"/am273x_cascade* "${OUT_DIR}/build_info.txt"
 echo "=== Cascade DDM Build Succeeded ==="

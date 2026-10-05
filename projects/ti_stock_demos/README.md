@@ -8,7 +8,8 @@ IWR6843 (`xwr68xx`), built out of tree: nothing is written into `/opt/ti`.
 Nothing. This is a *stock* project: `src/` is empty (`.gitkeep`) and no TI source is tracked.
 `BASELINE` in `project.env` names the SDK folders that are built
 (`packages/ti/demo/xwr{18,68}xx/mmw`, inside the image at `/opt/ti/mmwave_sdk_03_06_02_00-LTS`).
-`configs/` holds copies of TI's `profiles/*.cfg` (and the config-update `.pl` helper) per family.
+`configs/` holds copies of TI's `profiles/*.cfg` (and the config-update `.pl` helper) per family. The TI `.cfg` and `.pl` files carry no license header; the SDK's
+`docs/mmwave_sdk_software_manifest.html` lists them as BSD-3-Clause.
 
 To modify a demo, start a new project (`./fw new`) and copy the demo folder into its `src/`.
 

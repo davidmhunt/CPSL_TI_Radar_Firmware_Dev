@@ -19,11 +19,15 @@ into `tools/`. Left out (not source): `docs/` (generated doxygen) and TI's prebu
 
 The TI sources in `src/`, `configs/` and `tools/` are tracked under TI's own terms. The C sources and
 headers carry TI's BSD-3-clause header ("Redistribution and use in source and binary forms ...").
-The files without that header (`makefile`, `*.mak`, `*_linker.cmd`, `*.cfg` chirp profiles, the `.pl`
-helper, and the two XDC/BIOS configs `mss/mmw_mss.cfg`, `dss/mmw_dss.cfg`, whose header is an older
-"Copyright 2011 ... Restricted rights" boilerplate) are covered by the SDK software manifest
-(`docs/mmwave_sdk_software_manifest.html`: "mmwave drivers, control, datapath, utils & demo",
-`packages\ti\demo`, BSD-3-Clause). Keep these headers when editing. No TI binaries are tracked; the
+Files without that header fall into two groups:
+
+- **No header at all:** `makefile`, `*.mak`, `*_linker.cmd`, the `*.cfg` chirp profiles and the `.pl` helper.
+- **Old header:** the two XDC/BIOS configs `mss/mmw_mss.cfg` and `dss/mmw_dss.cfg` carry an older
+  "Copyright 2011 ... Restricted rights" boilerplate instead of the BSD text.
+
+Both groups are covered by the SDK software manifest (`docs/mmwave_sdk_software_manifest.html`:
+"mmwave drivers, control, datapath, utils & demo", `packages\ti\demo`, BSD-3-Clause). Keep these
+headers when editing. No TI binaries are tracked; the
 open release-gate item on shipping TI binaries publicly is unchanged by this project.
 
 ## Status

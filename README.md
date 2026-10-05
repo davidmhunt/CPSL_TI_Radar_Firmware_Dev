@@ -12,8 +12,8 @@ to add a project.
 ./fw list                                          # available projects
 ```
 
-The stock SDK 3.6 IWR1843/IWR6843 demos are the project `ti_stock_demos`; the sections below that mention
-the older `build_*.sh` / `scripts/` flow are being retired.
+Projects: `awr2243_cascade_ddm` (AM273x + AWR2243 cascade), `ti_stock_demos` (stock SDK 3.6 IWR1843/IWR6843
+demos) and `iwr1843_sar_lvds` (SDK 3.6 IWR1843 SAR/LVDS base). Each has its own README.
 
 This repository serves as the centralized development, compilation, and build environment for all Texas Instruments (TI) mmWave radar sensor firmware utilized by the Collaborative Perception and Sensing Lab (CPSL).
 
@@ -30,14 +30,17 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ├── .gitignore                  # Ignores local SDK installers, build files, and IDE configs
 ├── README.md                   # This file
 │
-├── build/                      # Build outputs directory (created during build)
-│   └── cascade/                # Old-flow cascade outputs (superseded by projects/*/build/)
-│
 ├── downloads/                  # TI SDK/Toolchain installer downloads folder (ignored by git)
 │   └── download.sh             # Headless download utility script
 │
 ├── fw                          # Project build/flash dispatcher (see projects/README.md)
-├── projects/                   # Self-contained firmware projects + _template/ + guide
+├── projects/                   # One self-contained firmware per folder, plus the guide and the template
+│   ├── README.md               # Newcomer guide: setup, fw commands, how to add a project
+│   ├── _template/              # Copied by ./fw new
+│   ├── awr2243_cascade_ddm/    # AM273x + AWR2243 cascade DDM demo
+│   ├── ti_stock_demos/         # Stock SDK 3.6 IWR1843/IWR6843 demos
+│   ├── iwr1843_sar_lvds/       # IWR1843 SAR/LVDS base (SDK 3.6)
+│   └── <project>/              # README.md, project.env, build.sh, flash.sh, src/, configs/, tools/, docs/, build/
 └── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
 ```
 
@@ -147,7 +150,18 @@ This builds TI's unmodified mmw demos out of tree (nothing is written into `/opt
 - `projects/ti_stock_demos/build/iwr6843_demo.elf` / `iwr6843_demo.bin`
 - `projects/ti_stock_demos/build/iwr1843_demo.elf` / `iwr1843_demo.bin`
 
-### 4. Interactive Development
+### 4. Compile the IWR1843 SAR/LVDS Base
+```bash
+./fw build iwr1843_sar_lvds
+```
+Same out-of-tree technique; generates `projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.{bin,elf}`.
+
+### 5. Add a Project
+`./fw new <project>` copies `projects/_template/`. The contract table, `project.env` keys and a full walkthrough
+(including the baseline-first commit rule: commit the unmodified TI source before changing it) are in
+[`projects/README.md`](projects/README.md).
+
+### 6. Interactive Development
 To start an interactive bash shell in the development container context:
 ```bash
 docker compose run --rm firmware-env
@@ -173,6 +187,8 @@ For a streamlined development experience, this repository supports Microsoft's *
 ---
 
 ## ⚡ Headless Flashing Instructions
+
+This section is for the cascade EVM. The IWR1843/IWR6843 projects have no headless flasher; their READMEs give the SOP-jumper and UniFlash steps (`./fw flash` prints them and exits 3).
 
 Flashing uses the MCU+ SDK UART bootloader (`uart_uniflash.py`) from the `flash` compose service, which passes the
 host's `/dev` (ttyUSB/ttyACM) into the container. Find the EVM's ports with `ls -l /dev/serial/by-id/` and flash over

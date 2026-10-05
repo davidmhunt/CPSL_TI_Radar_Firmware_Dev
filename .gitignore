@@ -1,6 +1,5 @@
-# Build directories and artifacts (anchored to repo root so same-named
+# Build directories and artifacts (anchored to the project folders so same-named
 # folders inside the firmware source tree are not silently ignored)
-/build/
 /projects/*/build/
 /bin/
 *.o

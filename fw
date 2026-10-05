@@ -51,7 +51,7 @@ compose_run() {
     [[ -t 0 && -t 1 ]] || args+=(-T)
     local commit
     commit="$(git -C "${FW_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
-    if [[ "$commit" != unknown ]] && ! git -C "${FW_ROOT}" diff --quiet HEAD 2>/dev/null; then
+    if [[ "$commit" != unknown ]] && [[ -n "$(git -C "${FW_ROOT}" status --porcelain 2>/dev/null)" ]]; then
         commit+="-dirty"
     fi
     args+=(-e "FW_COMMIT=${commit}")

@@ -9,9 +9,14 @@ All commands below run from `firmware_dev/`.
 
 ## 1. One-time setup
 
-You need Docker (with `docker compose`) and about 25 GB of disk.
+You need a Linux machine with Docker (with `docker compose`) and about 25 GB of disk. The
+scripts are tested on Linux only (they use `/dev` serial passthrough and host user IDs).
+
+`firmware_dev/` is an opt-in submodule of the parent repo `CPSL_TI_Radar`. On a fresh clone it
+is empty; fetch it first:
 
 ```bash
+git submodule update --init --checkout firmware_dev     # run from the parent repo root
 cd firmware_dev
 ./downloads/download.sh     # fetches the TI SDK and compiler installers into downloads/ (~3.6 GB)
 docker compose build        # builds the image cpsl-ti-radar-firmware-dev:latest (long, once)
@@ -27,7 +32,7 @@ firmware_dev/
 │   ├── README.md         # this guide
 │   ├── _template/        # copied by ./fw new; never built itself
 │   └── <project>/        # one folder per firmware (see section 3)
-├── tools/                # scripts any project can use (serial check, md_to_pdf)
+├── tools/                # scripts any project can use: cascade_serial_check.py, md_to_pdf.py
 ├── Dockerfile, docker-compose.yaml   # the build environment, shared by every project
 └── downloads/            # TI installers (download.sh is tracked; the installers are not)
 ```
@@ -38,9 +43,13 @@ steps, notes. Changing one project can never break another.
 installs and the same serial protocol. A script used by one project only goes in that
 project's `tools/`.
 
-Planned projects include `awr2243_cascade_ddm` (the AM273x + AWR2243 cascade demo),
-`ti_stock_demos` (stock SDK 3.6 IWR1843/IWR6843 demos) and `iwr1843_sar_lvds`; `./fw list`
-shows which exist today.
+Projects today (`./fw list` shows them with board, SDK and baseline):
+
+| Project | What it is |
+|---------|------------|
+| [`awr2243_cascade_ddm`](awr2243_cascade_ddm/README.md) | AM273x + AWR2243 two-chip cascade DDM demo (MCU+ SDK, CCS headless build) |
+| [`ti_stock_demos`](ti_stock_demos/README.md) | TI's unmodified SDK 3.6 IWR1843 / IWR6843 `mmw` demos, built out of tree |
+| [`iwr1843_sar_lvds`](iwr1843_sar_lvds/README.md) | IWR1843 SDK 3.6 `xwr18xx/mmw` demo copied into `src/`; base for the SAR / LVDS firmware |
 
 ## 3. What a project contains
 
@@ -64,7 +73,7 @@ shows which exist today.
 | `SDK` | TI SDK it builds against | `mmwave_sdk` |
 | `SDK_VERSION` | Exact SDK version (must be in the image) | `03.06.02.00-LTS` |
 | `TOOLCHAIN` | Compilers / build tool and versions | `ti-cgt-arm 16.9.6.LTS (SDK make)` |
-| `BASELINE` | TI source the project started from: path + version | `mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr18xx/mmw` |
+| `BASELINE` | TI source the project started from: path relative to `/opt/ti` (inside the image) | `mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr18xx/mmw` |
 | `BASELINE_COMMIT` | `firmware_dev` commit that added that source unmodified | `1a2b3c4` |
 | `ARTIFACTS` | Files `build.sh` leaves in `build/` (space-separated; first one is what `flash.sh` flashes by default) | `xwr18xx_mmw_demo.bin` |
 
@@ -85,14 +94,35 @@ Details:
 - **Build options.** `CCS_CONFIG` and any variable starting with `FW_` are passed into the
   container, e.g. `CCS_CONFIG=Debug ./fw build my_demo`. Extra arguments after the project
   name go to `build.sh`: `./fw build my_demo clean`.
-- **Long builds.** A CCS build takes minutes. To keep it running if your terminal closes:
-  `nohup ./fw build my_demo > build.log 2>&1 &`.
+- **Long builds.** A CCS build takes minutes. To keep it running if your terminal closes, detach
+  it: `setsid nohup ./fw build my_demo > build.log 2>&1 &` (`setsid` also survives a
+  process-group or cgroup kill, which plain `nohup` does not).
 - **Serial ports.** `ls -l /dev/serial/by-id/` lists them; the by-id names survive replugging.
   Your user needs the `dialout` group. A board is single-user: one flash or capture at a time.
 - **File ownership.** The container runs as your user, so everything in `build/` belongs to
   you and can be deleted without `sudo`.
+- **Commit stamp.** `fw` sets `FW_COMMIT` to the short hash of `firmware_dev` HEAD, with `-dirty`
+  appended if `git status --porcelain` lists anything (modified or untracked files).
+  `build_info.txt` records it.
+- **Same path, same hash.** Compilers embed the in-container build path
+  (`/build_context/projects/<project>/build/...`) in the binaries, so two builds give the same
+  hash only for the same project folder name. Hashes recorded before this layout (for
+  example the 29 Sep cascade build, 427998 B) will not match a build here (428030 B); that is
+  not a regression.
 - **flash.sh exit codes.** `0` flashed and confirmed; `1` failed; `2` bad arguments;
   `3` this board has no headless flasher, so the manual steps (UniFlash, jumpers) were printed.
+- **Flashing a board.** Boards boot from jumpers: the IWR boards use the SOP jumpers (flashing
+  mode vs functional mode, flashed with TI's UniFlash GUI); the cascade EVM uses jumper J6
+  (bottom two pins = UART flash mode, top two = QSPI run mode; change only with power off).
+  The exact steps are in each project README: [`awr2243_cascade_ddm`](awr2243_cascade_ddm/README.md),
+  [`ti_stock_demos`](ti_stock_demos/README.md), [`iwr1843_sar_lvds`](iwr1843_sar_lvds/README.md).
+
+## Troubleshooting
+
+- **`docker compose build` fails early** (a missing `COPY` source or installer error): the TI
+  installers are not in `downloads/`. Run `./downloads/download.sh` first and check it
+  completed.
+- **`./fw: no project ...` or empty `firmware_dev/`**: initialize the submodule (section 1).
 
 ## 5. Walkthrough: add a new project
 
@@ -115,7 +145,9 @@ as your user:
 docker compose run --rm --user "$(id -u):$(id -g)" firmware-env \
     cp -r /opt/ti/mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr18xx/mmw/. \
     /build_context/projects/zz_demo/src/
-cd projects/zz_demo/src     # delete TI's prebuilt images and generated docs: not source
+# Delete TI's prebuilt images and generated docs (not source). This list is the
+# mmw example; other TI folders need a different list.
+cd projects/zz_demo/src
 rm -rf docs/doxygen *.bin *.map *.xer4f *.xe674 *.rov.xs
 cd ../../..
 git add projects/zz_demo
@@ -132,7 +164,7 @@ copied in step 2 and `BASELINE_COMMIT` to the hash it printed.
 **Step 4. Write `build.sh`.** Replace the block marked `TODO` in `projects/zz_demo/build.sh`.
 Keep its three rules: it sources `project.env`, it works from its own folder, and it writes
 only to `build/`. TI makefiles and CCS write objects next to their sources, so copy `src/`
-into `build/` and build there. For an SDK 3.x demo:
+into `build/` and build there. (The container sets `MMWAVE_SDK_PATH` to the installed SDK.) For an SDK 3.x demo:
 
 ```bash
 pushd "${MMWAVE_SDK_PATH}/packages/scripts/unix" > /dev/null

@@ -14,10 +14,10 @@
 *.aer5f
 *.ae66
 
-# Exceptions: prebuilt cascade libraries the demo links against (sourced from
-# Radar Toolbox 4.00.00.05; libcli has no source in this repo, so it must be tracked)
-!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*_cascade_am273x.aer5f
-!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*_cascade_am273x.ae66
+# Exceptions: prebuilt libraries the cascade projectspecs link against (from Radar Toolbox
+# 4.00.00.05; the build falls back to the toolbox copy, but committed copies take precedence)
+!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*.aer5f
+!firmware/cascade/src/demo/src/awr2243/ti/**/lib/*.ae66
 # Exception: TI prebuilt cascade demo image referenced by prebuilt_binaries/demo.cfg
 !firmware/cascade/src/demo/prebuilt_binaries/*.appimage
 

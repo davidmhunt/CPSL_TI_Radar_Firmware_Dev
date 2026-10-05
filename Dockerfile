@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 FROM ubuntu:24.04
 
 # Avoid interactive prompts during apt installations
@@ -54,28 +55,69 @@ ENV SYSCONFIG_PATH=/opt/ti/sysconfig_1.22.0
 ENV RADAR_TOOLBOX_INSTALL_PATH=/opt/ti/radar_toolbox_4_00_00_05
 ENV PATH="/opt/ti/sysconfig_1.22.0:${PATH}"
 
-# Copy installer executables from host downloads directory
-# (Expected to be placed in the local downloads/ folder prior to building)
-COPY downloads/ /tmp/downloads/
+# TI installers are bind-mounted from downloads/ (populated by downloads/download.sh) instead of
+# COPY'd, so the ~4 GB of installers never become an image layer. Each tool gets its own RUN
+# so a failure/upgrade only re-runs that step. install_ti copies the installer out of the
+# read-only mount, makes it executable, runs it unattended, and deletes it in the same layer.
+RUN printf '#!/bin/sh\nset -e\nsrc="$1"; shift\ncp "$src" /tmp/installer && chmod +x /tmp/installer\n/tmp/installer --mode unattended "$@"\nrm -f /tmp/installer\n' > /usr/local/bin/install_ti \
+    && chmod +x /usr/local/bin/install_ti
 
-# Install TI tools in unattended (silent) mode to /opt/ti
-RUN chmod +x /tmp/downloads/*.bin /tmp/downloads/*.run 2>/dev/null || true \
-    && echo "Installing SysConfig..." \
-    && /tmp/downloads/sysconfig-1.22.0_3893-setup.run --mode unattended --prefix /opt/ti/sysconfig_1.22.0 \
-    && echo "Installing TI Clang Compiler..." \
-    && /tmp/downloads/ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
-    && echo "Installing TI C6000 Compiler..." \
-    && /tmp/downloads/ti_cgt_c6000_8.3.12_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
-    && echo "Installing TI ARM Compiler (Legacy)..." \
-    && /tmp/downloads/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin --mode unattended --prefix /opt/ti \
-    && echo "Installing mmWave MCU+ SDK..." \
-    && /tmp/downloads/mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin --mode unattended --prefix /opt/ti \
-    && echo "Installing legacy mmWave SDK..." \
-    && /tmp/downloads/mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin --mode unattended --prefix /opt/ti \
-    && echo "Installing TI Radar Toolbox..." \
-    && unzip -q /tmp/downloads/radar_toolbox_4_00_00_05.zip -d /opt/ti \
-    # Clean up temporary installer files to keep image size small
-    && rm -rf /tmp/downloads
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing SysConfig..." \
+    && install_ti /downloads/sysconfig-1.22.0_3893-setup.run --prefix /opt/ti/sysconfig_1.22.0
+
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing TI Clang + C6000 + legacy ARM compilers..." \
+    && install_ti /downloads/ti_cgt_armllvm_2.1.1.LTS_linux-x64_installer.bin --prefix /opt/ti \
+    && install_ti /downloads/ti_cgt_c6000_8.3.12_linux-x64_installer.bin --prefix /opt/ti \
+    && install_ti /downloads/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin --prefix /opt/ti
+
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing mmWave MCU+ SDK..." \
+    && install_ti /downloads/mmwave_mcuplus_sdk_04_04_00_01-Linux-x86-Install.bin --prefix /opt/ti
+
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing legacy mmWave SDK..." \
+    && install_ti /downloads/mmwave_sdk_03_06_02_00-LTS-Linux-x86-Install.bin --prefix /opt/ti
+
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing TI Radar Toolbox..." \
+    && unzip -q /downloads/radar_toolbox_4_00_00_05.zip -d /opt/ti
+
+# ---------------------------------------------------------------------------------------------
+# Code Composer Studio 12.8.1 (headless projectspec builds for the cascade demo)
+# CCS 12 isn't officially supported on Ubuntu 24.04; it needs a few libraries dropped from 24.04
+# (libtinfo5, libgconf-2-4, libpython2.7), pulled from older Ubuntu pools.
+# CCS_COMPONENTS: AM273x device support lives in the mmWave + Sitara MCU (AM2x) families;
+# set to PF_ALL if CCS reports an unknown device/product.
+# ---------------------------------------------------------------------------------------------
+ARG CCS_VERSION=12.8.1.00005
+ARG CCS_COMPONENTS=PF_MMWAVE,PF_SITARA_MCU
+RUN UBU=http://mirrors.edge.kernel.org/ubuntu/pool/universe \
+    && apt-get update && apt-get install -y --no-install-recommends libnsl2 \
+    && cd /tmp \
+    && wget -q $UBU/n/ncurses/libtinfo5_6.3-2ubuntu0.3_amd64.deb \
+               $UBU/g/gconf/gconf2-common_3.2.6-7ubuntu2_all.deb \
+               $UBU/g/gconf/libgconf-2-4_3.2.6-7ubuntu2_amd64.deb \
+               $UBU/p/python2.7/libpython2.7-minimal_2.7.18-13ubuntu1.5_amd64.deb \
+               $UBU/p/python2.7/libpython2.7-stdlib_2.7.18-13ubuntu1.5_amd64.deb \
+               $UBU/p/python2.7/libpython2.7_2.7.18-13ubuntu1.5_amd64.deb \
+    && (apt-get install -y --no-install-recommends /tmp/*.deb || dpkg -i --force-depends /tmp/*.deb) \
+    && rm -f /tmp/*.deb && rm -rf /var/lib/apt/lists/* \
+    # CCS's installer calls udev tools that don't exist in a container
+    && ln -sf /bin/true /usr/local/bin/udevadm && ln -sf /bin/true /sbin/start_udev && mkdir -p /etc/udev/rules.d
+
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing Code Composer Studio ${CCS_VERSION}..." \
+    && mkdir -p /tmp/ccs && tar -xzf /downloads/CCS${CCS_VERSION}_linux-x64.tar.gz -C /tmp/ccs \
+    && /tmp/ccs/CCS${CCS_VERSION}_linux-x64/ccs_setup_${CCS_VERSION}.run --mode unattended \
+         --enable-components ${CCS_COMPONENTS} --prefix /opt/ti \
+         --install-BlackHawk false --install-Segger false \
+       || (cat /opt/ti/ccs/install_logs/*/*.log; exit 1) \
+    && rm -rf /tmp/ccs
+
+ENV CCS_INSTALL_PATH=/opt/ti/ccs
+ENV PATH="/opt/ti/ccs/eclipse:${PATH}"
 
 # Default command launches a bash session
 CMD ["/bin/bash"]

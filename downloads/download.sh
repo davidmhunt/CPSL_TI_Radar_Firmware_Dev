@@ -37,5 +37,9 @@ curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configurati
 echo "Downloading TI Radar Toolbox..."
 curl -L -O -C - "https://dr-download.ti.com/software-development/support-software/MD-QCYx8qtXEc/4.00.00.05/radar_toolbox_4_00_00_05.zip"
 
+# 8. Code Composer Studio (12.8.1) — headless projectspec builds of the cascade demo (~1.3 GB)
+echo "Downloading Code Composer Studio..."
+curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS12.8.1.00005_linux-x64.tar.gz"
+
 echo "=== Download Completion Verification ==="
 ls -lh

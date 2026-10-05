@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Unified interactive firmware development environment
   firmware-env:
@@ -21,3 +19,18 @@ services:
     stdin_open: true
     tty: true
     command: /bin/bash
+
+  # Flashing / serial bring-up: same image, with the host's serial devices passed through.
+  # /dev is bind-mounted (rather than listing devices) so ports that re-enumerate after the
+  # EVM is power-cycled stay visible; the cgroup rules allow ttyUSB (188) and ttyACM (166).
+  #   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0 prebuilt
+  flash:
+    extends: firmware-env
+    volumes:
+      - .:/build_context
+      - /dev:/dev
+    device_cgroup_rules:
+      - 'c 188:* rmw'
+      - 'c 166:* rmw'
+    group_add:
+      - dialout

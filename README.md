@@ -11,7 +11,7 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ```text
 .
 ├── Dockerfile                  # Development environment container spec (Ubuntu 24.04)
-├── docker-compose.yaml         # Build target orchestration (unified dev service)
+├── docker-compose.yaml         # Build target orchestration (dev service + flash service with serial passthrough)
 ├── .gitignore                  # Ignores local SDK installers, build files, and IDE configs
 ├── README.md                   # This file
 │
@@ -31,7 +31,8 @@ It provides a containerized, headless development environment (Docker/Compose) h
 └── scripts/
     ├── build_mcuplus_ddm.sh    # Compilation runner script for Cascade DDM Demo
     ├── build_legacy_demos.sh   # Compilation runner script for legacy demos
-    └── flash_cascade.sh        # Headless flashing helper script
+    ├── flash_cascade.sh        # Headless UART flashing for the cascade demo
+    └── cascade_serial_check.py # CLI + TLV data-port bring-up check
 ```
 
 ---
@@ -47,7 +48,8 @@ The development environment container runs on **Ubuntu 24.04** and installs the 
 - **TI ARM CGT Compiler (v20.2.7.LTS)**: Required for the legacy SDK / single-chip target.
 
 > Cascade toolchain versions follow the demo's CCS projectspecs (`firmware/cascade/src/demo/src/awr2243/*.projectspec`); keep them in sync when upgrading.
-- **TI Radar Toolbox (v4.00.00.05)**: Contains tutorials, example labs, and documentation for radar sensors.
+- **TI Radar Toolbox (v4.00.00.05)**: Contains tutorials, example labs, and documentation for radar sensors; also supplies the cascade demo's prebuilt libraries.
+- **Code Composer Studio (v12.8.1)**: Used headless (no GUI) to build the cascade demo from its CCS projectspecs.
 - **Mono Runtime**: Enables headless generation of flash meta-images.
 - **Python 3.x & Flashing Libraries**: Serial communication helper libraries (`pyserial`, `xmodem`, and `tqdm`) for UART bootloader deployment.
 
@@ -104,6 +106,7 @@ If you prefer to download them manually, place the following exact filenames in 
 | **TI C6000 Compiler** | 8.3.12 | `ti_cgt_c6000_8.3.12_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-vqU2jj6ibH/8.3.12/ti_cgt_c6000_8.3.12_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/C6000-CGT/8.3.12) |
 | **TI ARM CGT Compiler** | 20.2.7.LTS | `ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-sDOoXkUcde/20.2.7.LTS/ti_cgt_tms470_20.2.7.LTS_linux-x64_installer.bin) | [Download Page](https://www.ti.com/tool/download/ARM-CGT) |
 | **TI Radar Toolbox** | 4.00.00.05 | `radar_toolbox_4_00_00_05.zip` | [Direct Download](https://dr-download.ti.com/software-development/support-software/MD-QCYx8qtXEc/4.00.00.05/radar_toolbox_4_00_00_05.zip) | [Toolbox 4.00.00.05](https://dev.ti.com/tirex/explore/radar_toolbox__4.00.00.05) \| [Latest Information Page](https://dev.ti.com/tirex/explore/node?isTheia=false&node=A__AEIJm0rwIeU.2P1OBWwlaA__radar_toolbox__1AslXXD__LATEST) |
+| **Code Composer Studio** | 12.8.1 | `CCS12.8.1.00005_linux-x64.tar.gz` | [Direct Download](https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS12.8.1.00005_linux-x64.tar.gz) | [Download Page](https://www.ti.com/tool/download/CCSTUDIO/12.8.1) |
 
 
 
@@ -123,9 +126,12 @@ Run the Cascade DDM demo build command inside the container:
 ```bash
 docker compose run --rm firmware-env /build_context/build_cascade.sh
 ```
-This generates:
-- `build/cascade/am273x_cascade.elf`
-- `build/cascade/am273x_cascade.appimage`
+This runs a headless Code Composer Studio 12.8.1 build of the TI cascade projectspecs (DSS first, then MSS) and generates:
+- `build/cascade/am273x_cascade.appimage` — flashable image (both cores)
+- `build/cascade/am273x_cascade.elf` — MSS (Cortex-R5F) executable
+- `build/cascade/am273x_cascade_dss.xe66` — DSS (C66x) executable
+
+Set `CCS_CONFIG=Debug` for a debug build. The CCS workspace (with full build logs) is kept in `build/cascade/ccs_workspace/`.
 
 ### 3. Compile Legacy Firmware (IWR1843/IWR6843)
 Run the legacy SDK demo builds inside the container:
@@ -163,14 +169,37 @@ For a streamlined development experience, this repository supports Microsoft's *
 
 ## ⚡ Headless Flashing Instructions
 
-Deploying compiled binaries is handled via the UART bootloader interface on the host machine.
+Flashing uses the MCU+ SDK UART bootloader (`uart_uniflash.py`) from the `flash` compose service, which passes the
+host's `/dev` (ttyUSB/ttyACM) into the container. Find the EVM's ports with `ls -l /dev/serial/by-id/` and flash over
+the **Application/User UART** port.
 
-1. **Set Jumper for UART Boot Mode**: Place the board's SOP jumpers in UART Boot Mode (refer to board reference sheets) and power-cycle.
-2. **Run Flashing Script**:
+1. **UART boot mode**: put the **J6 jumper on the bottom two pins**, connect micro-USB, then 12 V (>2 A, 2.1 mm center-positive).
+2. **Flash** TI's prebuilt demo first (this checks the board, cables, and ports), then our build:
    ```bash
-   ./scripts/flash_cascade.sh /dev/ttyUSB0 ./build/cascade/am273x_cascade.appimage
+   # TI prebuilt am273x_mmw_cascade_demo_DDM.appimage (from the installed Radar Toolbox)
+   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0 prebuilt
+   # our build (default: build/cascade/am273x_cascade.appimage)
+   docker compose run --rm flash /build_context/scripts/flash_cascade.sh /dev/ttyUSB0
    ```
-3. **Execute**: Power-off, return SOP jumpers to Functional Boot Mode, and power-on the board.
+   The script flashes `sbl_qspi` at `0x0` and the appimage at `0xA0000`. It succeeds only if the tool prints
+   `All commands from config file are executed !!!`. Outside Docker, set `TI_ROOT` to a host TI install.
+3. **Run**: move **J6 to the top two pins** (QSPI boot) and power-cycle.
+
+If flashing fails on a new board, the flash's Quad Enable bit may be unset. See "Possible Flashing Issues" in the
+cascade user guide (rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
+
+### Bring-up check (no visualizer needed)
+
+`scripts/cascade_serial_check.py` sends a chirp cfg over the CLI port (115200) and checks that every command returns
+`Done`. It then reads TLV frames from the data port (3,125,000 baud) and reports frame rate, frame-number gaps, and
+framing errors:
+```bash
+docker compose run --rm flash python3 /build_context/scripts/cascade_serial_check.py \
+    --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
+    --cfg /build_context/firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
+```
+The demo can only be configured once per boot (TI known issue), so power-cycle the EVM between runs. To only listen
+to a board that is already running, use `--skip-config`.
 
 ---
 

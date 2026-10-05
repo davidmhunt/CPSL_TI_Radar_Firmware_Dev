@@ -100,12 +100,13 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 - [`docs/lvds_code_map.md`](docs/lvds_code_map.md): where the demo streams ADC data over LVDS and where a custom payload hooks in.
 - [`docs/lvds_data_format.md`](docs/lvds_data_format.md): dataFmt 2 packet and metadata record, timestamp, how to align
   the lagged saturation field, host parsing.
+- [`docs/sar_cfg_guide.md`](docs/sar_cfg_guide.md): how to build a valid SAR cfg: command reference, requirements to values, timing, HPF/gain, worked example, common mistakes. Example `configs/sar_example_2ms.cfg`; checker `tools/sar_cfg_check.py` (tests: `tools/test_sar_cfg_check.py`).
 - [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
 
 ## Status
 
-**MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide and
-example cfg: firmware-09. See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
+**MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide, example cfg and
+checker: firmware-09 (`docs/sar_cfg_guide.md`). See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
 
 - Build (firmware-08, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
   151940 B; the map takes the CBUFF format table from the project's `cbuff_xwr18xx.oer4f` and places the record slots

@@ -1,36 +1,32 @@
 #!/bin/bash
-# Flash this project's image. Runs INSIDE the firmware container (the `flash` service, which
-# passes the host's /dev through); start it from firmware_dev/ with
-#     ./fw flash <project> <port> [image]
-# <port>   serial port of the board, e.g. /dev/ttyACM0 or /dev/serial/by-id/...
-# [image]  image to flash; default: the first file in ARTIFACTS, under ./build/
-#
-# Exit codes (projects/README.md, "flash.sh exit codes"):
-#   0  image flashed and the flasher confirmed success
-#   1  flashing failed
-#   2  bad arguments
-#   3  no headless flasher for this board: manual steps were printed instead
+# Flash this project's IWR1843 image. Runs INSIDE the firmware container (the `flash` service);
+#     ./fw flash iwr1843_sar_lvds <port> [image]
+# Exit codes: 0 flashed, 1 failed, 2 bad arguments, 3 manual steps printed.
+# There is no verifiable headless Linux flasher for SDK 3 xWR18xx in the image: CCS's DSLite only
+# ships serial-flash targets for AM2xx (no xWR18xx serial target), and TI's documented path is the
+# UniFlash GUI. So this prints the manual steps and exits 3.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 source ./project.env
 
-usage() { sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,7p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 [[ $# -ge 1 && $# -le 2 ]] || usage
 [[ "$1" == "-h" || "$1" == "--help" ]] && usage
 
 PORT="$1"
 read -r FIRST_ARTIFACT _ <<<"${ARTIFACTS}"
 IMAGE="$(realpath -m "${2:-build/${FIRST_ARTIFACT}}")"
-[[ -f "${IMAGE}" ]] || { echo "ERROR: image not found: ${IMAGE} (run ./fw build first?)" >&2; exit 1; }
+[[ -f "${IMAGE}" ]] || { echo "ERROR: image not found: ${IMAGE} (run ./fw build iwr1843_sar_lvds first?)" >&2; exit 1; }
 
-# ---- TODO: if the board has a headless flasher, call it here and exit 0 on confirmed success.
-# Otherwise keep this: print the manual steps and exit 3 (never pretend the board was flashed).
-HOST_IMAGE="${IMAGE#/build_context/}"   # path as the user sees it from firmware_dev/
+HOST_IMAGE="${IMAGE#/build_context/}"
 cat <<EOF
 No headless flasher for ${BOARD}: flash it by hand.
-  1. Power off the board, set it to flashing mode (SOP jumpers), power on.
-  2. Open TI UniFlash on the host, pick the board's serial port (${PORT}).
-  3. Flash: ${HOST_IMAGE}
-  4. Power off, set functional mode, power on.
+  1. Power off the board; set the SOP jumpers to flashing mode (IWR1843BOOST: SOP0 + SOP2 closed);
+     power on.
+  2. Open TI UniFlash on the host, choose IWR1843 (serial), COM port = the board's CLI/UART port
+     (${PORT}; usually the lower-numbered XDS110 port), Format = "bin".
+  3. Flash ${HOST_IMAGE} as Meta Image 1 and wait for "Flash operation completed".
+  4. Power off, set functional mode (SOP0 only closed), power on.
+  5. Send a configs/*.cfg over the CLI port at 115200 baud (one cfg per power-up).
 EOF
 exit 3

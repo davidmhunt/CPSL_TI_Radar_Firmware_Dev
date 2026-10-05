@@ -28,8 +28,29 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 
 ## Status
 
-- Build: not yet
-- On-board: not yet
+**Scaffold.** `src/` is the unmodified TI demo; SAR/LVDS changes come in a later directive.
+
+- Build: `./fw build iwr1843_sar_lvds` passes (firmware-04, 2026-10-05); ARM CGT 16.9.6 and C6000 8.3.3
+  ran; `/opt/ti` not modified (no file newer than a stamp taken before the build).
+- Equivalence to the stock demo (`ti_stock_demos/build/iwr1843_demo.bin`, firmware-03 criterion): same
+  `.bin` size (324804 B); MSS map memory configuration and segment allocation identical; DSS `.const.2`
+  is 4 B larger because this path is 2 characters longer (`__FILE__` strings), which also lets the linker
+  place `.bss` before `.far`. Built at a path of the same length as `ti_stock_demos`, both maps match
+  exactly, and this project's `src/` and TI's SDK demo folder give byte-identical `.bin`s. Two builds
+  here are byte-identical.
+- On-board: not tested.
+
+## How the build works
+
+Same out-of-tree technique as `projects/ti_stock_demos` (see its README). `build.sh` deletes
+`build/` and recreates an SDK overlay in `build/sdk/`: `packages/` is a symlink farm onto the SDK,
+except `ti/demo/xwr18xx/mmw`, which is a fresh copy of this project's `src/` (TI prebuilt outputs
+and `docs/` excluded). Every build is a clean build of the current `src/`, so local edits are
+always picked up. After sourcing TI's `setenv.sh` it sets `MMWAVE_SDK_DEVICE=iwr18xx` and
+`MMWAVE_SDK_INSTALL_PATH=build/sdk/packages`, then runs `make mmwDemo` (the non-AOP image).
+
+Outputs in `build/`: `iwr1843_sar_lvds.bin` (flash image), `iwr1843_sar_lvds.elf` (MSS `.xer4f`),
+`iwr1843_sar_lvds_dss.xe674`, `iwr1843_sar_lvds_{mss,dss}.map`, `build_info.txt`, `compilers.txt`.
 
 ## Build, flash, run
 
@@ -37,5 +58,11 @@ From `firmware_dev/` (see `projects/README.md` for prerequisites):
 
 ```bash
 ./fw build iwr1843_sar_lvds                 # outputs in projects/iwr1843_sar_lvds/build/
-./fw flash iwr1843_sar_lvds /dev/ttyACM0    # board-specific steps below
+./fw flash iwr1843_sar_lvds /dev/ttyACM0    # prints the manual steps, exits 3
 ```
+
+`flash.sh` has no headless flasher to call (no xWR18xx serial-flash target in the image's
+DSLite; TI's tool is the UniFlash GUI), so it prints the steps: IWR1843BOOST SOP0+SOP2 closed
+(flashing mode), power on, UniFlash with the CLI/UART port and `build/iwr1843_sar_lvds.bin` as
+Meta Image 1, then SOP0 only (functional mode) and power-cycle. Send a `configs/*.cfg` over the
+CLI port at 115200 baud; a cfg is accepted once per power-up.

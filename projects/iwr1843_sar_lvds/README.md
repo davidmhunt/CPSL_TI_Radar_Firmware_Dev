@@ -67,8 +67,8 @@ parsing: [`docs/lvds_data_format.md`](docs/lvds_data_format.md).
   SOC listener) counts the saturated CQ2 primary slices, frame start (VIM 98, SOC listener) cross-checks the counters.
   A 1 s BIOS clock function keeps the 64-bit timestamp extension current.
 - **Changed**: `lvdsStreamCfg` accepts dataFmt 2 = CBUFF `ADC_USER` with the slots as its user buffer
-  (`mss/mmw_lvds_stream.c`); `sensorStart` rejects dataFmt 2 unless the ADC output is complex and numAdcSamples × RX
-  is even. `mss/mmw_mss.mak` compiles the SDK's `drivers/cbuff/platform/cbuff_xwr18xx.c` with
+  (`mss/mmw_lvds_stream.c`); `sensorStart` rejects dataFmt 2 unless the ADC output is complex, ChanInterleave is 1 and
+  numAdcSamples × RX is even. `mss/mmw_mss.mak` compiles the SDK's `drivers/cbuff/platform/cbuff_xwr18xx.c` with
   `ENABLE_ALL_NON_INTERLEAVED`, because TI's prebuilt CBUFF library leaves `ADC_USER` out. dataFmt 1 and 4 stream as
   in firmware-07; the interrupt handlers run in every format (they feed `sarStats`).
 - **New CLI** `sarStats` (no arguments, works while running, reset at every `sensorStart`): chirps, frames, chirp-start

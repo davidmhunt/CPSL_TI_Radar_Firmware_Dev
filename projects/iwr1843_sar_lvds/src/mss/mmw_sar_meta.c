@@ -113,6 +113,8 @@ typedef struct MmwDemo_SarMeta_t
     uint32_t                numChirpsPerFrame;  /*!< 0 = no run configured: handlers only count */
     uint32_t                tcTicks;            /*!< idle + rampEnd, 10 ns ticks                */
     uint32_t                lateBudgetTicks;    /*!< adcStart + Ns/fs, 10 ns ticks               */
+    uint32_t                gap0Ticks;          /*!< last chirp of a frame -> chirp 0 of the next
+                                                     (frame period - (N-1) * Tc), 0 = no check     */
     volatile uint32_t       *cq2Addr;           /*!< CQ2 (MSS address), NULL = monitor off      */
     uint32_t                cq2MaxSlices;       /*!< slices configured in CQRxSatMonitor        */
     uint16_t                runFlags;           /*!< flags set on every record of the run       */
@@ -216,29 +218,37 @@ static void MmwDemo_sarChirpStartIsr(uintptr_t arg)
         c = 0U;
         s->frameIdx++;
     }
-    else if ((c > 0U) && (s->tcTicks != 0U))
-    {
-        /* Within a frame chirps are tcTicks apart: a longer gap means late or
-         * missed interrupts. ISR-to-ISR spacing, so a lower bound on lateness. */
-        uint64_t dt64 = ts - s->lastChirpTs;
-        uint32_t dt   = (dt64 > 0x7FFFFFFFULL) ? 0x7FFFFFFFU : (uint32_t)dt64;
 
-        if (dt > (s->tcTicks + (s->tcTicks >> 1)))
+    /* Expected spacing from the previous chirp: Tc within a frame, Tc + Tb
+     * (gap0Ticks) into chirp 0 of the next frame. A longer gap means late or
+     * missed interrupts (ISR-to-ISR spacing, so a lower bound on lateness).
+     * Not checked on the run's first chirp, nor at chirp 0 without a gap0. */
+    {
+        uint32_t base = (c > 0U) ? s->tcTicks : s->gap0Ticks;
+
+        if ((s->lastChirpTs != 0U) && (base != 0U) && (s->tcTicks != 0U))
         {
-            missed = ((dt + (s->tcTicks >> 1)) / s->tcTicks) - 1U;
-            flags |= MMWDEMO_SAR_FLAG_SKIP;
-            s->stats.missedChirpIsr += missed;
-            c += missed;
-            if (c >= n)
+            uint64_t dt64   = ts - s->lastChirpTs;
+            uint32_t dt     = (dt64 > 0x7FFFFFFFULL) ? 0x7FFFFFFFU : (uint32_t)dt64;
+            uint32_t excess = (dt > base) ? (dt - base) : 0U;
+
+            if (excess > (s->tcTicks >> 1))
             {
-                s->frameIdx += c / n;
-                c = c % n;
+                missed = (excess + (s->tcTicks >> 1)) / s->tcTicks;
+                flags |= MMWDEMO_SAR_FLAG_SKIP;
+                s->stats.missedChirpIsr += missed;
+                c += missed;
+                if (c >= n)
+                {
+                    s->frameIdx += c / n;
+                    c = c % n;
+                }
             }
-        }
-        else if (dt > (s->tcTicks + s->lateBudgetTicks))
-        {
-            flags |= MMWDEMO_SAR_FLAG_LATE;
-            s->stats.lateIsr++;
+            else if (excess > s->lateBudgetTicks)
+            {
+                flags |= MMWDEMO_SAR_FLAG_LATE;
+                s->stats.lateIsr++;
+            }
         }
     }
 
@@ -270,6 +280,9 @@ static void MmwDemo_sarChirpStartIsr(uintptr_t arg)
         rec->satRefLag = 0U;
     }
     rec->flags = flags;
+
+    /* Make the record stores complete before CBUFF's EDMA can read the slot */
+    __asm(" DSB");
 
     s->chirpInFrame = c + 1U;
     s->lastChirpTs  = ts;
@@ -311,9 +324,11 @@ static void MmwDemo_sarFrameStartIsr(uintptr_t arg)
             s->frameIdx     = f;
             s->chirpInFrame = 0U;
         }
-        else if ((s->frameIdx == f) && (s->chirpInFrame <= 1U))
+        else if ((s->frameIdx == f) && (s->chirpInFrame <= n))
         {
-            /* First frame of the run, or chirp 0 of frame f already handled */
+            /* First frame of the run, or the chirp-start handler already opened
+             * frame f (this interrupt was serviced late, possibly after several
+             * chirps): the counters are right, keep them. */
         }
         else
         {
@@ -478,13 +493,17 @@ int32_t MmwDemo_sarMetaInit(void *socHandle)
  *      Stores the per-run constants (called on reconfig, before the run).
  *      Chirp period and lateness budget come from the profile in 10 ns units,
  *      the RTI tick (rl_sensor.h:650-670: idle, ADC start and ramp end LSB 10 ns;
- *      digOutSampleRate in ksps).
+ *      digOutSampleRate in ksps; framePeriodicity LSB 5 ns).
  *
  *  @retval  0 on success, <0 on error
  */
-int32_t MmwDemo_sarMetaConfig(const rlProfileCfg_t *profileCfg, uint16_t numChirpsPerFrame)
+int32_t MmwDemo_sarMetaConfig(const rlProfileCfg_t *profileCfg, uint16_t numChirpsPerFrame,
+                              uint32_t framePeriodicity)
 {
     uint32_t adcTicks = 0U;
+    uint32_t tc       = profileCfg->idleTimeConst + profileCfg->rampEndTime;
+    uint32_t frameTicks = framePeriodicity / 2U;   /* 5 ns LSB (rl_sensor.h:980-989) -> 10 ns */
+    uint32_t busy;
 
     if (profileCfg->digOutSampleRate != 0U)
     {
@@ -494,8 +513,11 @@ int32_t MmwDemo_sarMetaConfig(const rlProfileCfg_t *profileCfg, uint16_t numChir
 
     /* Written while no chirps run; the handlers read it only during a run */
     gMmwDemoSarMeta.numChirpsPerFrame = numChirpsPerFrame;
-    gMmwDemoSarMeta.tcTicks           = profileCfg->idleTimeConst + profileCfg->rampEndTime;
+    gMmwDemoSarMeta.tcTicks           = tc;
     gMmwDemoSarMeta.lateBudgetTicks   = profileCfg->adcStartTimeConst + adcTicks;
+    /* last chirp of frame f starts (N-1)*Tc after chirp 0; chirp 0 of f+1 one frame period after chirp 0 of f */
+    busy = (numChirpsPerFrame > 0U) ? ((uint32_t)(numChirpsPerFrame - 1U) * tc) : 0U;
+    gMmwDemoSarMeta.gap0Ticks         = (frameTicks > busy) ? (frameTicks - busy) : 0U;
     return 0;
 }
 

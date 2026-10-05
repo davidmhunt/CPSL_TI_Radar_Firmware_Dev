@@ -23,27 +23,27 @@ in `project.env`). SDK paths are relative to `/opt/ti/mmwave_sdk_03_06_02_00-LTS
 |---|---|
 | `.h`:51-77 | `MmwDemo_SarChirpMeta` record + size/offset static asserts |
 | :68 | RTI FRC0 timestamp source |
-| :147 | record slots in `.cbuffL3Memory` (L3, placed by `mss/mmw_mss_linker.cmd`) |
-| :182 | chirp-start handler (VIM 99): fills slot `globalChirpIdx & 1`, LATE/SKIP detection |
-| :290 | frame-start listener (VIM 98): counter cross-check / resync |
-| :346 | chirp-available listener (VIM 123): CQ2 saturation count |
-| :416, :485, :510, :556 | init (Hwi, listeners, 1 s clock), per-reconfig constants, per-run reset, `sarStats` print |
+| :149 | record slots in `.cbuffL3Memory` (L3, placed by `mss/mmw_mss_linker.cmd`) |
+| :184 | chirp-start handler (VIM 99): fills slot `globalChirpIdx & 1`, LATE/SKIP detection (:227, chirp 0 too), barrier :285 |
+| :303 | frame-start listener (VIM 98): counter cross-check / resync |
+| :361 | chirp-available listener (VIM 123): CQ2 saturation count |
+| :431, :500, :532, :578 | init (Hwi, listeners, 1 s clock), per-reconfig constants, per-run reset, `sarStats` print |
 
 ## `mss/mss_main.c`
 
 | Lines | What |
 |---|---|
 | :78-93 | LVDS HW data sizing notes (TI's demo notes, header padding corrected to 16 B) |
-| :1730, :1737 | `MmwDemo_LVDSStreamInit` and `MmwDemo_sarMetaInit` at startup |
+| :1736, :1743 | `MmwDemo_LVDSStreamInit` and `MmwDemo_sarMetaInit` at startup |
 | :840, :1030 | `MmwDemo_mssSetHsiClk` (600 Mbps DDR, :852), called at first sensor start from `MmwDemo_openSensor` |
 | :609 | `MmwDemo_dataPathStart`: ADCBUF open + config, CQ, HW session created/activated (:659), every sensor start |
 | :683 | `MmwDemo_dataPathStop`: HW session deactivate + delete (:694), `ADCBuf_close` (:707) |
 | :785-793 | BSS frame-end event posts `frameEndSemHandle` |
-| :1117-1149 | `MmwDemo_configSensor`: dataFmt 2 checks, `MmwDemo_sarMetaConfig` |
-| :1182 | `MmwDemo_startSensor`: `MmwDemo_sarMetaRunStart` before `MMWave_start` |
-| :1284, :1291 | `MmwDemo_stopSensor`: bounded wait for frame end, then teardown |
-| :1194-1195 | runtime calibration at start: one-time on, periodic off |
-| :1794 | mmWave initialized in isolation mode (MSS-only) |
+| :1117-1155 | `MmwDemo_configSensor`: dataFmt 2 checks (ChanInterleave :1127), `MmwDemo_sarMetaConfig` |
+| :1188 | `MmwDemo_startSensor`: `MmwDemo_sarMetaRunStart` before `MMWave_start` |
+| :1290, :1297 | `MmwDemo_stopSensor`: bounded wait for frame end, then teardown |
+| :1200-1201 | runtime calibration at start: one-time on, periodic off |
+| :1800 | mmWave initialized in isolation mode (MSS-only) |
 
 ## Headers, CLI, resources
 

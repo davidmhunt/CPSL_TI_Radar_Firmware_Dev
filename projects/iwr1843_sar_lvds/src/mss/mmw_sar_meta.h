@@ -87,7 +87,8 @@ MMWDEMO_STATIC_ASSERT(sizeof(MmwDemo_SarChirpMeta) * MMWDEMO_SAR_META_NUM_SLOTS 
 extern int32_t MmwDemo_sarMetaInit(void *socHandle);
 
 /* Reconfig: per-run constants from the profile and frame (task context). */
-extern int32_t MmwDemo_sarMetaConfig(const rlProfileCfg_t *profileCfg, uint16_t numChirpsPerFrame);
+extern int32_t MmwDemo_sarMetaConfig(const rlProfileCfg_t *profileCfg, uint16_t numChirpsPerFrame,
+                                     uint32_t framePeriodicity);
 
 /* Sensor start, after ADCBUF/CQ are configured and before MMWave_start:
  * resets counters, statistics and slots for a new run. */

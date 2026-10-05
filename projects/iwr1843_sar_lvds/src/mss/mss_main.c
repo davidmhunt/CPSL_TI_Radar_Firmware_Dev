@@ -1112,8 +1112,8 @@ int32_t MmwDemo_configSensor(void)
 
     /* dataFmt 2 (ADC + SAR metadata): every block of the chirp packet must be a
      * multiple of 8 bytes (the DCA1000 2-lane ordering works on 8-byte groups,
-     * docs/lvds_data_format.md section 1), and the session is set up for
-     * complex samples. */
+     * docs/lvds_data_format.md section 1), the session is set up for complex
+     * samples, and xwr18xx CBUFF supports only non-interleaved ADC data. */
     if (subFrameCfg->lvdsStreamCfg.dataFmt == MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC_META)
     {
         uint32_t numRx = 0U;
@@ -1123,6 +1123,11 @@ int32_t MmwDemo_configSensor(void)
         {
             numRx += (rxEn & 1U);
             rxEn >>= 1;
+        }
+        if (subFrameCfg->adcBufCfg.chInterleave != 1U)
+        {
+            CLI_write ("Error: lvdsStreamCfg dataFmt 2 needs non-interleaved ADC data (adcbufCfg ChanInterleave 1)\n");
+            return -1;
         }
         if (subFrameCfg->adcBufCfg.adcFmt != 0U)
         {
@@ -1146,7 +1151,8 @@ int32_t MmwDemo_configSensor(void)
             CLI_write ("Error: unable to read the profile for the chirp metadata\n");
             return -1;
         }
-        errCode = MmwDemo_sarMetaConfig(&profileCfg, subFrameCfg->numChirpsPerSubFrame);
+        errCode = MmwDemo_sarMetaConfig(&profileCfg, subFrameCfg->numChirpsPerSubFrame,
+                                        gMmwMssMCB.cfg.ctrlCfg.u.frameCfg.frameCfg.framePeriodicity);
     }
     return errCode;
 }

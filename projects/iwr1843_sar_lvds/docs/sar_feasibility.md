@@ -70,7 +70,7 @@ SAR design's along-track limit `d_max` (an input, not computed here):
 
 Periodic runtime calibration must be off during capture (`calibPeriodicity` 0 = disabled, default 0, valid 0 or 4-100:
 `rl_sensor.h:2721-2725`). The stock demo enables it every 10 frames (`src/mss/mss_main.c:3164-3166` at `bb3a348`); this firmware
-disables it since firmware-07 (`src/mss/mss_main.c:1195`).
+disables it since firmware-07 (`src/mss/mss_main.c:1201`).
 
 ## (d) Per-chirp metadata
 

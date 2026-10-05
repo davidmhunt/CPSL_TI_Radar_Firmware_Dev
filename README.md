@@ -1,5 +1,20 @@
 # CPSL TI Radar Firmware Development
 
+## Quick start
+
+Firmware is organized as self-contained projects under `projects/`, built and flashed with `./fw`.
+**New here? Read [`projects/README.md`](projects/README.md)**: setup, layout, the `fw` commands, and how
+to add a project.
+
+```bash
+./downloads/download.sh && docker compose build   # once
+./fw help                                          # command summary
+./fw list                                          # available projects
+```
+
+The sections below describe the older `build_*.sh` / `scripts/` flow, which still builds the cascade and legacy
+demos until they move into `projects/`.
+
 This repository serves as the centralized development, compilation, and build environment for all Texas Instruments (TI) mmWave radar sensor firmware utilized by the Collaborative Perception and Sensing Lab (CPSL).
 
 It provides a containerized, headless development environment (Docker/Compose) housing all required compilers and software development kits (SDKs) to develop, build, and deploy firmware without relying on the Code Composer Studio (CCS) GUI or MATLAB runtime.
@@ -22,6 +37,10 @@ It provides a containerized, headless development environment (Docker/Compose) h
 ├── downloads/                  # TI SDK/Toolchain installer downloads folder (ignored by git)
 │   └── download.sh             # Headless download utility script
 │
+├── fw                          # Project build/flash dispatcher (see projects/README.md)
+├── projects/                   # Self-contained firmware projects + _template/ + guide
+├── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
+│
 ├── firmware/
 │   ├── cascade/                # AM273x + AWR2243 2-Chip Cascade application firmware
 │   │   └── src/                # Cascade source code directory
@@ -31,8 +50,7 @@ It provides a containerized, headless development environment (Docker/Compose) h
 └── scripts/
     ├── build_mcuplus_ddm.sh    # Compilation runner script for Cascade DDM Demo
     ├── build_legacy_demos.sh   # Compilation runner script for legacy demos
-    ├── flash_cascade.sh        # Headless UART flashing for the cascade demo
-    └── cascade_serial_check.py # CLI + TLV data-port bring-up check
+    └── flash_cascade.sh        # Headless UART flashing for the cascade demo
 ```
 
 ---
@@ -190,11 +208,11 @@ cascade user guide (rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
 
 ### Bring-up check (no visualizer needed)
 
-`scripts/cascade_serial_check.py` sends a chirp cfg over the CLI port (115200) and checks that every command returns
+`tools/cascade_serial_check.py` sends a chirp cfg over the CLI port (115200) and checks that every command returns
 `Done`. It then reads TLV frames from the data port (3,125,000 baud) and reports frame rate, frame-number gaps, and
 framing errors:
 ```bash
-docker compose run --rm flash python3 /build_context/scripts/cascade_serial_check.py \
+docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
     --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
     --cfg /build_context/firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
 ```

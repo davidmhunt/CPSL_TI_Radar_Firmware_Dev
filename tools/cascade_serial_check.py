@@ -1,11 +1,21 @@
 #!/usr/bin/env python3
-"""Bring-up check for the AWR2243 2-chip cascade demo over UART (no TI visualizer needed).
+"""Bring-up check for a TI mmWave demo over UART (no TI visualizer needed).
 
 Sends a chirp cfg over the CLI port, checks every command answers "Done", then reads the data
 port and validates TLV frames (magic word, header, frame-number continuity, frame rate).
 
-    python3 scripts/cascade_serial_check.py --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
-        --cfg firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
+Board-tested on the AWR2243 2-chip cascade demo only. The TLV frame header it parses is the same
+in the mmWave SDK 3.x single-chip demos, and the frameCfg period parse accepts both the cascade
+(9-argument) and SDK 3.x (7-argument) forms, but it has not been run against an SDK 3.x board;
+pass --data-baud to match the demo (SDK 3.x demos use 921600).
+
+From firmware_dev/ (the `flash` service passes the host serial ports through):
+
+    docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
+        --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
+        --cfg /build_context/firmware/cascade/src/demo/chirp_configs/cascade_shortrange.cfg
+
+or on the host (needs pyserial): tools/cascade_serial_check.py --cli ... --data ... --cfg ...
 
 The demo cannot be reconfigured after sensorStart (TI known issue): power-cycle the EVM
 between runs. Use --skip-config to only listen on the data port of an already-running board.
@@ -110,8 +120,10 @@ def frame_period_ms(cfg_path):
     with open(cfg_path) as f:
         for line in f:
             parts = line.split()
-            # SDK 3.x: frameCfg <start> <end> <loops> <frames> <periodMs> ...
-            # cascade: frameCfg <start> <end> <loops> <frames> <adcSamples> <periodMs> ... (9 fields)
+            # SDK 3.x (7 args): frameCfg <start> <end> <loops> <frames> <periodMs> <trigSel> <trigDelay>
+            #   e.g. xwr18xx/mmw/profiles/profile_2d.cfg: frameCfg 0 1 32 0 100 1 0
+            # cascade (9 args): period is the 6th argument
+            #   e.g. chirp_configs/*.cfg: frameCfg 0 7 32 0 192 50 1 0 2
             if parts and parts[0] == "frameCfg":
                 if len(parts) >= 10:
                     return float(parts[6])

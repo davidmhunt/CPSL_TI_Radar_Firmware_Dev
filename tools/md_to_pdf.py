@@ -1,7 +1,7 @@
 """Convert a Markdown file to a PDF of the same name in the same directory.
 
 Usage:
-    uv run python scripts/md_to_pdf.py <path/to/file.md>
+    uv run python tools/md_to_pdf.py <path/to/file.md>
 """
 
 import re
@@ -158,7 +158,7 @@ __BODY__
 
 def main():
     if len(sys.argv) != 2:
-        print("Usage: uv run python scripts/md_to_pdf.py <file.md>")
+        print("Usage: uv run python tools/md_to_pdf.py <file.md>")
         sys.exit(1)
 
     md_path = Path(sys.argv[1])

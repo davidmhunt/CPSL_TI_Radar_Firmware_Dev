@@ -1,0 +1,132 @@
+#!/bin/bash
+# fw: build and flash the firmware projects in projects/ through the Docker build environment.
+# Full guide: projects/README.md. Run `./fw help` for the command summary.
+set -euo pipefail
+
+FW_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+PROJECTS_DIR="${FW_ROOT}/projects"
+TEMPLATE="_template"
+# Environment variables forwarded into the container, besides every FW_* variable.
+PASS_ENV=(CCS_CONFIG)
+
+usage() {
+    cat <<'EOF'
+Usage: ./fw <command> [args]          (run from firmware_dev/; guide: projects/README.md)
+
+  list                            List projects with their board, SDK and TI baseline
+  new <project>                   Create projects/<project>/ from projects/_template/
+  build <project> [args...]       Run projects/<project>/build.sh in the container;
+                                  outputs land in projects/<project>/build/
+  flash <project> <port> [image]  Run projects/<project>/flash.sh in the container with
+                                  the host's serial ports; image defaults to the build output
+  help                            Show this summary
+
+Prerequisites (once): ./downloads/download.sh && docker compose build
+Variables: CCS_CONFIG and any FW_* variable are passed into the container,
+  e.g. CCS_CONFIG=Debug ./fw build <project>
+Examples:
+  ./fw list
+  ./fw new my_radar_demo
+  ./fw build my_radar_demo
+  ./fw flash my_radar_demo /dev/ttyACM0
+EOF
+}
+
+die() { echo "fw: error: $*" >&2; exit 1; }
+
+# Resolve <project> to an existing project folder, or fail with a clear message.
+project_dir() {
+    local p="${1:-}"
+    [[ -n "$p" ]] || die "missing <project> (run ./fw list)"
+    [[ "$p" != "$TEMPLATE" ]] || die "'$TEMPLATE' is the template, not a project; use ./fw new <project>"
+    [[ "$p" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ && -d "${PROJECTS_DIR}/$p" ]] \
+        || die "no project '$p' in projects/ (run ./fw list)"
+    echo "${PROJECTS_DIR}/$p"
+}
+
+# docker compose run as the host user, so files written to the bind mount are host-owned.
+compose_run() {
+    local service="$1"; shift
+    local args=(run --rm --user "$(id -u):$(id -g)" -e HOME=/tmp/fwhome)
+    [[ -t 0 && -t 1 ]] || args+=(-T)
+    local commit
+    commit="$(git -C "${FW_ROOT}" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+    if [[ "$commit" != unknown ]] && ! git -C "${FW_ROOT}" diff --quiet HEAD 2>/dev/null; then
+        commit+="-dirty"
+    fi
+    args+=(-e "FW_COMMIT=${commit}")
+    local v
+    for v in "${PASS_ENV[@]}" $(compgen -v FW_ || true); do
+        [[ "$v" == FW_COMMIT || "$v" == FW_ROOT ]] && continue
+        [[ -n "${!v+x}" ]] && args+=(-e "$v=${!v}")
+    done
+    cd "${FW_ROOT}"
+    # HOME must exist for CCS/Eclipse; create it, then hand over to the project script.
+    docker compose "${args[@]}" "$service" bash -c 'mkdir -p "$HOME" && exec "$0" "$@"' "$@"
+}
+
+cmd_list() {
+    local found=0 d name
+    printf '%-24s %-22s %-34s %s\n' PROJECT BOARD SDK BASELINE
+    for d in "${PROJECTS_DIR}"/*/; do
+        name="$(basename "$d")"
+        [[ "$name" == "$TEMPLATE" ]] && continue
+        if [[ ! -f "$d/project.env" ]]; then
+            printf '%-24s %s\n' "$name" "(no project.env)"
+            continue
+        fi
+        # Subshell so one project's variables never leak into the next.
+        ( set +u; BOARD='' SDK='' SDK_VERSION='' BASELINE='' BASELINE_COMMIT=''
+          source "$d/project.env"
+          printf '%-24s %-22s %-34s %s\n' "$name" "$BOARD" "$SDK $SDK_VERSION" "$BASELINE @ $BASELINE_COMMIT" )
+        found=1
+    done
+    [[ $found -eq 1 ]] || echo "(no projects yet: create one with ./fw new <project>)"
+}
+
+cmd_new() {
+    local p="${1:-}"
+    [[ $# -eq 1 ]] || die "usage: ./fw new <project>"
+    [[ "$p" =~ ^[a-z0-9][a-z0-9_]*$ ]] \
+        || die "project names use lowercase letters, digits and '_' (e.g. iwr1843_my_demo)"
+    [[ ! -e "${PROJECTS_DIR}/$p" ]] || die "projects/$p already exists; not overwriting it"
+    cp -r "${PROJECTS_DIR}/${TEMPLATE}" "${PROJECTS_DIR}/$p"
+    rm -rf "${PROJECTS_DIR}/$p/build"
+    sed -i "s/PROJECT_NAME/$p/g" "${PROJECTS_DIR}/$p/README.md"
+    echo "Created projects/$p/. Next: fill in projects/$p/project.env, add the TI source to"
+    echo "projects/$p/src/, write build.sh, then: ./fw build $p   (walkthrough: projects/README.md)"
+}
+
+cmd_build() {
+    local dir; dir="$(project_dir "${1:-}")"; shift
+    [[ -f "$dir/build.sh" ]] || die "projects/$(basename "$dir")/build.sh not found"
+    compose_run firmware-env "/build_context/projects/$(basename "$dir")/build.sh" "$@"
+}
+
+cmd_flash() {
+    local dir; dir="$(project_dir "${1:-}")"; shift
+    [[ $# -ge 1 && $# -le 2 ]] || die "usage: ./fw flash <project> <port> [image]"
+    [[ -f "$dir/flash.sh" ]] || die "projects/$(basename "$dir")/flash.sh not found"
+    local port="$1" args=("$1")
+    [[ -e "$port" ]] || die "serial port $port not found (try: ls -l /dev/serial/by-id/)"
+    if [[ $# -eq 2 ]]; then
+        if [[ -f "$2" ]]; then
+            # A host path: translate it to the same file under /build_context in the container.
+            local abs; abs="$(realpath "$2")"
+            [[ "$abs" == "${FW_ROOT}/"* ]] || die "image must be inside firmware_dev/ (got $abs)"
+            args+=("/build_context/${abs#"${FW_ROOT}/"}")
+        else
+            args+=("$2")   # passed through as-is (e.g. a keyword the project's flash.sh accepts)
+        fi
+    fi
+    compose_run flash "/build_context/projects/$(basename "$dir")/flash.sh" "${args[@]}"
+}
+
+case "${1:-help}" in
+    list)  shift; cmd_list "$@" ;;
+    new)   shift; cmd_new "$@" ;;
+    build) shift; cmd_build "$@" ;;
+    flash) shift; cmd_flash "$@" ;;
+    help|-h|--help) usage ;;
+    *) echo "fw: unknown command '$1'" >&2; usage >&2; exit 1 ;;
+esac

@@ -1,6 +1,7 @@
 # Build directories and artifacts (anchored to repo root so same-named
 # folders inside the firmware source tree are not silently ignored)
 /build/
+/projects/*/build/
 /bin/
 *.o
 *.d

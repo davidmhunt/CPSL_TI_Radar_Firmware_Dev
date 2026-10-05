@@ -40,3 +40,6 @@ __pycache__/
 *.pyc
 .venv/
 .pytest_cache/
+
+# User's local scenario note, not tracked
+/projects/iwr1843_sar_lvds/configs/sar_sample.md

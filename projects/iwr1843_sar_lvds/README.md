@@ -30,9 +30,14 @@ Both groups are covered by the SDK software manifest (`docs/mmwave_sdk_software_
 headers when editing. No TI binaries are tracked; the
 open release-gate item on shipping TI binaries publicly is unchanged by this project.
 
+## Docs
+
+- [`docs/lvds_code_map.md`](docs/lvds_code_map.md): where the demo streams ADC data over LVDS and where a custom payload hooks in.
+- [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
+
 ## Status
 
-**Scaffold.** `src/` is the unmodified TI demo; SAR/LVDS changes come in a later directive.
+**Scaffold.** `src/` is the unmodified TI demo. SAR mode planned; see `docs/sar_feasibility.md`.
 
 - Build: `./fw build iwr1843_sar_lvds` passes (firmware-04, 2026-10-05); ARM CGT 16.9.6 and C6000 8.3.3
   ran; `/opt/ti` not modified (no file newer than a stamp taken before the build).

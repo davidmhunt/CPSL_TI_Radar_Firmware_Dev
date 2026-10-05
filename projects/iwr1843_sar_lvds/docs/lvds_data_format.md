@@ -128,9 +128,9 @@ SDK paths are relative to `mmwave_sdk_03_06_02_00-LTS/packages/ti`; firmware pat
 
 1. HSI header = 16 B data-card header (id `0x0CDA0ADC0CDA0ADC`) + 36 B SDK header (`dataFmt` 6 = ADC_USER,
    `userBufSize[0]` = 32 units) + `0x0F` padding (SDK `utils/hsiheader/hsiprotocol.h:403-590`).
-   `mss/mmw_lvds_stream.c:441` calls `HSIHeader_createHeader(…, false, …)`, which pads to 8 CBUFF units (SDK
+   `mss/mmw_lvds_stream.c:450` calls `HSIHeader_createHeader(…, false, …)`, which pads to 8 CBUFF units (SDK
    `utils/hsiheader/src/hsiheader.c:286-306`); TI's "round up to 256 B" note holds only for `bAlignDataCard = true`.
-2. `-me` in SDK `common/mmwave_sdk.mak:113`; `msbFirst = 1`, 2 lanes: `mss/mmw_lvds_stream.c:137-143`.
+2. `-me` in SDK `common/mmwave_sdk.mak:113`; `msbFirst = 1`, 2 lanes: `mss/mmw_lvds_stream.c:140-144`; record filled in `mss/mmw_sar_meta.c:182`, slots streamed via `mss/mmw_lvds_stream.c:425-432`.
 3. `CPSL_TI_Radar_cpp/src/DCA1000/ADCCubeConverter.cpp:67-86` (layout `two_lane_iq_pairs`).
 4. `CHIRP_START_INT` 99, `FRAME_START_INT` 98, `CHIRP_AVAIL_IRQ` 123: SDK `common/sys_common_xwr18xx_mss.h:352-374`.
    No TI xwr18xx code uses 99, so its exact position in the chirp (idle start or ramp knee) is unverified *(bench)*; the

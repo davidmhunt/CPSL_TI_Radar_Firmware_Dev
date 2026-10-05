@@ -48,10 +48,15 @@
  *    frame cfg) plus adcbufCfg, lvdsStreamCfg, analogMonitor, CQRxSatMonitor,
  *    CQSigImgMonitor, calibData, queryDemoStatus, sensorStart, sensorStop.
  *  - ADCBUF configured from the MSS at every sensor start.
- *  - One CBUFF HW session that streams the ADC (or CP+ADC+CQ) data of every
- *    chirp over LVDS to the DCA1000. It is created and activated at sensor
- *    start, stays active across frame boundaries (nothing waits on a frame
- *    event), and is deactivated and deleted at sensor stop.
+ *  - One CBUFF HW session that streams the ADC (or ADC + per-chirp SAR
+ *    metadata record, or CP+ADC+CQ) data of every chirp over LVDS to the
+ *    DCA1000. It is created and activated at sensor start, stays active
+ *    across frame boundaries (nothing waits on a frame event), and is
+ *    deactivated and deleted at sensor stop.
+ *  - Per-chirp metadata (mmw_sar_meta.c, docs/lvds_data_format.md): chirp-
+ *    start, chirp-available and frame-start interrupts fill the record slots
+ *    (counters, RTI timestamp, saturation of the previous chirp) and the
+ *    "sarStats" counters.
  *
  *  @section restart Stop / reconfigure / restart without a power cycle
  *    sensorStop waits for the BSS frame-end event, then tears down the HW
@@ -70,10 +75,14 @@
  *    runtime calibration is disabled (enablePeriodicity = false), so no
  *    calibration is applied in the inter-frame blank during a capture.
  *
- *  @section LVDSStreamingNotes LVDS HW data sizing (from TI's demo notes)
- *    -# Bytes per chirp with the HSI header on, ADC format:
- *       round-up(numAdcSamples * numRxChannels * 4 + 52, 256)
- *       [52 = sizeof(HSIDataCardHeader_t) + sizeof(HSISDKHeader_t), 256 = sizeof(HSIHeader_t)].
+ *  @section LVDSStreamingNotes LVDS HW data sizing (from TI's demo notes, corrected)
+ *    -# Bytes per chirp: H + numAdcSamples * numRxChannels * 4 (+ 64 for the two
+ *       SAR metadata record slots of dataFmt 2). H = 0 with the HSI header off;
+ *       with it on, H = 52 [sizeof(HSIDataCardHeader_t) + sizeof(HSISDKHeader_t)]
+ *       plus padding that makes the whole packet a multiple of 16 bytes:
+ *       HSIHeader_createHeader(..., false, ...) aligns to 8 CBUFF units
+ *       (hsiheader.c:286-306). TI's "round up to 256" note holds only for
+ *       bAlignDataCard = true. See docs/lvds_data_format.md.
  *       It must fit in one chirp period: Tc * n * B / 8 >= that size, with
  *       Tc = idle + ramp end time (us), n = 2 lanes, B = 600 Mbps per lane
  *       (MmwDemo_mssSetHsiClk).
@@ -139,6 +148,7 @@
 #include <ti/demo/utils/mmwdemo_monitor.h>
 #include <ti/demo/xwr18xx/mmw/mmw_res.h>
 #include <ti/demo/xwr18xx/mmw/mss/mmw_mss.h>
+#include <ti/demo/xwr18xx/mmw/mss/mmw_sar_meta.h>
 #include <ti/demo/utils/mmwdemo_flash.h>
 
 /* Profiler Include Files */
@@ -1095,6 +1105,49 @@ int32_t MmwDemo_configSensor(void)
 
     errCode = MmwDemo_configMonitors(subFrameCfg, RFparserOutParams.numChirpsPerChirpEvent,
                                      RFparserOutParams.validProfileIdx);
+    if (errCode != 0)
+    {
+        return errCode;
+    }
+
+    /* dataFmt 2 (ADC + SAR metadata): every block of the chirp packet must be a
+     * multiple of 8 bytes (the DCA1000 2-lane ordering works on 8-byte groups,
+     * docs/lvds_data_format.md section 1), and the session is set up for
+     * complex samples. */
+    if (subFrameCfg->lvdsStreamCfg.dataFmt == MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC_META)
+    {
+        uint32_t numRx = 0U;
+        uint32_t rxEn  = gMmwMssMCB.cfg.openCfg.chCfg.rxChannelEn;
+
+        while (rxEn != 0U)
+        {
+            numRx += (rxEn & 1U);
+            rxEn >>= 1;
+        }
+        if (subFrameCfg->adcBufCfg.adcFmt != 0U)
+        {
+            CLI_write ("Error: lvdsStreamCfg dataFmt 2 needs complex ADC output (adcbufCfg adcOutputFmt 0)\n");
+            return -1;
+        }
+        if ((((uint32_t)subFrameCfg->numAdcSamples * numRx) & 1U) != 0U)
+        {
+            CLI_write ("Error: lvdsStreamCfg dataFmt 2 needs numAdcSamples x RX channels to be even\n");
+            return -1;
+        }
+    }
+
+    /* Per-chirp metadata: chirp period, lateness budget and chirps per frame */
+    {
+        rlProfileCfg_t       profileCfg;
+        MMWave_ProfileHandle profileHandle = gMmwMssMCB.cfg.ctrlCfg.u.frameCfg.profileHandle[RFparserOutParams.validProfileIdx];
+
+        if ((profileHandle == NULL) || (MMWave_getProfileCfg(profileHandle, &profileCfg, &errCode) < 0))
+        {
+            CLI_write ("Error: unable to read the profile for the chirp metadata\n");
+            return -1;
+        }
+        errCode = MmwDemo_sarMetaConfig(&profileCfg, subFrameCfg->numChirpsPerSubFrame);
+    }
     return errCode;
 }
 
@@ -1124,6 +1177,10 @@ int32_t MmwDemo_startSensor(void)
         CLI_write ("Error: ADCBUF/LVDS HW session setup failed\n");
         return -1;
     }
+
+    /* Per-chirp metadata: new run (counters, statistics, record slots, CQ2) */
+    MmwDemo_sarMetaRunStart(gMmwMssMCB.adcBufHandle, gMmwMssMCB.anaMonCfg.rxSatMonEn,
+                            gMmwMssMCB.cqSatMonCfg[gMmwMssMCB.validProfileIdx].numSlices);
 
     /*****************************************************************************
      * RF :: now start the RF and the real time ticking
@@ -1673,6 +1730,13 @@ static void MmwDemo_initTask(UArg arg0, UArg arg1)
     if ((errCode = MmwDemo_LVDSStreamInit()) < 0 )
     {
         System_printf ("Error: LVDS stream init failed with Error[%d]\n",errCode);
+        return;
+    }
+
+    /* Per-chirp metadata: chirp/frame interrupt handlers, timestamp clock */
+    if (MmwDemo_sarMetaInit(gMmwMssMCB.socHandle) < 0)
+    {
+        System_printf ("Error: SAR chirp metadata init failed\n");
         return;
     }
 

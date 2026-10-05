@@ -59,8 +59,8 @@ popd > /dev/null
 export MMWAVE_SDK_DEVICE=iwr18xx
 export MMWAVE_SDK_INSTALL_PATH="${OVL}/packages"
 export XWR18XX_RADARSS_IMAGE_BIN="${MMWAVE_SDK_INSTALL_PATH}/../firmware/radarss/xwr18xx_radarss_rprc.bin"
+# Only the R4F compiler runs (MSS-only image, no DSP code).
 "${R4F_CODEGEN_INSTALL_PATH}/bin/armcl" --compiler_revision | head -1 | tee -a "${OUT_DIR}/compilers.txt"
-"${C674_CODEGEN_INSTALL_PATH}/bin/cl6x" --compiler_revision | head -1 | tee -a "${OUT_DIR}/compilers.txt"
 
 # mmwDemo = MSS-only metaimage (MSS + BSS firmware, DSS = NULL); see src/makefile.
 make -C "${DEMO_DIR}" mmwDemo

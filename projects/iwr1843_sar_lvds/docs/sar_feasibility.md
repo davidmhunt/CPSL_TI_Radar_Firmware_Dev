@@ -27,7 +27,7 @@ lanes, `Blane` Mbps per lane, `Bchirp` bytes per chirp, v platform speed, d_max 
 | loops, chirp indices, frames | loops 1 to 255; indices 0 to 511; `numFrames` 0 = infinite | `:958`, `:949-953`, `:963` |
 | frame period | 300 us to 1.342 s, LSB 5 ns | `:986-987` |
 | inter-frame blank Tb | see (c) | `:983`, `:4468` |
-| LVDS | 2 lanes x 600 Mbps DDR = 150 MB/s | `src/mss/mmw_lvds_stream.c:141`; `src/mss/mss_main.c:842` |
+| LVDS | 2 lanes x 600 Mbps DDR = 150 MB/s | `src/mss/mmw_lvds_stream.c:142`; `src/mss/mss_main.c:852` |
 | HPF corners | HPF1 175/235/350/700 kHz; HPF2 350/700/1400/2800 kHz | `:774-791`; datasheet SWRS228B 7.7 |
 | RX gain | even values 24 to 52 in the API; datasheet specifies 24 to 48 dB, so design to 48 | `:832`; datasheet 7.7 |
 
@@ -35,9 +35,11 @@ Nc = loops x (chirp indices used), so more than 255 chirps per frame needs sever
 
 ## (b) Data rate
 
-Bytes per chirp (HW session, ADC format, HSI header on), from TI's note (now `src/mss/mss_main.c:74-77`):
+Bytes per chirp (HW session, ADC format, HSI header on). TI's demo note says `roundup256(Ns * R * 4 + 52)`, but the HW
+session's header pads only to 16 B (`HSIHeader_createHeader(…, false, …)`; exact layout and the dataFmt 2 size in
+`lvds_data_format.md` §1). The 256-B form, used below, is an upper bound:
 
-    Bchirp = roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
+    Bchirp <= roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
 
 The header is not stored in the ADC buffer, so it counts against LVDS capacity only, not the 16 KB half. With `Tc` in us and
 `Blane` in Mbps, LVDS carries `Tc * nlane * Blane / 8` bytes per chirp; feasible only if `Bchirp <= Tc * nlane * Blane / 8`.
@@ -68,7 +70,7 @@ SAR design's along-track limit `d_max` (an input, not computed here):
 
 Periodic runtime calibration must be off during capture (`calibPeriodicity` 0 = disabled, default 0, valid 0 or 4-100:
 `rl_sensor.h:2721-2725`). The stock demo enables it every 10 frames (`src/mss/mss_main.c:3164-3166` at `bb3a348`); this firmware
-disables it since firmware-07 (`src/mss/mss_main.c:1138`).
+disables it since firmware-07 (`src/mss/mss_main.c:1195`).
 
 ## (d) Per-chirp metadata
 
@@ -76,6 +78,7 @@ The HSI header cannot carry per-chirp counters: its application extension is sta
 (`utils/hsiheader/hsiprotocol.h:567-572`). Use the HW session's `CBUFF_DataFmt_ADC_USER` (`drivers/cbuff/cbuff.h:349`): a user
 record after each chirp's ADC data, updated by the MSS from the chirp interrupts (CHIRP_START 99, CHIRP_AVAIL 123, FRAME_START 98:
 `ti/common/sys_common_xwr18xx_mss.h:352-374`; `MSS_SYS_VCLK` 200 MHz, `:464`, is the candidate timestamp clock). Its bytes add to `Bchirp`.
+Implemented in firmware-08 as dataFmt 2 (64 B per chirp, RTI 100 MHz timestamp): see `lvds_data_format.md`.
 Fallback: a frame-level record in a per-frame SW session like the TI demo's (`src/mss/mss_main.c:2618-2642` at `bb3a348`; removed in firmware-07).
 
 ## (e) Worked example (self-contained)
@@ -88,7 +91,7 @@ frequency at 100 m: `2 * slope * R / c = 1.557 MHz`.
   ramp rate, not the chirp-interval average (1.557 x 1500/2000 = 1.17 Msps).
 - Chosen: slope code 48 (2.317 MHz/us, sweep 3.476 GHz, inside 77-81 GHz); ADC 2.2 Msps (usable IF 1.76 MHz covers
   1.55 MHz); Ns = 2.2 Msps x 1.5 ms = 3300 (13,200 B, inside the 16 KB half).
-- Data: `Bchirp = roundup256(13,200 + 52) = 13,312 B`; 13,312 B / 2 ms = 6.66 MB/s, 4.4 % of 150 MB/s; about 4550 packets/s.
+- Data: `Bchirp <= roundup256(13,200 + 52) = 13,312 B` (dataFmt 2 with header: 13,328 B); 13,312 B / 2 ms = 6.66 MB/s, 4.4 % of 150 MB/s; about 4550 packets/s.
 - Frame: the 1.342 s cap gives Nc <= (1.342 s - Tb) / Tc = 670. For example 3 identical chirp indices x 223 loops = 669 chirps,
   framePeriodicity 1.3383 s (Tb = 300 us); a single index would give only 255.
 - Boundary: Tc + Tb = 2.3 ms, v x 2.3 ms = 1.725 mm <= 7.11 mm (margin 4.1x).

@@ -28,7 +28,7 @@ Baseline: `project.env` (`BASELINE`, `BASELINE_COMMIT`). See every change since 
     (`SHMEM_ALLOC` = SDK default `0x00000008`); DSS, AOP and secure (HS) targets dropped; `mmw_mss.mak` no
     longer links `libdpm`; the linker cmd no longer places `.demoSharedMem` in HS_RAM.
 - **Kept**: the SDK mmWave CLI extension (channel/adc/profile/chirp/frame cfg, `flushCfg`), `adcbufCfg`
-  (complex, chirpThreshold 1), `lvdsStreamCfg` (HW session, dataFmt 0/1/4, header on/off; `enableSW 1`
+  (complex, chirpThreshold 1), `lvdsStreamCfg` (HW session, dataFmt 0/1/4, header on/off, dataFmt 2 since firmware-08; `enableSW 1`
   rejected), `analogMonitor`, `CQRxSatMonitor`, `CQSigImgMonitor`, `calibData`, `queryDemoStatus`,
   `sensorStart`, `sensorStop`; calibration save/restore to flash; HSI clock 600 Mbps DDR; CLI prompt
   `mmwDemo:/>` (banner now names this firmware).
@@ -45,7 +45,8 @@ Baseline: `project.env` (`BASELINE`, `BASELINE_COMMIT`). See every change since 
     returned; a leak is reported as an error) and closes ADCBUF. Then `flushCfg`, a full cfg and
     `sensorStart` re-run `MMWave_config` and the RF parser and re-create ADCBUF and the HW session, so
     every profile/chirp/frame/adcbuf/lvds parameter may change, including `rxGain`, the HPF corners, the
-    sample count and the sample rate. `sensorStart 0` restarts with the previous cfg. `channelCfg`,
+    sample count and the sample rate. `sensorStart 0` restarts with the previous cfg. A run with a finite `numFrames` that has finished
+    still needs `sensorStop` before the next `sensorStart` (otherwise "Ignored: Sensor is already started"). `channelCfg`,
     `adcCfg` and `lowPower` are applied by `MMWave_open` on the first start only (stock behaviour); a
     later start with different values is rejected with a CLI error (the TI demo halted the MSS instead).
     Changing them needs a power cycle. After `flushCfg` they must be re-sent with the original values.
@@ -55,6 +56,24 @@ Baseline: `project.env` (`BASELINE`, `BASELINE_COMMIT`). See every change since 
     frames). Boot calibration (first `MMWave_open`) and TI's one-time runtime calibration at each
     `sensorStart` stay on.
   - Errors in the start path are reported on the CLI and undo the partial setup instead of asserting.
+
+**firmware-08: per-chirp SAR metadata over LVDS (`lvdsStreamCfg` dataFmt 2) and `sarStats`.** Format and host
+parsing: [`docs/lvds_data_format.md`](docs/lvds_data_format.md).
+
+- **Added** `mss/mmw_sar_meta.{c,h}`: the 32-byte record (magic, version, flags, frame index, chirp in frame, chirps
+  per frame, global chirp index, run index, saturation of an earlier chirp with its lag, 64-bit timestamp from the
+  BIOS RTI counter at 100 MHz); two record slots in L3 (`.cbuffL3Memory`, placed by `mss/mmw_mss_linker.cmd`); three
+  interrupt handlers: chirp start (VIM 99, own Hwi) fills chirp k's record into slot k mod 2, chirp available (VIM 123,
+  SOC listener) counts the saturated CQ2 primary slices, frame start (VIM 98, SOC listener) cross-checks the counters.
+  A 1 s BIOS clock function keeps the 64-bit timestamp extension current.
+- **Changed**: `lvdsStreamCfg` accepts dataFmt 2 = CBUFF `ADC_USER` with the slots as its user buffer
+  (`mss/mmw_lvds_stream.c`); `sensorStart` rejects dataFmt 2 unless the ADC output is complex and numAdcSamples × RX
+  is even. `mss/mmw_mss.mak` compiles the SDK's `drivers/cbuff/platform/cbuff_xwr18xx.c` with
+  `ENABLE_ALL_NON_INTERLEAVED`, because TI's prebuilt CBUFF library leaves `ADC_USER` out. dataFmt 1 and 4 stream as
+  in firmware-07; the interrupt handlers run in every format (they feed `sarStats`).
+- **New CLI** `sarStats` (no arguments, works while running, reset at every `sensorStart`): chirps, frames, chirp-start
+  and chirp-available interrupts, saturated chirps, late and missed chirp interrupts, counter resyncs, CBUFF error
+  interrupts, the sticky CBUFF chirp/frame-start error bits, LVDS frames done, current timestamp.
 
 The baseline was copied verbatim from `packages/ti/demo/xwr18xx/mmw/` of the SDK: `mss/ dss/ include/ makefile
 mmw_res.h` into `src/`, `profiles/*.cfg` into `configs/`, `profiles/mmwDemo_xwr18xx_update_config.pl`
@@ -79,12 +98,18 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 ## Docs
 
 - [`docs/lvds_code_map.md`](docs/lvds_code_map.md): where the demo streams ADC data over LVDS and where a custom payload hooks in.
+- [`docs/lvds_data_format.md`](docs/lvds_data_format.md): dataFmt 2 packet and metadata record, timestamp, how to align
+  the lagged saturation field, host parsing.
 - [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
 
 ## Status
 
-**MSS-only raw-ADC streaming (firmware-07).** Per-chirp metadata and saturation flag: firmware-08; SAR cfg
-guide and example cfg: firmware-09. See `docs/sar_feasibility.md`.
+**MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide and
+example cfg: firmware-09. See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
+
+- Build (firmware-08, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
+  151940 B; the map takes the CBUFF format table from the project's `cbuff_xwr18xx.oer4f` and places the record slots
+  at L3 `0x51000000` (64 B).
 
 - Build (firmware-07, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker
   warnings (warnings are errors in the SDK flags); `.bin` 147844 B (TI baseline image 324804 B); the MSS
@@ -92,8 +117,9 @@ guide and example cfg: firmware-09. See `docs/sar_feasibility.md`.
   is built.
 - Baseline equivalence (firmware-04): the unmodified `src/` built to the same 324804 B `.bin` as
   `ti_stock_demos`, byte-identical at a path of the same length.
-- On-board: not tested. Streaming, restart without a power cycle and the frame-boundary gap are checked
-  on the bench in firmware-10.
+- On-board: not tested. Streaming, restart without a power cycle, the frame-boundary gap and the per-chirp
+  metadata (chirp-start interrupt, DCA1000 byte order of the record, timestamp rate and jitter) are checked on the
+  bench in firmware-10.
 
 ## How the build works
 

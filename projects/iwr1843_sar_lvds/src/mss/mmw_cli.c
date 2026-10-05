@@ -60,6 +60,7 @@
 /* Demo Include Files */
 #include <ti/demo/xwr18xx/mmw/include/mmw_config.h>
 #include <ti/demo/xwr18xx/mmw/mss/mmw_mss.h>
+#include <ti/demo/xwr18xx/mmw/mss/mmw_sar_meta.h>
 #include <ti/demo/utils/mmwdemo_adcconfig.h>
 
 /**************************************************************************
@@ -78,6 +79,7 @@ static int32_t MmwDemo_CLIChirpQualityRxSatMonCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIChirpQualitySigImgMonCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIAnalogMonitorCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[]);
+static int32_t MmwDemo_CLISarStats (int32_t argc, char* argv[]);
 
 /**************************************************************************
  *************************** Extern Definitions *******************************
@@ -623,9 +625,10 @@ static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[])
 
     if ((cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_DISABLED) &&
         (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC) &&
+        (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC_META) &&
         (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_CP_ADC_CQ))
     {
-        CLI_write("Error: dataFmt must be 0 (disabled), 1 (ADC) or 4 (CP_ADC_CQ)\n");
+        CLI_write("Error: dataFmt must be 0 (disabled), 1 (ADC), 2 (ADC + SAR metadata) or 4 (CP_ADC_CQ)\n");
         return -1;
     }
 
@@ -658,6 +661,22 @@ static int32_t MmwDemo_CLIQueryDemoStatus (int32_t argc, char* argv[])
     CLI_write ("Sensor start/stop count: %d/%d\n",gMmwMssMCB.sensorStartCount,gMmwMssMCB.sensorStopCount);
     CLI_write ("LVDS HW frames done: %d\n",gMmwMssMCB.lvdsStream.hwFrameDoneCount);
 
+    return 0;
+}
+
+/**
+ *  @b Description
+ *  @n
+ *      This is the CLI Handler for "sarStats": running per-run counters
+ *      (chirps, frames, late/missed interrupts, saturated chirps, CBUFF
+ *      errors). Usable while the sensor runs; reset at every sensorStart.
+ *
+ *  @retval
+ *      Success -   0
+ */
+static int32_t MmwDemo_CLISarStats (int32_t argc, char* argv[])
+{
+    MmwDemo_sarMetaPrintStats();
     return 0;
 }
 
@@ -773,13 +792,18 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     cnt++;
 
     cliCfg.tableEntry[cnt].cmd            = "lvdsStreamCfg";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enableHeader> <dataFmt 0|1|4> <enableSW 0>";
+    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enableHeader> <dataFmt 0|1|2|4> <enableSW 0>; 2 = ADC + per-chirp SAR metadata";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLILvdsStreamCfg;
     cnt++;
     
     cliCfg.tableEntry[cnt].cmd            = "queryDemoStatus";
     cliCfg.tableEntry[cnt].helpString     = "";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIQueryDemoStatus;
+    cnt++;
+
+    cliCfg.tableEntry[cnt].cmd            = "sarStats";
+    cliCfg.tableEntry[cnt].helpString     = "No arguments; per-run chirp/frame/saturation/CBUFF counters (works while running)";
+    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLISarStats;
     cnt++;
 
     cliCfg.tableEntry[cnt].cmd            = "calibData";

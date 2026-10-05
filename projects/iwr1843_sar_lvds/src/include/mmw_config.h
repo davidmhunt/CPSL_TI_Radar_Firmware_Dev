@@ -70,13 +70,16 @@ typedef struct MmwDemo_LvdsStreamCfg_t
     /*! ADC */
 #define MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC        1
 
+    /*! ADC + per-chirp SAR metadata record (CBUFF ADC_USER, docs/lvds_data_format.md) */
+#define MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC_META   2
+
     /*! CP_ADC_CQ */
 #define MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_CP_ADC_CQ  4
 
     /*! HW streaming data format:
         0-HW STREAMING DISABLED
         1-ADC
-        2-Reserved
+        2-ADC + SAR metadata (this firmware)
         3-Reserved
         4-CP_ADC_CQ
     */

@@ -8,6 +8,7 @@
 ###################################################################################
 vpath %.c $(MMWAVE_SDK_INSTALL_PATH)/ti/demo/utils \
           $(MMWAVE_SDK_INSTALL_PATH)/ti/board \
+          $(MMWAVE_SDK_INSTALL_PATH)/ti/drivers/cbuff/platform \
 		  ./mss
           
 
@@ -72,6 +73,8 @@ MSS_MMW_DEMO_SOURCES     =  \
                        mss_main.c \
                        mmw_cli.c \
                        mmw_lvds_stream.c \
+                       mmw_sar_meta.c \
+                       cbuff_xwr18xx.c \
                        mmwdemo_flash.c \
 		       		   antenna_geometry.c
 
@@ -91,8 +94,13 @@ mmwMssRTSC:
 # Build the Millimeter Wave Demo
 ###################################################################################
 mssDemo: BUILD_CONFIGPKG=$(MSS_MMW_DEMO_CONFIGPKG)
+# cbuff_xwr18xx.c: the SDK's CBUFF platform table, compiled here with every
+# non-interleaved format so CBUFF_DataFmt_ADC_USER (lvdsStreamCfg dataFmt 2) is
+# available; its symbols replace the libcbuff member, which leaves ADC_USER out
+# (drivers/cbuff/platform/cbuff_xwr18xx.c:276-299). The define affects only that file.
 mssDemo: R4F_CFLAGS += --cmd_file=$(BUILD_CONFIGPKG)/compiler.opt \
-                       --define=DebugP_LOG_ENABLED
+                       --define=DebugP_LOG_ENABLED \
+                       --define=ENABLE_ALL_NON_INTERLEAVED
 mssDemo: buildDirectories mmwMssRTSC $(MSS_MMW_DEMO_OBJECTS)
 	$(R4F_LD) $(R4F_LDFLAGS) $(MSS_MMW_DEMO_LOC_LIBS) $(MSS_MMW_DEMO_STD_LIBS) 					\
 	-l$(MSS_MMW_DEMO_CONFIGPKG)/linker.cmd --map_file=$(MSS_MMW_DEMO_MAP) $(MSS_MMW_DEMO_OBJECTS) 	\

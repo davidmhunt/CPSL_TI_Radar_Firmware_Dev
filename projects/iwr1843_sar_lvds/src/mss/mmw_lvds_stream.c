@@ -60,6 +60,7 @@
 
 /* MMWAVE Demo Include Files */
 #include <ti/demo/xwr18xx/mmw/mss/mmw_mss.h>
+#include <ti/demo/xwr18xx/mmw/mss/mmw_sar_meta.h>
 #include <ti/demo/xwr18xx/mmw/mmw_res.h>
 
 extern MmwDemo_MSS_MCB    gMmwMssMCB;
@@ -382,7 +383,8 @@ static void MmwDemo_LVDSStream_HwTriggerFrameDone (CBUFF_SessionHandle sessionHa
  *  @b Description
  *  @n
  *      This is the LVDS streaming config function. 
- *      It creates the CBUFF HW session (ADC or CP_ADC_CQ data per chirp).
+ *      It creates the CBUFF HW session (ADC, ADC + SAR metadata, or CP_ADC_CQ
+ *      data per chirp).
  *
  *  @retval
  *      Success -   0
@@ -419,6 +421,15 @@ int32_t MmwDemo_LVDSStreamHwConfig (uint8_t subFrameIndx)
     {
         case MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC:
             sessionCfg.u.hwCfg.dataFormat = CBUFF_DataFmt_ADC_DATA;
+        break;
+        case MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC_META:
+            /* ADC data, then the two 32-byte SAR metadata record slots as the
+             * user buffer (docs/lvds_data_format.md). ADC_USER is enabled by
+             * compiling the CBUFF platform table with ENABLE_ALL_NON_INTERLEAVED
+             * (mmw_mss.mak); the prebuilt SDK library leaves it out. */
+            sessionCfg.u.hwCfg.dataFormat                = CBUFF_DataFmt_ADC_USER;
+            sessionCfg.u.hwCfg.userBufferInfo[0].address = (uint32_t)&gMmwDemoSarChirpMetaSlots[0];
+            sessionCfg.u.hwCfg.userBufferInfo[0].size    = HSIHeader_toCBUFFUnits(sizeof(gMmwDemoSarChirpMetaSlots));
         break;
         case MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_CP_ADC_CQ:
             sessionCfg.u.hwCfg.dataFormat = CBUFF_DataFmt_CP_ADC_CQ;

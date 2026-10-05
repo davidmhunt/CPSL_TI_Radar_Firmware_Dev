@@ -27,7 +27,7 @@ lanes, `Blane` Mbps per lane, `Bchirp` bytes per chirp, v platform speed, d_max 
 | loops, chirp indices, frames | loops 1 to 255; indices 0 to 511; `numFrames` 0 = infinite | `:958`, `:949-953`, `:963` |
 | frame period | 300 us to 1.342 s, LSB 5 ns | `:986-987` |
 | inter-frame blank Tb | see (c) | `:983`, `:4468` |
-| LVDS | 2 lanes x 600 Mbps DDR = 150 MB/s | `src/mss/mmw_lvds_stream.c:154`; `src/mss/mss_main.c:2911-2912` |
+| LVDS | 2 lanes x 600 Mbps DDR = 150 MB/s | `src/mss/mmw_lvds_stream.c:141`; `src/mss/mss_main.c:842` |
 | HPF corners | HPF1 175/235/350/700 kHz; HPF2 350/700/1400/2800 kHz | `:774-791`; datasheet SWRS228B 7.7 |
 | RX gain | even values 24 to 52 in the API; datasheet specifies 24 to 48 dB, so design to 48 | `:832`; datasheet 7.7 |
 
@@ -35,7 +35,7 @@ Nc = loops x (chirp indices used), so more than 255 chirps per frame needs sever
 
 ## (b) Data rate
 
-Bytes per chirp (HW session, ADC format, HSI header on), from TI's note at `src/mss/mss_main.c:366-379`:
+Bytes per chirp (HW session, ADC format, HSI header on), from TI's note (now `src/mss/mss_main.c:74-77`):
 
     Bchirp = roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
 
@@ -67,8 +67,8 @@ SAR design's along-track limit `d_max` (an input, not computed here):
     v * (Tc + Tb) <= d_max        i.e.  Tc <= d_max / v - Tb
 
 Periodic runtime calibration must be off during capture (`calibPeriodicity` 0 = disabled, default 0, valid 0 or 4-100:
-`rl_sensor.h:2721-2725`). The stock demo enables it every 10 frames (`src/mss/mss_main.c:3164-3166`), so SAR firmware must
-override that.
+`rl_sensor.h:2721-2725`). The stock demo enables it every 10 frames (`src/mss/mss_main.c:3164-3166` at `bb3a348`); this firmware
+disables it since firmware-07 (`src/mss/mss_main.c:1138`).
 
 ## (d) Per-chirp metadata
 
@@ -76,7 +76,7 @@ The HSI header cannot carry per-chirp counters: its application extension is sta
 (`utils/hsiheader/hsiprotocol.h:567-572`). Use the HW session's `CBUFF_DataFmt_ADC_USER` (`drivers/cbuff/cbuff.h:349`): a user
 record after each chirp's ADC data, updated by the MSS from the chirp interrupts (CHIRP_START 99, CHIRP_AVAIL 123, FRAME_START 98:
 `ti/common/sys_common_xwr18xx_mss.h:352-374`; `MSS_SYS_VCLK` 200 MHz, `:464`, is the candidate timestamp clock). Its bytes add to `Bchirp`.
-Fallback: a frame-level record in the demo's per-frame SW session (`src/mss/mss_main.c:2618-2642`).
+Fallback: a frame-level record in a per-frame SW session like the TI demo's (`src/mss/mss_main.c:2618-2642` at `bb3a348`; removed in firmware-07).
 
 ## (e) Worked example (self-contained)
 

@@ -62,14 +62,12 @@ export XWR18XX_RADARSS_IMAGE_BIN="${MMWAVE_SDK_INSTALL_PATH}/../firmware/radarss
 "${R4F_CODEGEN_INSTALL_PATH}/bin/armcl" --compiler_revision | head -1 | tee -a "${OUT_DIR}/compilers.txt"
 "${C674_CODEGEN_INSTALL_PATH}/bin/cl6x" --compiler_revision | head -1 | tee -a "${OUT_DIR}/compilers.txt"
 
-# mmwDemo = the standard (non-AOP) image; `all` would also build the AOP variants.
+# mmwDemo = MSS-only metaimage (MSS + BSS firmware, DSS = NULL); see src/makefile.
 make -C "${DEMO_DIR}" mmwDemo
 
 cp "${DEMO_DIR}/xwr18xx_mmw_demo.bin"       "${OUT_DIR}/${PROJECT}.bin"
 cp "${DEMO_DIR}/xwr18xx_mmw_demo_mss.xer4f" "${OUT_DIR}/${PROJECT}.elf"
-cp "${DEMO_DIR}/xwr18xx_mmw_demo_dss.xe674" "${OUT_DIR}/${PROJECT}_dss.xe674"
 cp "${DEMO_DIR}/xwr18xx_mmw_demo_mss.map"   "${OUT_DIR}/${PROJECT}_mss.map"
-cp "${DEMO_DIR}/xwr18xx_mmw_demo_dss.map"   "${OUT_DIR}/${PROJECT}_dss.map"
 
 # Provenance: what was built, from which commit, with which compilers.
 cat > "${OUT_DIR}/build_info.txt" <<INFO

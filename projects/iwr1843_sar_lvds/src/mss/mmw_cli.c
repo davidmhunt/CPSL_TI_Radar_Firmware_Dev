@@ -36,7 +36,6 @@
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  *  OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 /**************************************************************************
  *************************** Include Files ********************************
  **************************************************************************/
@@ -57,49 +56,34 @@
 #include <ti/drivers/uart/UART.h>
 #include <ti/control/mmwavelink/mmwavelink.h>
 #include <ti/utils/cli/cli.h>
-#include <ti/utils/mathutils/mathutils.h>
 
 /* Demo Include Files */
 #include <ti/demo/xwr18xx/mmw/include/mmw_config.h>
 #include <ti/demo/xwr18xx/mmw/mss/mmw_mss.h>
 #include <ti/demo/utils/mmwdemo_adcconfig.h>
-#include <ti/demo/utils/mmwdemo_rfparser.h>
 
 /**************************************************************************
  *************************** Local function prototype****************************
  **************************************************************************/
 
-/* CLI Extended Command Functions */
-static int32_t MmwDemo_CLICfarCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIMultiObjBeamForming (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLICalibDcRangeSig (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIClutterRemoval (int32_t argc, char* argv[]);
+/* CLI Extended Command Functions. The TI demo's object-detection commands
+ * (guiMonitor, cfarCfg, multiObjBeamForming, calibDcRangeSig, clutterRemoval,
+ * compRangeBiasAndRxChanPhase, measureRangeBiasAndRxChanPhase, aoaFovCfg,
+ * cfarFovCfg, extendedMaxVelocity) and the TLV data-port command
+ * (configDataPort) are not registered: a stock demo cfg fails loudly. */
 static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLISensorStop (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIGuiMonSel (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIADCBufCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLICompRangeBiasAndRxChanPhaseCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIMeasureRangeBiasAndRxChanPhaseCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLICfarFovCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIAoAFovCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIExtendedMaxVelocity (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIChirpQualityRxSatMonCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIChirpQualitySigImgMonCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLIAnalogMonitorCfg (int32_t argc, char* argv[]);
 static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[]);
-static int32_t MmwDemo_CLIConfigDataPort (int32_t argc, char* argv[]);
 
 /**************************************************************************
  *************************** Extern Definitions *******************************
  **************************************************************************/
 
 extern MmwDemo_MSS_MCB    gMmwMssMCB;
-
-/**************************************************************************
- *************************** Local Definitions ****************************
- **************************************************************************/
-
-#define MMWDEMO_DATAUART_MAX_BAUDRATE_SUPPORTED 3125000
 
 /**************************************************************************
  *************************** CLI  Function Definitions **************************
@@ -146,6 +130,22 @@ static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[])
     }
 
     /***********************************************************************************
+     * Frame mode only: advanced frame (sub-frames) and continuous mode are rejected
+     ***********************************************************************************/
+    if (doReconfig == true)
+    {
+        MMWave_CtrlCfg ctrlCfg;
+
+        CLI_getMMWaveExtensionConfig (&ctrlCfg);
+        if (ctrlCfg.dfeDataOutputMode != MMWave_DFEDataOutputMode_FRAME)
+        {
+            CLI_write ("Error: only dfeDataOutputMode 1 (frame) is supported; "
+                       "advanced frame (3) and continuous mode (2) are rejected\n");
+            return -1;
+        }
+    }
+
+    /***********************************************************************************
      * Do sensor state management to influence the sensor actions
      ***********************************************************************************/
 
@@ -154,23 +154,13 @@ static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[])
     if ((gMmwMssMCB.sensorState == MmwDemo_SensorState_INIT) || 
          (gMmwMssMCB.sensorState == MmwDemo_SensorState_OPENED))
     {
-        MMWave_CtrlCfg ctrlCfg;
-
-        /* need to get number of sub-frames so that next function to check
-         * pending state can work */
-        CLI_getMMWaveExtensionConfig (&ctrlCfg);
-        gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.numSubFrames =
-            MmwDemo_RFParser_getNumSubFrames(&ctrlCfg);
+        /* frame mode only (checked above): one sub-frame */
+        gMmwMssMCB.numSubFrames = 1U;
 
         if (MmwDemo_isAllCfgInPendingState() == 0)
         {
             CLI_write ("Error: Full configuration must be provided before sensor can be started "
                        "the first time\n");
-
-            /* Although not strictly needed, bring back to the initial value since we
-             * are rejecting this first time configuration, prevents misleading debug. */
-            gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.numSubFrames = 0;
-
             return -1;
         }
     }
@@ -208,14 +198,8 @@ static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[])
     {
         /* User intends to issue sensor start with full config, check if all config
            was issued after stop and generate error if  is the case. */
-        MMWave_CtrlCfg ctrlCfg;
+        gMmwMssMCB.numSubFrames = 1U;
 
-        /* need to get number of sub-frames so that next function to check
-         * pending state can work */
-        CLI_getMMWaveExtensionConfig (&ctrlCfg);
-        gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.numSubFrames =
-            MmwDemo_RFParser_getNumSubFrames(&ctrlCfg);
-        
         if (MmwDemo_isAllCfgInPendingState() == 0)
         {
             /* Message user differently if no config was issued or partial config was
@@ -232,9 +216,6 @@ static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[])
                            "command and partial configuration cannot be undone."
                            "Issue the full configuration and do \"sensorStart\" \n");
             }
-            /* Although not strictly needed, bring back to the initial value since we
-             * are rejecting this first time configuration, prevents misleading debug. */
-            gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.numSubFrames = 0;
             return -1;
         }
     }
@@ -258,37 +239,35 @@ static int32_t MmwDemo_CLISensorStart (int32_t argc, char* argv[])
     }
     else
     {
-        /* openCfg related configurations like chCfg, lowPowerMode, adcCfg
-         * are only used on the first sensor start. If they are different
-         * on a subsequent sensor start, then generate a fatal error
-         * so the user does not think that the new (changed) configuration
-         * takes effect, the board needs to be reboot for the new
-         * configuration to be applied.
-         */
+        /* openCfg related configurations (channelCfg, lowPower, adcCfg) are
+         * only applied by MMWave_open on the first sensor start. The TI demo
+         * asserts (halts the MSS) if they differ on a later start; here the start
+         * is rejected with a message instead, and the sensor stays stopped.
+         * Changing them needs a power cycle. */
         MMWave_OpenCfg openCfg;
         CLI_getMMWaveExtensionOpenConfig (&openCfg);
-        /* Compare openCfg->chCfg*/
         if(memcmp((void *)&gMmwMssMCB.cfg.openCfg.chCfg, (void *)&openCfg.chCfg,
                           sizeof(rlChanCfg_t)) != 0)
         {
-            MmwDemo_debugAssert(0);
+            CLI_write ("Error: channelCfg differs from the first sensorStart; "
+                       "re-send the original channelCfg or power-cycle the board\n");
+            return -1;
         }
-        
-        /* Compare openCfg->lowPowerMode*/
         if(memcmp((void *)&gMmwMssMCB.cfg.openCfg.lowPowerMode, (void *)&openCfg.lowPowerMode,
                           sizeof(rlLowPowerModeCfg_t)) != 0)
         {
-            MmwDemo_debugAssert(0);
+            CLI_write ("Error: lowPower differs from the first sensorStart; "
+                       "re-send the original lowPower or power-cycle the board\n");
+            return -1;
         }
-        /* Compare openCfg->adcOutCfg*/
         if(memcmp((void *)&gMmwMssMCB.cfg.openCfg.adcOutCfg, (void *)&openCfg.adcOutCfg,
                           sizeof(rlAdcOutCfg_t)) != 0)
         {
-            MmwDemo_debugAssert(0);
+            CLI_write ("Error: adcCfg differs from the first sensorStart; "
+                       "re-send the original adcCfg or power-cycle the board\n");
+            return -1;
         }
     }
-
-    
 
     /***********************************************************************************
      * Retrieve mmwave Control related config before calling startSensor
@@ -392,388 +371,6 @@ static int32_t MmwDemo_CLIGetSubframe (int32_t argc, char* argv[], int32_t expec
     return 0;
 }
 
-
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for gui monitoring configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIGuiMonSel (int32_t argc, char* argv[])
-{
-    MmwDemo_GuiMonSel   guiMonSel;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 8, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize the guiMonSel configuration: */
-    memset ((void *)&guiMonSel, 0, sizeof(MmwDemo_GuiMonSel));
-
-    /* Populate configuration: */
-    guiMonSel.detectedObjects           = atoi (argv[2]);
-    guiMonSel.logMagRange               = atoi (argv[3]);
-    guiMonSel.noiseProfile              = atoi (argv[4]);
-    guiMonSel.rangeAzimuthHeatMap       = atoi (argv[5]);
-    guiMonSel.rangeDopplerHeatMap       = atoi (argv[6]);
-    guiMonSel.statsInfo                 = atoi (argv[7]);
-
-    MmwDemo_CfgUpdate((void *)&guiMonSel, MMWDEMO_GUIMONSEL_OFFSET,
-        sizeof(MmwDemo_GuiMonSel), subFrameNum);
-
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for CFAR configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLICfarCfg (int32_t argc, char* argv[])
-{
-    DPU_CFARCAProc_CfarCfg   cfarCfg;
-    uint32_t            procDirection;
-    int8_t              subFrameNum;
-    float               threshold;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 10, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&cfarCfg, 0, sizeof(cfarCfg));
-
-    /* Populate configuration: */
-    procDirection             = (uint32_t) atoi (argv[2]);
-    cfarCfg.averageMode       = (uint8_t) atoi (argv[3]);
-    cfarCfg.winLen            = (uint8_t) atoi (argv[4]);
-    cfarCfg.guardLen          = (uint8_t) atoi (argv[5]);
-    cfarCfg.noiseDivShift     = (uint8_t) atoi (argv[6]);
-    cfarCfg.cyclicMode        = (uint8_t) atoi (argv[7]);
-    threshold                 = (float) atof (argv[8]);
-    cfarCfg.peakGroupingEn    = (uint8_t) atoi (argv[9]);
-
-    if (threshold > 100.0)
-    {
-        CLI_write("Error: Maximum value for CFAR thresholdScale is 100.0 dB.\n");
-        return -1;
-    }   
-    
-    /* threshold is a float value from 0-100dB. It needs to
-       be later converted to linear scale (conversion can only be done
-       when the number of virtual antennas is known) before passing it
-       to CFAR DPU.
-       For now, the threshold will be coded in a 16bit integer in the following
-       way:
-       suppose threshold is a float represented as XYZ.ABC
-       it will be saved as a 16bit integer XYZAB       
-       that is, 2 decimal cases are saved.*/
-    threshold = threshold * MMWDEMO_CFAR_THRESHOLD_ENCODING_FACTOR;   
-    cfarCfg.thresholdScale    = (uint16_t) threshold;
-    
-    /* Save Configuration to use later */     
-    if (procDirection == 0)
-    {
-        MmwDemo_CfgUpdate((void *)&cfarCfg, MMWDEMO_CFARCFGRANGE_OFFSET,
-                          sizeof(cfarCfg), subFrameNum);
-    }
-    else
-    {
-        MmwDemo_CfgUpdate((void *)&cfarCfg, MMWDEMO_CFARCFGDOPPLER_OFFSET,
-                          sizeof(cfarCfg), subFrameNum);
-    }
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for CFAR FOV (Field Of View) configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLICfarFovCfg (int32_t argc, char* argv[])
-{
-    DPU_CFARCAProc_FovCfg   fovCfg;
-    uint32_t            procDirection;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 5, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&fovCfg, 0, sizeof(fovCfg));
-
-    /* Populate configuration: */
-    procDirection             = (uint32_t) atoi (argv[2]);
-    fovCfg.min                = (float) atof (argv[3]);
-    fovCfg.max                = (float) atof (argv[4]);
-
-    /* Save Configuration to use later */
-    if (procDirection == 0)
-    {
-        MmwDemo_CfgUpdate((void *)&fovCfg, MMWDEMO_FOVRANGE_OFFSET,
-                          sizeof(fovCfg), subFrameNum);
-    }
-    else
-    {
-        MmwDemo_CfgUpdate((void *)&fovCfg, MMWDEMO_FOVDOPPLER_OFFSET,
-                          sizeof(fovCfg), subFrameNum);
-    }
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for AoA FOV (Field Of View) configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIAoAFovCfg (int32_t argc, char* argv[])
-{
-    DPU_AoAProc_FovAoaCfg   fovCfg;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 6, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&fovCfg, 0, sizeof(fovCfg));
-
-    /* Populate configuration: */
-    fovCfg.minAzimuthDeg      = (float) atoi (argv[2]);
-    fovCfg.maxAzimuthDeg      = (float) atoi (argv[3]);
-    fovCfg.minElevationDeg    = (float) atoi (argv[4]);
-    fovCfg.maxElevationDeg    = (float) atoi (argv[5]);
-
-    /* Save Configuration to use later */
-    MmwDemo_CfgUpdate((void *)&fovCfg, MMWDEMO_FOVAOA_OFFSET,
-                      sizeof(fovCfg), subFrameNum);
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for extended maximum velocity configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIExtendedMaxVelocity (int32_t argc, char* argv[])
-{
-    DPU_AoAProc_ExtendedMaxVelocityCfg   cfg;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 3, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.enabled      = (uint8_t) atoi (argv[2]);
-
-    /* Save Configuration to use later */
-    MmwDemo_CfgUpdate((void *)&cfg, MMWDEMO_EXTMAXVEL_OFFSET,
-                      sizeof(cfg), subFrameNum);
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for multi object beam forming configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIMultiObjBeamForming (int32_t argc, char* argv[])
-{
-    DPU_AoAProc_MultiObjBeamFormingCfg cfg;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 4, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.enabled                     = (uint8_t) atoi (argv[2]);
-    cfg.multiPeakThrsScal           = (float) atof (argv[3]);
-
-    /* Save Configuration to use later */
-    MmwDemo_CfgUpdate((void *)&cfg, MMWDEMO_MULTIOBJBEAMFORMING_OFFSET,
-                      sizeof(cfg), subFrameNum);
-
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for DC range calibration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLICalibDcRangeSig (int32_t argc, char* argv[])
-{
-    DPU_RangeProc_CalibDcRangeSigCfg cfg;
-    uint32_t                   log2NumAvgChirps;
-    int8_t                     subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 6, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration for DC range signature calibration */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.enabled          = (uint16_t) atoi (argv[2]);
-    cfg.negativeBinIdx   = (int16_t)  atoi (argv[3]);
-    cfg.positiveBinIdx   = (int16_t)  atoi (argv[4]);
-    cfg.numAvgChirps     = (uint16_t) atoi (argv[5]);
-
-    if (cfg.negativeBinIdx > 0)
-    {
-        CLI_write ("Error: Invalid negative bin index\n");
-        return -1;
-    }
-    if (cfg.positiveBinIdx < 0)
-    {
-        CLI_write ("Error: Invalid positive bin index\n");
-        return -1;
-    }	
-    if ((cfg.positiveBinIdx - cfg.negativeBinIdx + 1) > DPU_RANGEPROC_SIGNATURE_COMP_MAX_BIN_SIZE)
-    {
-        CLI_write ("Error: Number of bins exceeds the limit\n");
-        return -1;
-    }
-    log2NumAvgChirps = (uint32_t) mathUtils_ceilLog2(cfg.numAvgChirps);
-    if (cfg.numAvgChirps != (1U << log2NumAvgChirps))
-    {
-        CLI_write ("Error: Number of averaged chirps is not power of two\n");
-        return -1;
-    }
-
-    /* Save Configuration to use later */
-    MmwDemo_CfgUpdate((void *)&cfg, MMWDEMO_CALIBDCRANGESIG_OFFSET,
-                      sizeof(cfg), subFrameNum);
-
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      Clutter removal Configuration
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIClutterRemoval (int32_t argc, char* argv[])
-{
-    DPC_ObjectDetection_StaticClutterRemovalCfg_Base cfg;
-    int8_t              subFrameNum;
-
-    if(MmwDemo_CLIGetSubframe(argc, argv, 3, &subFrameNum) < 0)
-    {
-        return -1;
-    }
-
-    /* Initialize configuration for clutter removal */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.enabled          = (uint16_t) atoi (argv[2]);
-
-    /* Save Configuration to use later */
-    MmwDemo_CfgUpdate((void *)&cfg, MMWDEMO_STATICCLUTTERREMOFVAL_OFFSET,
-                      sizeof(cfg), subFrameNum);
-
-    return 0;
-}
-
 /**
  *  @b Description
  *  @n
@@ -814,8 +411,8 @@ static int32_t MmwDemo_CLIADCBufCfg (int32_t argc, char* argv[])
     adcBufCfg.chInterleave    = (uint8_t) atoi (argv[4]);
     adcBufCfg.chirpThreshold  = (uint8_t) atoi (argv[5]);
 
-    /* This demo is using HWA for 1D processing which does not allow multi-chirp
-     * processing */
+    /* One chirp per ADCBUF ping/pong half: the HW session streams every chirp
+     * (and firmware-08 hooks per-chirp metadata on the chirp events) */
     if (adcBufCfg.chirpThreshold != 1)
     {
         CLI_write("Error: chirpThreshold must be 1, multi-chirp is not allowed\n");
@@ -826,107 +423,6 @@ static int32_t MmwDemo_CLIADCBufCfg (int32_t argc, char* argv[])
     MmwDemo_CfgUpdate((void *)&adcBufCfg,
                       MMWDEMO_ADCBUFCFG_OFFSET,
                       sizeof(MmwDemo_ADCBufCfg), subFrameNum);
-    return 0;
-}
-
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for compensation of range bias and channel phase offsets
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLICompRangeBiasAndRxChanPhaseCfg (int32_t argc, char* argv[])
-{
-    DPU_AoAProc_compRxChannelBiasCfg   cfg;
-    int32_t Re, Im;
-    int32_t argInd;
-    int32_t i;
-
-    /* Sanity Check: Minimum argument check */
-    if (argc != (1+1+SYS_COMMON_NUM_TX_ANTENNAS*SYS_COMMON_NUM_RX_CHANNEL*2))
-    {
-        CLI_write ("Error: Invalid usage of the CLI command\n");
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.rangeBias          = (float) atof (argv[1]);
-
-    argInd = 2;
-    for (i=0; i < SYS_COMMON_NUM_TX_ANTENNAS*SYS_COMMON_NUM_RX_CHANNEL; i++)
-    {
-        Re = (int32_t) (atof (argv[argInd++]) * 32768.);
-        MATHUTILS_SATURATE16(Re);
-        cfg.rxChPhaseComp[i].real = (int16_t) Re;
-
-        Im = (int32_t) (atof (argv[argInd++]) * 32768.);
-        MATHUTILS_SATURATE16(Im);
-        cfg.rxChPhaseComp[i].imag = (int16_t) Im;
-
-    }
-    /* Save Configuration to use later */
-    memcpy((void *) &gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.compRxChanCfg,
-           &cfg, sizeof(cfg));
-
-    gMmwMssMCB.objDetCommonCfg.isCompRxChannelBiasCfgPending = 1;
-
-    return 0;
-}
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for measurement configuration of range bias
- *      and channel phase offsets
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIMeasureRangeBiasAndRxChanPhaseCfg (int32_t argc, char* argv[])
-{
-    DPC_ObjectDetection_MeasureRxChannelBiasCfg   cfg;
-
-    /* Sanity Check: Minimum argument check */
-    if (argc != 4)
-    {
-        CLI_write ("Error: Invalid usage of the CLI command\n");
-        return -1;
-    }
-
-    /* Initialize configuration: */
-    memset ((void *)&cfg, 0, sizeof(cfg));
-
-    /* Populate configuration: */
-    cfg.enabled          = (uint8_t) atoi (argv[1]);
-    cfg.targetDistance   = (float) atof (argv[2]);
-    cfg.searchWinSize   = (float) atof (argv[3]);
-
-    /* Save Configuration to use later */
-    memcpy((void *) &gMmwMssMCB.objDetCommonCfg.preStartCommonCfg.measureRxChannelBiasCfg,
-           &cfg, sizeof(cfg));
-
-    gMmwMssMCB.objDetCommonCfg.isMeasureRxChannelBiasCfgPending = 1;
-
     return 0;
 }
 
@@ -1079,7 +575,6 @@ static int32_t MmwDemo_CLIAnalogMonitorCfg (int32_t argc, char* argv[])
     return 0;
 }
 
-
 /**
  *  @b Description
  *  @n
@@ -1111,7 +606,7 @@ static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[])
         return -1;
     }
 
-    /* Initialize configuration for DC range signature calibration */
+    /* Initialize configuration: */
     memset ((void *)&cfg, 0, sizeof(MmwDemo_LvdsStreamCfg));
 
     /* Populate configuration: */
@@ -1119,17 +614,19 @@ static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[])
     cfg.dataFmt         = (uint8_t) atoi(argv[3]);
     cfg.isSwEnabled     = (bool)    atoi(argv[4]);
 
-    /* If both h/w and s/w are enabled, HSI header must be enabled, because
-     * we don't allow mixed h/w session without HSI header
-     * simultaneously with s/w session with HSI header (s/w session always
-     * streams HSI header) */
-    if ((cfg.isSwEnabled == true) && (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_DISABLED))
+    /* The SW session streamed the DSS point cloud, which this firmware no longer has */
+    if (cfg.isSwEnabled == true)
     {
-        if (cfg.isHeaderEnabled == false)
-        {
-            CLI_write("Error: header must be enabled when both h/w and s/w streaming are enabled\n");
-            return -1;
-        }
+        CLI_write("Error: enableSW must be 0 (no SW session in this firmware)\n");
+        return -1;
+    }
+
+    if ((cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_DISABLED) &&
+        (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_ADC) &&
+        (cfg.dataFmt != MMW_DEMO_LVDS_STREAM_CFG_DATAFMT_CP_ADC_CQ))
+    {
+        CLI_write("Error: dataFmt must be 0 (disabled), 1 (ADC) or 4 (CP_ADC_CQ)\n");
+        return -1;
     }
 
     /* Save Configuration to use later */
@@ -1139,96 +636,6 @@ static int32_t MmwDemo_CLILvdsStreamCfg (int32_t argc, char* argv[])
 
     return 0;
 }
-
-
-
-/**
- *  @b Description
- *  @n
- *      This is the CLI Handler for configuring the data port
- *
- *  @param[in] argc
- *      Number of arguments
- *  @param[in] argv
- *      Arguments
- *
- *  @retval
- *      Success -   0
- *  @retval
- *      Error   -   <0
- */
-static int32_t MmwDemo_CLIConfigDataPort (int32_t argc, char* argv[])
-{
-    uint32_t baudrate;
-    bool  ackPing;
-    UART_Params uartParams;
-    uint8_t ackData[16];
-    
-
-    if (gMmwMssMCB.sensorState == MmwDemo_SensorState_STARTED)
-    {
-        CLI_write ("Ignored: This command is not allowed after sensor has started\n");
-        return 0;
-    }
-
-    /* Populate configuration: */
-    baudrate = (uint32_t) atoi(argv[1]);
-    ackPing = (bool) atoi(argv[2]);
-
-    /* check if requested value is less than max supported value */
-    if (baudrate > MMWDEMO_DATAUART_MAX_BAUDRATE_SUPPORTED)
-    {
-        CLI_write ("Ignored: Invalid baud rate (%d) specified\n",baudrate);
-        return 0;
-    }
-
-    /* re-open UART port if requested baud rate is different than current */
-    if (gMmwMssMCB.cfg.platformCfg.loggingBaudRate != baudrate)
-    {
-        /* close previous opened handle */
-        /* since the sensor is not running at this time, it is safe to close
-           the existing port */
-        if (gMmwMssMCB.loggingUartHandle != NULL)
-        {
-            UART_close(gMmwMssMCB.loggingUartHandle);
-            gMmwMssMCB.loggingUartHandle = NULL;
-        }   
-        
-        /* Setup the default UART Parameters */
-        UART_Params_init(&uartParams);
-        uartParams.writeDataMode  = UART_DATA_BINARY;
-        uartParams.readDataMode   = UART_DATA_BINARY;
-        uartParams.clockFrequency = gMmwMssMCB.cfg.platformCfg.sysClockFrequency;
-        uartParams.baudRate       = baudrate;
-        uartParams.isPinMuxDone   = 1U;
-
-        /* Open the Logging UART Instance: */
-        gMmwMssMCB.loggingUartHandle = UART_open(1, &uartParams);
-        if (gMmwMssMCB.loggingUartHandle == NULL)
-        {
-            CLI_write ("Error: Unable to open the Logging UART Instance\n");
-            return -1;
-        }
-        gMmwMssMCB.cfg.platformCfg.loggingBaudRate = baudrate;
-        CLI_write ("Data port baud rate changed to %d\n",baudrate);
-    }
-
-    /* regardless of baud rate update, ack back to the host over this UART 
-       port if handle is valid and user has requested the ack back */
-    if ((gMmwMssMCB.loggingUartHandle != NULL) && (ackPing == true))
-    {
-        memset(ackData,0xFF,sizeof(ackData));
-        UART_writePolling (gMmwMssMCB.loggingUartHandle,
-                           (uint8_t*)ackData,
-                           sizeof(ackData));
-    }
-
-    return 0;
-}
-
-
-
-
 
 /**
  *  @b Description
@@ -1248,7 +655,8 @@ static int32_t MmwDemo_CLIConfigDataPort (int32_t argc, char* argv[])
 static int32_t MmwDemo_CLIQueryDemoStatus (int32_t argc, char* argv[])
 {
     CLI_write ("Sensor State: %d\n",gMmwMssMCB.sensorState);
-    CLI_write ("Data port baud rate: %d\n",gMmwMssMCB.cfg.platformCfg.loggingBaudRate);
+    CLI_write ("Sensor start/stop count: %d/%d\n",gMmwMssMCB.sensorStartCount,gMmwMssMCB.sensorStopCount);
+    CLI_write ("LVDS HW frames done: %d\n",gMmwMssMCB.lvdsStream.hwFrameDoneCount);
 
     return 0;
 }
@@ -1310,7 +718,7 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     /* Create Demo Banner to be printed out by CLI */
     sprintf(&demoBanner[0], 
                        "******************************************\n" \
-                       "xWR18xx MMW Demo %02d.%02d.%02d.%02d\n"  \
+                       "xWR18xx SAR LVDS raw-ADC firmware (MSS-only), SDK %02d.%02d.%02d.%02d\n"  \
                        "******************************************\n", 
                         MMWAVE_SDK_VERSION_MAJOR,
                         MMWAVE_SDK_VERSION_MINOR,
@@ -1331,15 +739,11 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     cliCfg.enableMMWaveExtension        = 1U;
     cliCfg.usePolledMode                = true;
     cliCfg.overridePlatform             = true;
-#if defined(USE_2D_AOA_DPU)
-    cliCfg.overridePlatformString       = "xWR18xx_AOP";
-#else
     cliCfg.overridePlatformString       = "xWR18xx";
-#endif
         
     cnt=0;
     cliCfg.tableEntry[cnt].cmd            = "sensorStart";
-    cliCfg.tableEntry[cnt].helpString     = "[doReconfig(optional, default:enabled)]";
+    cliCfg.tableEntry[cnt].helpString     = "[doReconfig(optional, default:enabled)]; after sensorStop: flushCfg + full cfg + sensorStart, no power cycle";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLISensorStart;
     cnt++;
 
@@ -1348,58 +752,9 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLISensorStop;
     cnt++;
 
-    cliCfg.tableEntry[cnt].cmd            = "guiMonitor";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <detectedObjects> <logMagRange> <noiseProfile> <rangeAzimuthHeatMap> <rangeDopplerHeatMap> <statsInfo>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIGuiMonSel;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "cfarCfg";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <procDirection> <averageMode> <winLen> <guardLen> <noiseDiv> <cyclicMode> <thresholdScale> <peakGroupingEn>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLICfarCfg;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "multiObjBeamForming";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enabled> <threshold>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIMultiObjBeamForming;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "calibDcRangeSig";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enabled> <negativeBinIdx> <positiveBinIdx> <numAvgFrames>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLICalibDcRangeSig;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "clutterRemoval";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enabled>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIClutterRemoval;
-    cnt++;
-
     cliCfg.tableEntry[cnt].cmd            = "adcbufCfg";
     cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <adcOutputFmt> <SampleSwap> <ChanInterleave> <ChirpThreshold>";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIADCBufCfg;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "compRangeBiasAndRxChanPhase";
-    cliCfg.tableEntry[cnt].helpString     = "<rangeBias> <Re00> <Im00> <Re01> <Im01> <Re02> <Im02> <Re03> <Im03> <Re10> <Im10> <Re11> <Im11> <Re12> <Im12> <Re13> <Im13> ";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLICompRangeBiasAndRxChanPhaseCfg;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "measureRangeBiasAndRxChanPhase";
-    cliCfg.tableEntry[cnt].helpString     = "<enabled> <targetDistance> <searchWin>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIMeasureRangeBiasAndRxChanPhaseCfg;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "aoaFovCfg";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <minAzimuthDeg> <maxAzimuthDeg> <minElevationDeg> <maxElevationDeg>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIAoAFovCfg;
-    cnt++;
-
-    cliCfg.tableEntry[cnt].cmd            = "cfarFovCfg";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <procDirection> <min (meters or m/s)> <max (meters or m/s)>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLICfarFovCfg;
-    cnt++;
-    cliCfg.tableEntry[cnt].cmd            = "extendedMaxVelocity";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enabled>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIExtendedMaxVelocity;
     cnt++;
 
     cliCfg.tableEntry[cnt].cmd            = "CQRxSatMonitor";
@@ -1418,15 +773,10 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     cnt++;
 
     cliCfg.tableEntry[cnt].cmd            = "lvdsStreamCfg";
-    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enableHeader> <dataFmt> <enableSW>";
+    cliCfg.tableEntry[cnt].helpString     = "<subFrameIdx> <enableHeader> <dataFmt 0|1|4> <enableSW 0>";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLILvdsStreamCfg;
     cnt++;
     
-    cliCfg.tableEntry[cnt].cmd            = "configDataPort";
-    cliCfg.tableEntry[cnt].helpString     = "<baudrate> <ackPing>";
-    cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIConfigDataPort;
-    cnt++;
-
     cliCfg.tableEntry[cnt].cmd            = "queryDemoStatus";
     cliCfg.tableEntry[cnt].helpString     = "";
     cliCfg.tableEntry[cnt].cmdHandlerFxn  = MmwDemo_CLIQueryDemoStatus;
@@ -1446,5 +796,3 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     System_printf ("Debug: CLI is operational\n");
     return;
 }
-
-

@@ -12,13 +12,8 @@ endif
 
 include $(MMWAVE_SDK_INSTALL_PATH)/ti/common/mmwave_sdk.mak
 include ./mss/mmw_mss.mak
-include ./dss/mmw_dss.mak
 
 MMW_DEMO_BIN         = $(MMWAVE_SDK_DEVICE_TYPE)_mmw_demo.bin
-MMW_DEMO_SECURE_BIN  = $(MMWAVE_SDK_DEVICE_TYPE)_mmw_demo_secure.bin
-
-MMW_AOP_DEMO_BIN     = $(MMWAVE_SDK_DEVICE_TYPE)_mmw_aop_demo.bin
-MMW_AOP_DEMO_SECURE_BIN  = $(MMWAVE_SDK_DEVICE_TYPE)_mmw_aop_demo_secure.bin
 
 ###################################################################################
 # Standard Targets which need to be implemented by each mmWave SDK module. This
@@ -27,41 +22,25 @@ MMW_AOP_DEMO_SECURE_BIN  = $(MMWAVE_SDK_DEVICE_TYPE)_mmw_aop_demo_secure.bin
 .PHONY: all clean
 .NOTPARALLEL:
 
-mmwDemo: mssDemo dssDemo
-	@$(GENERATE_METAIMAGE) $(MMW_DEMO_BIN) $(SHMEM_ALLOC) $(MSS_MMW_DEMO_OUT) $(XWR18XX_RADARSS_IMAGE_BIN) $(DSS_MMW_DEMO_OUT)
-	@$(GENERATE_HS_METAIMAGE) $(MMW_DEMO_SECURE_BIN) $(SHMEM_ALLOC) $(MSS_MMW_DEMO_OUT) $(XWR18XX_RADARSS_IMAGE_BIN) $(DSS_MMW_DEMO_OUT) $(MMWAVE_SECDEV_HSIMAGE_CFG)
+# MSS-only metaimage: MSS + BSS (radarss) firmware, DSS = NULL (no DSP image).
+# SHMEM_ALLOC comes from ti/common/mmwave_sdk_xwr18xx.mak (default 0x00000008).
+# The secure (HS) image and the AOP variants of the TI demo are not built.
+mmwDemo: mssDemo
+	@$(GENERATE_METAIMAGE) $(MMW_DEMO_BIN) $(SHMEM_ALLOC) $(MSS_MMW_DEMO_OUT) $(XWR18XX_RADARSS_IMAGE_BIN) NULL
 
-mmwAOPDemo: 
-	$(MAKE) -s MMWAVE_SDK_LIB_BUILD_OPTION=AOP mssAOPDemo 
-	$(MAKE) -s MMWAVE_SDK_LIB_BUILD_OPTION=AOP dssAOPDemo
-	@$(GENERATE_METAIMAGE) $(MMW_AOP_DEMO_BIN) $(SHMEM_ALLOC) $(MSS_MMW_AOP_DEMO_OUT) $(XWR18XX_RADARSS_IMAGE_BIN) $(DSS_MMW_AOP_DEMO_OUT)
-	@$(GENERATE_HS_METAIMAGE) $(MMW_AOP_DEMO_SECURE_BIN) $(SHMEM_ALLOC) $(MSS_MMW_AOP_DEMO_OUT) $(XWR18XX_RADARSS_IMAGE_BIN) $(DSS_MMW_AOP_DEMO_OUT) $(MMWAVE_SECDEV_HSIMAGE_CFG)
-
-mmwAOPDemoClean: 
-	$(MAKE) -s MMWAVE_SDK_LIB_BUILD_OPTION=AOP mssAOPDemoClean
-	$(MAKE) -s MMWAVE_SDK_LIB_BUILD_OPTION=AOP dssAOPDemoClean
-	
 # Clean: This cleans all the objects
-clean: mssDemoClean dssDemoClean mssAOPDemoClean dssAOPDemoClean
+clean: mssDemoClean
 	@$(DEL) $(MMW_DEMO_BIN)
-	@$(DEL) $(MMW_DEMO_SECURE_BIN)
-	@$(DEL) $(MMW_AOP_DEMO_BIN)
-	@$(DEL) $(MMW_AOP_DEMO_SECURE_BIN)
-	
-# This builds all the supported demos
-all: mmwDemo mmwAOPDemo
+
+# This builds all the supported images
+all: mmwDemo
 
 # Help: This displays the MAKEFILE Usage.
 help:
 	@echo '****************************************************************************************'
-	@echo '* Makefile Targets for the DEMO '
-	@echo 'all	       -> Builds the mmw Demo (both MSS and DSS binaries)'
-	@echo 'clean           -> Cleans the mmw Demo (both MSS and DSS binaries)'
-	@echo 'mssDemo         -> Builds the MSS binary for the mmw Demo'
-	@echo 'mssDemoClean    -> Cleans the MSS binary for mmw Demo '
-	@echo 'dssDemo         -> Builds the DSS binary for the mmw Demo'
-	@echo 'dssDemoClean    -> Cleans the DSS binary for mmw Demo '
-	@echo 'mmwAOPDemo      -> Builds the MSS & DSS binary for the mmw AOP Demo'
-	@echo 'mmwAOPDemoClean -> Cleans the MSS & DSS binary for mmw AOP Demo '
+	@echo '* Makefile Targets for the MSS-only SAR/LVDS firmware '
+	@echo 'all / mmwDemo   -> Builds the MSS image and the MSS+BSS metaimage (no DSS)'
+	@echo 'clean           -> Cleans the MSS objects and the metaimage'
+	@echo 'mssDemo         -> Builds the MSS binary only'
+	@echo 'mssDemoClean    -> Cleans the MSS binary'
 	@echo '****************************************************************************************'
-

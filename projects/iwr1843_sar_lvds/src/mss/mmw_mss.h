@@ -2,7 +2,8 @@
  *   @file  mmw_mss.h
  *
  *   @brief
- *      This is the main header file for the Millimeter Wave Demo
+ *      Main header file for the MSS-only SAR/LVDS raw-data firmware
+ *      (derived from the TI xwr18xx mmw demo).
  *
  *  \par
  *  NOTE:
@@ -48,11 +49,11 @@
 #include <ti/drivers/uart/UART.h>
 #include <ti/drivers/gpio/gpio.h>
 #include <ti/drivers/mailbox/mailbox.h>
+#include <ti/drivers/adcbuf/ADCBuf.h>
+#include <ti/drivers/edma/edma.h>
 
 #include <ti/demo/utils/mmwdemo_adcconfig.h>
 #include <ti/demo/utils/mmwdemo_monitor.h>
-#include <ti/demo/xwr18xx/mmw/include/mmw_output.h>
-#include <ti/datapath/dpc/objectdetection/objdethwa/objectdetection.h>
 
 #include <ti/demo/xwr18xx/mmw/include/mmw_config.h>
 #include <ti/demo/xwr18xx/mmw/mss/mmw_lvds_stream.h>
@@ -63,12 +64,10 @@ extern "C" {
 
 /*! @brief For advanced frame config, below define means the configuration given is
  * global at frame level and therefore it is broadcast to all sub-frames.
+ * (Advanced frame is rejected by this firmware; the CLI keeps the subFrameIdx
+ * argument of the stock commands, and -1 broadcasts.)
  */
 #define MMWDEMO_SUBFRAME_NUM_FRAME_LEVEL_CONFIG (-1)
-
-/*! @brief CFAR threshold encoding factor
- */
-#define MMWDEMO_CFAR_THRESHOLD_ENCODING_FACTOR (100.0)
 
 /**
  * @defgroup configStoreOffsets     Offsets for storing CLI configuration
@@ -76,39 +75,8 @@ extern "C" {
  *           unique and hence can be used to differentiate the commands for processing purposes.
  * @{
  */
-#define MMWDEMO_GUIMONSEL_OFFSET                 (offsetof(MmwDemo_SubFrameCfg, guiMonSel))
 #define MMWDEMO_ADCBUFCFG_OFFSET                 (offsetof(MmwDemo_SubFrameCfg, adcBufCfg))
 #define MMWDEMO_LVDSSTREAMCFG_OFFSET             (offsetof(MmwDemo_SubFrameCfg, lvdsStreamCfg))
-
-#define MMWDEMO_SUBFRAME_DYNCFG_OFFSET           (offsetof(MmwDemo_SubFrameCfg, objDetDynCfg) + \
-                                                  offsetof(MmwDemo_DPC_ObjDet_DynCfg, dynCfg))
-
-#define MMWDEMO_CFARCFGRANGE_OFFSET              (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, cfarCfgRange))
-
-#define MMWDEMO_CFARCFGDOPPLER_OFFSET            (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, cfarCfgDoppler))
-
-#define MMWDEMO_FOVRANGE_OFFSET                  (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, fovRange))
-
-#define MMWDEMO_FOVDOPPLER_OFFSET                (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, fovDoppler))
-
-#define MMWDEMO_FOVAOA_OFFSET                    (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, fovAoaCfg))
-
-#define MMWDEMO_EXTMAXVEL_OFFSET                 (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, extMaxVelCfg))
-
-#define MMWDEMO_MULTIOBJBEAMFORMING_OFFSET       (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, multiObjBeamFormingCfg))
-
-#define MMWDEMO_CALIBDCRANGESIG_OFFSET           (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, calibDcRangeSigCfg))
-
-#define MMWDEMO_STATICCLUTTERREMOFVAL_OFFSET     (MMWDEMO_SUBFRAME_DYNCFG_OFFSET + \
-                                                  offsetof(DPC_ObjectDetection_DynCfg, staticClutterRemovalCfg))
 /** @}*/ /* configStoreOffsets */
 
 /**
@@ -147,7 +115,7 @@ typedef struct MmwDemo_MSS_Stats_t
 {
     /*! @brief   Counter which tracks the number of frame trigger events from BSS */
     uint64_t     frameTriggerReady;
-    
+
     /*! @brief   Counter which tracks the number of failed calibration reports
      *           The event is triggered by an asynchronous event from the BSS */
     uint32_t     failedTimingReports;
@@ -163,11 +131,11 @@ typedef struct MmwDemo_MSS_Stats_t
 
 /**
  * @brief
- *  Millimeter Wave Demo Data Path Information.
+ *  Per-sub-frame configuration (only index 0 is used: advanced frame is rejected).
  *
  * @details
- *  The structure is used to hold all the relevant information for
- *  the data path.
+ *  CLI-stored ADCBUF/LVDS configuration plus the values derived from the
+ *  profile/chirp/frame configuration by the RF parser at sensor configuration.
  */
 typedef struct MmwDemo_SubFrameCfg_t
 {
@@ -182,22 +150,6 @@ typedef struct MmwDemo_SubFrameCfg_t
 
     /*! @brief Flag indicating if @ref lvdsStreamCfg is pending processing. */
     uint8_t isLvdsStreamCfgPending : 1;
-
-    /*! @brief GUI Monitor selection configuration storage from CLI */
-    MmwDemo_GuiMonSel guiMonSel;
-
-    /*! @brief Dynamic configuration storage for object detection DPC */
-    MmwDemo_DPC_ObjDet_DynCfg objDetDynCfg;
-
-    /*! @brief  Number of range FFT bins, this is at a minimum the next power of 2 of
-                numAdcSamples. If range zoom is supported, this can be bigger than
-                the minimum. */
-    uint16_t    numRangeBins;
-
-    /*! @brief  Number of Doppler FFT bins, this is at a minimum the next power of 2 of
-                numDopplerChirps. If Doppler zoom is supported, this can be bigger
-                than the minimum. */
-    uint16_t    numDopplerBins;
 
     /*! @brief  ADCBUF will generate chirp interrupt event every this many chirps - chirpthreshold */
     uint8_t     numChirpsPerChirpEvent;
@@ -216,30 +168,7 @@ typedef struct MmwDemo_SubFrameCfg_t
 
     /*! @brief  Number of chirps per sub-frame */
     uint16_t    numChirpsPerSubFrame;
-    
-    /*! @brief  Number of virtual antennas */
-    uint8_t     numVirtualAntennas; 
 } MmwDemo_SubFrameCfg;
-
-/*!
- * @brief
- * Structure holds message stats information from data path.
- *
- * @details
- *  The structure holds stats information. This is a payload of the TLV message item
- *  that holds stats information.
- */
-typedef struct MmwDemo_SubFrameStats_t
-{
-    /*! @brief   Frame processing stats */
-    MmwDemo_output_message_stats    outputStats;
-
-    /*! @brief   Dynamic CLI configuration time in usec */
-    uint32_t                        pendingConfigProcTime;
-
-    /*! @brief   SubFrame Preparation time on MSS in usec */
-    uint32_t                        subFramePreparationTime;
-} MmwDemo_SubFrameStats;
 
 /**
  * @brief Task handles storage structure
@@ -249,32 +178,9 @@ typedef struct MmwDemo_TaskHandles_t
     /*! @brief   MMWAVE Control Task Handle */
     Task_Handle mmwaveCtrl;
 
-    /*! @brief   ObjectDetection DPC related dpmTask */
-    Task_Handle objDetDpmTask;
-
     /*! @brief   Demo init task */
     Task_Handle initTask;
 } MmwDemo_taskHandles;
-
-/*!
- * @brief
- * Structure holds temperature information from Radar front end.
- *
- * @details
- *  The structure holds temperature stats information. 
- */
-typedef struct MmwDemo_temperatureStats_t
-{
-
-    /*! @brief   retVal from API rlRfTempData_t - can be used to know 
-                 if values in temperatureReport are valid */
-    int32_t        tempReportValid;
-
-    /*! @brief   detailed temperature report - snapshot taken just 
-                 before shipping data over UART */
-    rlRfTempData_t temperatureReport;
-
-} MmwDemo_temperatureStats;
 
 /*!
  * @brief
@@ -369,9 +275,6 @@ typedef struct MmwDemo_MSS_MCB_t
     /*! * @brief    Handle to the SOC Module */
     SOC_Handle                  socHandle;
 
-    /*! @brief      UART Logging Handle */
-    UART_Handle                 loggingUartHandle;
-
     /*! @brief      UART Command Rx/Tx Handle */
     UART_Handle                 commandUartHandle;
 
@@ -379,7 +282,7 @@ typedef struct MmwDemo_MSS_MCB_t
      * to configure the BSS. */
     MMWave_Handle             ctrlHandle;
 
-    /*! @brief      ADCBuf driver handle */
+    /*! @brief      ADCBuf driver handle: opened on sensor start, closed on sensor stop */
     ADCBuf_Handle               adcBufHandle;
 
     /*! @brief   Handle of the EDMA driver, used for CBUFF */
@@ -403,17 +306,14 @@ typedef struct MmwDemo_MSS_MCB_t
     /*! @brief EDMA transfer controller error information. */
     EDMA_transferControllerErrorInfo_t EDMA_transferControllerErrorInfo;
 
-    /*! @brief      DPM Handle */
-    DPM_Handle                  objDetDpmHandle;
+    /*! @brief      Number of sub-frames (always 1: advanced frame is rejected) */
+    uint8_t                     numSubFrames;
 
-    /*! @brief      Object Detection DPC common configuration */
-    MmwDemo_DPC_ObjDet_CommonCfg objDetCommonCfg;
+    /*! @brief      Profile index found valid by the RF parser (selects the CQ monitor cfg) */
+    uint8_t                     validProfileIdx;
 
-    /*! @brief      Object Detection DPC subFrame configuration */
+    /*! @brief      Sub-frame configuration (index 0 only) */
     MmwDemo_SubFrameCfg         subFrameCfg[RL_MAX_SUBFRAMES];
-
-    /*! @brief      sub-frame stats */
-    MmwDemo_SubFrameStats       subFrameStats[RL_MAX_SUBFRAMES];
 
     /*! @brief      Demo Stats */
     MmwDemo_MSS_Stats           stats;
@@ -424,14 +324,9 @@ typedef struct MmwDemo_MSS_MCB_t
     /*! @brief   Rf frequency scale factor, = 2.7 for 60GHz device, = 3.6 for 76GHz device */
     double                      rfFreqScaleFactor;
 
-    /*! @brief   Semaphore handle to signal DPM started from DPM report function */
-    Semaphore_Handle            DPMstartSemHandle;
-
-    /*! @brief   Semaphore handle to signal DPM stopped from DPM report function. */
-    Semaphore_Handle            DPMstopSemHandle;
-
-    /*! @brief   Semaphore handle to signal DPM ioctl from DPM report function. */
-    Semaphore_Handle            DPMioctlSemHandle;
+    /*! @brief   Semaphore posted by the BSS frame-end async event (RL_RF_AE_FRAME_END_SB);
+     *           the sensor stop path pends on it before tearing down the HW session. */
+    Semaphore_Handle            frameEndSemHandle;
 
     /*! @brief    Sensor state */
     MmwDemo_SensorState         sensorState;
@@ -455,10 +350,6 @@ typedef struct MmwDemo_MSS_MCB_t
          for the mmw demo LVDS stream*/
     MmwDemo_LVDSStream_MCB_t    lvdsStream;
 
-    /*! @brief   this structure is used to hold all the relevant information
-     for the temperature report*/
-    MmwDemo_temperatureStats  temperatureStats;
-
     /*! @brief   Calibration cofiguration for save/restore */
     MmwDemo_calibCfg                calibCfg;
 
@@ -479,7 +370,7 @@ extern int32_t MmwDemo_configSensor(void);
 extern int32_t MmwDemo_startSensor(void);
 extern void MmwDemo_stopSensor(void);
 
-/* functions to manage the dynamic configuration */
+/* functions to manage the configuration pending state */
 extern uint8_t MmwDemo_isAllCfgInPendingState(void);
 extern uint8_t MmwDemo_isAllCfgInNonPendingState(void);
 extern void MmwDemo_resetStaticCfgPendingState(void);
@@ -498,4 +389,3 @@ extern void _MmwDemo_debugAssert(int32_t expression, const char *file, int32_t l
 #endif
 
 #endif /* MMW_MSS_H */
-

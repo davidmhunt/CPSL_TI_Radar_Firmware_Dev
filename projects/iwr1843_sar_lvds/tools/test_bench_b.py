@@ -269,6 +269,92 @@ class Flows(Base):
         self.assertFalse(B.cmd_endurance("dev", self.ns(), out.append))
         self.assertTrue(any(l.startswith("RESULT G7") and "FAIL" in l for l in out))
 
+    def soak_ns(self, **kw):
+        d = dict(cfg=self.cfg_path, timer_s=30, duration=N / 20 * 0.0403, poll_s=60.0, precheck_s=0, reads=2, gap=4.0)
+        d.update(kw)
+        return argparse.Namespace(**d)
+
+    def test_soak_pass_marks_reflector_items_not_evaluated(self):
+        self.fake_polled(build_packets(CFG, N, regime=-1))
+        self.patch(B, "free_gb", lambda p: 100.0)
+        out = []
+        ok = B.cmd_soak("dev", self.soak_ns(), out.append)
+        self.assertTrue(ok, "\n".join(out))
+        for g in ("G1 throughput", "G2 timing", "G7 per-chirp metadata"):
+            self.assertTrue(any(l.startswith("RESULT %s: PASS" % g) for l in out), g)
+        text = "\n".join(out)
+        for g in ("G3", "G4", "G6"):
+            self.assertIn("%s" % g, text)
+            self.assertFalse(any(l.startswith("RESULT " + g) for l in out), g)
+        self.assertEqual(sum(1 for l in out if "NOT EVALUATED (no reflector) -> firmware-18" in l), len(B.NOT_EVALUATED))
+        self.assertTrue(out[-1].startswith("RESULT: PASS"))
+        with open(os.path.join(self.tmp, "soak_summary.json")) as fh:
+            d = json.load(fh)
+        self.assertEqual(d["result"], "PASS")
+        self.assertEqual(d["udp_seq_gaps"], 0)
+        self.assertEqual(d["chirps"], N)
+        self.assertIn("G3 phase continuity", d["not_evaluated"])
+        with open(os.path.join(self.tmp, "soak_summary.txt")) as fh:
+            self.assertLessEqual(len(fh.read().splitlines()), 40)
+        self.assertEqual(len(self.lines), 2)
+
+    def test_soak_udp_gap_fails_g1(self):
+        packets = build_packets(CFG, N, regime=-1)
+
+        def polled(dev, cap, duration, timer_s, poll_s, out=print):
+            dg = S.to_datagrams(packets)
+            del dg[len(dg) // 2]
+            side = {"chirpAvail": N, "runIdx": 1, "raw": self.final, "frameEndTimeout": False, "source": "cli",
+                    "polls": [{"t": 1.0, "raw": stats_text(600, 20)}, {"t": 2.0, "raw": stats_text(1000, 20)}]}
+            S.write_capture(cap, dg, side)
+            return side
+        self.patch(B, "polled_capture", polled)
+        self.patch(B, "free_gb", lambda p: 100.0)
+        out = []
+        self.assertFalse(B.cmd_soak("dev", self.soak_ns(), out.append))
+        self.assertTrue(any(l.startswith("RESULT G1 throughput: FAIL") for l in out))
+        self.assertTrue(out[-1].startswith("RESULT: FAIL"))
+
+    def test_soak_late_isr_in_a_poll_fails_g2(self):
+        packets = build_packets(CFG, N, regime=-1)
+
+        def polled(dev, cap, duration, timer_s, poll_s, out=print):
+            polls = [{"t": 1.0, "raw": stats_text(600, 20, isr=601).replace("lateIsr 0", "lateIsr 3")},
+                     {"t": 2.0, "raw": stats_text(1000, 20, isr=1000)}]
+            side = write_cap(cap, packets, self.final, {"polls": polls})[1]
+            side["raw"] = self.final
+            return side
+        self.patch(B, "polled_capture", polled)
+        self.patch(B, "free_gb", lambda p: 100.0)
+        out = []
+        self.assertFalse(B.cmd_soak("dev", self.soak_ns(), out.append))
+        self.assertTrue(any(l.startswith("RESULT G2 timing: FAIL") for l in out))
+
+    def test_soak_isr_moves_after_stop_fails_g7(self):
+        self.fake_polled(build_packets(CFG, N, regime=-1))
+        self.patch(B, "free_gb", lambda p: 100.0)
+        self.patch(A, "read_stats", lambda dev: stats_text(N + 1, 20))
+        out = []
+        self.assertFalse(B.cmd_soak("dev", self.soak_ns(), out.append))
+        self.assertTrue(any(l.startswith("RESULT G7") and "FAIL" in l for l in out))
+
+    def test_soak_aborts_cleanly_when_disk_short(self):
+        self.patch(B, "free_gb", lambda p: 3.0)
+        self.patch(B, "polled_capture", lambda *a, **k: self.fail("must not capture"))
+        out = []
+        self.assertFalse(B.cmd_soak("dev", self.soak_ns(), out.append))
+        self.assertEqual(self.lines, [])
+        self.assertTrue(out[-1].startswith("RESULT: ABORTED"))
+
+    def test_soak_needs_no_range_gain_hpf(self):
+        import bench_run
+        a = bench_run.argparse.ArgumentParser()
+        sub = a.add_subparsers(dest="cmd")
+        B.register(sub)
+        ns = a.parse_args(["soak"])
+        self.assertEqual((ns.duration, ns.poll_s, ns.precheck_s), (600.0, 60.0, 30.0))
+        self.assertFalse(hasattr(ns, "range") or hasattr(ns, "gain"))
+
     def test_tb_clean_and_steps(self):
         def cap_only(dev, cap, cfgp, duration, extra=(), out=print):
             cfg = common.cfg_params(open(cfgp).read())

@@ -4,12 +4,14 @@ bench_run.py:
     ./bench tune --range M          sweep gain x HPF with sar_tune_sweep's flow; prints clip counts, sat flags, SNR, a chosen point
     ./bench sat --range M --gain G  2.6.6 saturation vs rxGain, >= 5 steps up to clipping, >= 30 s each, lag alignment
     ./bench endurance --range M --gain G --hpf A:B   10 min run: G1-G4, G6, G7 numbers (streaming analysis, bounded memory)
+    ./bench soak                    10 min run with NO reflector: G1, G2, 2.6.1/.2/.4/.5/.8 only (G3, G4, G6 NOT EVALUATED)
     ./bench tb --add-us N --range M --gain G --hpf A:B   repeat the boundary check with Tb + N us (the 2.5 follow-up)
 
 --adc-bits N: the ADC full scale (12 -> 2048, 16 -> 32768) from `./bench adc`; without it the value `./bench adc` left in
 /tmp/bench_run/adc_bits.txt is used, else 12 with a warning. All of them end with RESULT lines. HARDWARE TOOLS.
 numpy and matplotlib needed (the `tools` uv group; the ./bench wrapper adds it).
 """
+import argparse
 import json
 import os
 import sys
@@ -557,6 +559,186 @@ def run_long_and_judge(dev, lines, cfgp, cfg, a, adc_bits, name, pre, out):
     return ok
 
 
+# --- soak (endurance without a reflector) -----------------------------------------------------------------------------
+SOAK_MIN_FREE_GB = 8.0
+NOT_EVALUATED = ("G3 phase continuity", "G4 range-bin / SNR / ADC bits / clipping", "G6 APLL/SYNTH boundary step",
+                 "2.6.6 saturation-vs-gain sweep", "reflector SNR, boundary phase/amplitude steps")
+
+
+def free_gb(path):
+    import shutil
+    return shutil.disk_usage(path).free / 1e9
+
+
+def soak_cfg_lines(cfg_path):
+    """The example cfg exactly as shipped (default gain / HPF, monitors as in the file), no sensorStart."""
+    return bc.cfg_lines(cfg_path, drop_last=True)
+
+
+def judge_soak(r, side, cfg, duration, post):
+    """Only the checks that are valid with no reflector: G1, G2, G7 (2.6.1, .2, .4, .5, .8). Returns {group: [(text, ok)]}."""
+    import numpy as np
+    G = {}
+    nc, B = cfg["nchirps"], cfg["B"]
+    tc_us, tb_us = cfg["tc_s"] * 1e6, cfg["tb_s"] * 1e6
+    stats = A.parse_stats(side.get("raw", ""))
+    n = r["n_chirps"]
+    expect = duration / (nc * cfg["tc_s"] + cfg["tb_s"]) * nc
+    span = (r["ts"][r["valid"]].max() - r["ts"][r["valid"]].min()) / 1e8 if r["valid"].any() else 0
+    mbs = r["info"]["end"] / span / 1e6 if span else 0
+    bad_rec = int((~r["valid"]).sum())
+    G["G1 throughput"] = [
+        ("0 UDP sequence gaps over %d datagrams" % r["info"]["datagrams"], r["seq_gaps"] == 0),
+        ("0 wholly missing packets, %d missing/invalid globalChirpIdx record(s) of %d chirps (<= 1: the tail hole)" % (bad_rec, n),
+         r["absent"] == 0 and bad_rec <= 1),
+        ("bytes recorded %d vs chirpAvail %s x B %d: check 4 %s" % (r["info"]["end"], side.get("chirpAvail"), B,
+                                                                     r["checks"][3].status), r["checks"][3].status == "PASS"),
+        ("%d chirps recorded vs ~%d expected for %g s (>= 99%%); %.2f MB/s (expect ~6.66)" % (n, expect, duration, mbs),
+         n >= 0.99 * expect)]
+    din, dbd = r["d_in"] * 1e6, r["d_bd"] * 1e6
+    dev_in, dev_bd = np.abs(din - tc_us), np.abs(dbd - (tc_us + tb_us))
+    p999 = float(np.percentile(dev_in, 99.9)) if len(din) else float("nan")
+    polls = [A.parse_stats(p["raw"]) for p in side.get("polls", [])]
+    final = [s for _, s in post]
+    zero_keys = ("lateIsr", "missedChirpIsr", "frameResync", "availResync")
+    G["G2 timing"] = [
+        ("in-frame dt mean %.2f us, p99.9 |dev| %.2f us (<= 5 us of %.0f), %d pairs" % (
+            din.mean() if len(din) else float("nan"), p999, tc_us, len(din)), len(din) > 0 and p999 <= 5.0),
+        ("boundary dt mean %.2f us (cfg %.0f), p99.9 |dev| %.2f us, max |dev| %.2f us over %d boundaries (every one <= 5 us)" % (
+            dbd.mean() if len(dbd) else float("nan"), tc_us + tb_us,
+            float(np.percentile(dev_bd, 99.9)) if len(dbd) else float("nan"),
+            dev_bd.max() if len(dbd) else float("nan"), len(dbd)), len(dbd) > 0 and dev_bd.max() <= 5.0),
+        ("0 LATE-flagged records (%d); lateIsr, missedChirpIsr, frameResync, availResync == 0 in all %d polls + %d post-run reads" % (
+            r["late"], len(polls), len(final)),
+         r["late"] == 0 and bool(polls) and all(all(s.get(k) == 0 for k in zero_keys) for s in polls + final)),
+        ("sarStats agrees with the parser: chirps %s = chirpAvail %s = %d parsed; frames %s ~ %d" % (
+            stats.get("chirps"), stats.get("chirpAvail"), n, stats.get("frames"), n // nc),
+         stats.get("chirps") == stats.get("chirpAvail") == n and abs((stats.get("frames") or 0) - n // nc) <= 1)]
+    g = G.setdefault("G7 per-chirp metadata", [])
+    g += judge_polls(side)
+    g += A.judge_irq(post)
+    h, tot = lag_text(r)
+    g.append(("2.6.5 satRefLag over %d SAT_VALID records: %s; all in {0,1,2}" % (tot, h), set(r["lag_hist"]) <= {0, 1, 2} and tot > 0))
+    sv0 = r["sat_valid0"]
+    g.append(("2.6.5 records with SAT_VALID = 0: %d (first at k = %s; expected only k = 0, maybe 1)" % (
+        len(sv0), [int(x) for x in sv0[:5]]), True))
+    g.append(("2.6.8 checks 1-4: %s" % "; ".join("%d %s" % (c.num, c.status.split(" (")[0]) for c in r["checks"]), r["accepted"]))
+    bchecks, regime, rtext = A.judge_bytes(r)
+    g += bchecks
+    g.append(("recorded, no target (not judged): firmware saturatedChirps %s, parser (lag applied) %d" % (
+        stats.get("saturatedChirps"), int((r["sat_lag"] > 0).sum())), True))
+    return G, dict(mbs=mbs, regime=regime, n=n, expect=expect, p999=p999, din=din, dbd=dbd, dev_bd=dev_bd, hist=h, stats=stats,
+                   polls=polls, sv0=len(sv0), rtext=rtext)
+
+
+def soak_summary(G, x, r, cfg, ok, duration, cap, pre):
+    """(dict for JSON, text lines <= 40)."""
+    din, dbd, dev_bd = x["din"], x["dbd"], x["dev_bd"]
+    st = x["stats"]
+    d = dict(result="PASS" if ok else "FAIL", duration_s=duration, capture=cap, capture_bytes=r["info"]["end"],
+             chirps=x["n"], chirps_expected=round(x["expect"]), mb_per_s=round(x["mbs"], 3),
+             datagrams=r["info"]["datagrams"], udp_seq_gaps=r["seq_gaps"], wholly_missing_packets=r["absent"],
+             invalid_records=int((~r["valid"]).sum()), chirpAvail=r["sarstats"].get("chirpAvail") if r["sarstats"] else None,
+             dt_in_mean_us=float(din.mean()) if len(din) else None, dt_in_p999_dev_us=x["p999"],
+             dt_boundary_mean_us=float(dbd.mean()) if len(dbd) else None,
+             dt_boundary_max_dev_us=float(dev_bd.max()) if len(dbd) else None, late_records=r["late"],
+             final_sarStats={k: st.get(k) for k in A.STAT_KEYS}, n_polls=len(x["polls"]),
+             satRefLag_hist={str(k): v for k, v in sorted(r["lag_hist"].items())}, sat_valid0=x["sv0"],
+             saturatedChirps_firmware=st.get("saturatedChirps"), saturatedChirps_parser=int((r["sat_lag"] > 0).sum()),
+             saturation_note="recorded, no target", other_slot_regime=x["regime"],
+             groups={k: dict(ok=all(c[1] for c in v), passed=sum(1 for c in v if c[1]), total=len(v),
+                             failed=[c[0] for c in v if not c[1]]) for k, v in G.items()},
+             not_evaluated=list(NOT_EVALUATED), not_evaluated_reason="no reflector -> firmware-18")
+    L = ["SOAK SUMMARY (no reflector; example cfg, default gain/HPF)  RESULT: %s (evaluated items only)" % d["result"],
+         "capture %.0f s: %d chirps (~%d expected), %d datagrams, %.1f MB, %.2f MB/s" % (
+             duration, d["chirps"], d["chirps_expected"], d["datagrams"], d["capture_bytes"] / 1e6, d["mb_per_s"]),
+         "G1: UDP gaps %d, wholly missing %d, invalid records %d, bytes vs chirpAvail %s" % (
+             d["udp_seq_gaps"], d["wholly_missing_packets"], d["invalid_records"], r["checks"][3].status),
+         "G2: dt in-frame mean %s us p99.9 dev %.2f us; boundary mean %s us max dev %s us; late %d" % (
+             "%.2f" % d["dt_in_mean_us"] if len(din) else "n/a", x["p999"],
+             "%.2f" % d["dt_boundary_mean_us"] if len(dbd) else "n/a",
+             "%.2f" % d["dt_boundary_max_dev_us"] if len(dbd) else "n/a", d["late_records"]),
+         "final sarStats: chirps %s chirpStartIsr %s chirpAvail %s frames %s late %s missed %s fResync %s aResync %s" % (
+             st.get("chirps"), st.get("chirpStartIsr"), st.get("chirpAvail"), st.get("frames"), st.get("lateIsr"),
+             st.get("missedChirpIsr"), st.get("frameResync"), st.get("availResync")),
+         "polls: %d, satRefLag %s, SAT_VALID=0 records %d, regime %s" % (d["n_polls"], x["hist"], x["sv0"], x["regime"]),
+         "saturation counters (recorded, no target): firmware %s, parser %d" % (
+             d["saturatedChirps_firmware"], d["saturatedChirps_parser"]),
+         "parser checks 1-4: %s" % ("accepted" if r["accepted"] else "REJECTED %s" % r["failing"])]
+    for k, v in d["groups"].items():
+        L.append("%s: %s (%d/%d)%s" % (k, "PASS" if v["ok"] else "FAIL", v["passed"], v["total"],
+                                       "  FAILED: " + "; ".join(t[:70] for t in v["failed"]) if v["failed"] else ""))
+    if pre:
+        L.append("pre-check: %s" % ("PASS" if all(c[1] for c in pre) else "FAIL"))
+    for n_ in NOT_EVALUATED:
+        L.append("%s: NOT EVALUATED (no reflector) -> firmware-18" % n_)
+    L.append("delete capture: rm -f %s %s.sarstats.json (also %s/endurance_pre*)" % (cap, cap, WORKDIR))
+    return d, L[:40]
+
+
+def cmd_soak(dev, a, out=print):
+    os.makedirs(WORKDIR, exist_ok=True)
+    free = free_gb(WORKDIR)
+    need = SOAK_MIN_FREE_GB
+    if free < need:
+        out("RESULT: ABORTED (only %.1f GB free on %s, need >= %.0f GB; nothing was started: no cfg sent, no capture)" % (
+            free, WORKDIR, need))
+        return False
+    out("disk: %.1f GB free on %s (>= %.0f GB needed; the capture is ~%.1f GB)" % (free, WORKDIR, need, a.duration * 6.66e6 / 1e9))
+    lines = soak_cfg_lines(a.cfg)
+    cfgp = R.write_cfg(lines + ["sensorStart"], os.path.join(WORKDIR, "soak.cfg"))
+    with open(cfgp) as fh:
+        text = fh.read()
+    cfg = common.cfg_params(text)
+    errs = cfg_errors(text)
+    if errs:
+        out("RESULT: FAIL (cfg check: %s)" % errs[0])
+        return False
+    mon = [l for l in lines if l.split()[:1] in (["analogMonitor"], ["CQRxSatMonitor"])]
+    out("soak (NO reflector): %g s, %s default gain %s dB / HPF %s+%s kHz, monitors: %s, timer-s %d" % (
+        a.duration, os.path.basename(a.cfg), cfg["rx_gain"], cfg["hpf1_khz"], cfg["hpf2_khz"], "; ".join(mon) or "none", a.timer_s))
+    pre = []
+    if a.precheck_s > 0:
+        pa = argparse.Namespace(precheck_s=a.precheck_s, timer_s=a.timer_s, range=None)
+        pre = precheck(dev, lines, cfgp, cfg, pa, 12, out)
+        if not all(ok for _, ok in pre):
+            return bc.summarize(pre, out)
+    if not A.configure_show(dev, lines, out):
+        out("RESULT: FAIL (cfg not accepted)")
+        return False
+    import bench_stream as bs
+    cap = os.path.join(WORKDIR, "soak.cap")
+    out("=== soak: capture %g s, sarStats every %g s ===" % (a.duration, a.poll_s))
+    t0 = time.time()
+    side = polled_capture(dev, cap, a.duration, a.timer_s, a.poll_s, out)
+    out("capture done in %.0f s; analysing (streaming, ~1-2 min)" % (time.time() - t0))
+    r = bs.analyze_stream(cap, cfg, side, adc_bits=12, reflector_range=None,
+                          progress=lambda f: out("  analysed %d%%" % round(100 * f)))
+    post = post_stop_reads(dev, side, a.reads, a.gap, out)
+    A.configure_show(dev, lines, out)
+    post.append(("before next sensorStart (cfg re-sent)", A.parse_stats(A.read_stats(dev))))
+    for label, s in post:
+        out("  sarStats %-38s chirps %s chirpStartIsr %s chirpAvail %s late %s missed %s fResync %s aResync %s sat %s" % (
+            label, s.get("chirps"), s.get("chirpStartIsr"), s.get("chirpAvail"), s.get("lateIsr"), s.get("missedChirpIsr"),
+            s.get("frameResync"), s.get("availResync"), s.get("saturatedChirps")))
+    G, x = judge_soak(r, side, cfg, a.duration, post)
+    if pre:
+        G["pre-check"] = pre
+    ok = emit_groups(G, out, final=False)
+    d, L = soak_summary(G, x, r, cfg, ok, a.duration, cap, pre)
+    sp_ = os.path.join(WORKDIR, "soak_summary.json")
+    with open(sp_, "w") as fh:
+        json.dump(d, fh, indent=1, default=float)
+    with open(os.path.join(WORKDIR, "soak_summary.txt"), "w") as fh:
+        fh.write("\n".join(L) + "\n")
+    out("--- paste block (also %s, soak_summary.txt) ---" % sp_)
+    for l in L:
+        out(l)
+    out("--- end paste block ---")
+    out("RESULT: %s  (evaluated items only; G3, G4, G6 and the reflector rows are NOT EVALUATED -> firmware-18)" % ("PASS" if ok else "FAIL"))
+    return ok
+
+
 # --- tb ---------------------------------------------------------------------------------------------------------------
 def cmd_tb(dev, a, out=print):
     adc_bits = resolve_adc_bits(a.adc_bits, out)
@@ -617,6 +799,14 @@ def register(sub):
     p.add_argument("--points", type=int, default=5)
     p.add_argument("--duration", type=float, default=30.0)
     p.add_argument("--adc-bits", type=int)
+    p = sub.add_parser("soak", help="10 min endurance with NO reflector: G1, G2, 2.6.1/.2/.4/.5/.8 only; the rest NOT EVALUATED")
+    p.add_argument("--cfg", default=cfg)
+    p.add_argument("--timer-s", type=int, default=30)
+    p.add_argument("--duration", type=float, default=600.0)
+    p.add_argument("--poll-s", type=float, default=60.0)
+    p.add_argument("--precheck-s", type=float, default=30.0, help="0 skips the 30 s tool cross-check")
+    p.add_argument("--reads", type=int, default=2)
+    p.add_argument("--gap", type=float, default=4.0)
     for name, hlp in (("endurance", "10 min run: G1-G4, G6, G7"), ("tb", "boundary check with Tb + N us")):
         p = sub.add_parser(name, help=hlp)
         p.add_argument("--cfg", default=cfg)
@@ -636,4 +826,4 @@ def register(sub):
             p.add_argument("--duration", type=float, default=60.0)
 
 
-COMMANDS = {"tune": cmd_tune, "sat": cmd_sat, "endurance": cmd_endurance, "tb": cmd_tb}
+COMMANDS = {"tune": cmd_tune, "sat": cmd_sat, "endurance": cmd_endurance, "soak": cmd_soak, "tb": cmd_tb}

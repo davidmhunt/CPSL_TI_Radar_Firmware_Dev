@@ -9,6 +9,7 @@
     ./bench start0     `sensorStart 0` restart with no new cfg, capture + parse
     ./bench adc        peak |I|,|Q| of a capture (clipped on purpose) -> which --adc-bits (12: 2048, 16: 32768)
     ./bench fmt4|fmt1|bsize|bytes|late|irq    Set A, no reflector needed: tools/bench_a.py
+    ./bench tune|sat|endurance|tb             Set B, reflector at a measured range: tools/bench_b.py
 
 Each prints PASS/FAIL lines and a short block to paste back. HARDWARE TOOL: configures the radar over the CLI port
 and records from the DCA1000 (via dca_capture.py, then sar_parse's analysis in-process). The board must be in run mode,
@@ -369,7 +370,7 @@ def decide_adc_bits(peak, n_at_pos, n_at_neg):
     return None, "peak %d is below 2047 with no rail pile-up: not clipped, cannot tell 12 from 16 bit" % peak
 
 
-def judge_adc(res, out=print):
+def judge_adc(res, out=print, bits_out=None):
     lo, hi, nused = adc_peaks(res)
     peak = max(-lo["I"], -lo["Q"], hi["I"], hi["Q"])
     out("ADC peaks over %d complete chirps: I %d..%d, Q %d..%d (peak |.| %d)" % (
@@ -382,6 +383,8 @@ def judge_adc(res, out=print):
     else:
         bits, why = decide_adc_bits(peak, count_at(res, 2047), count_at(res, -2048))
     out("--adc-bits decision: %s" % (("%d  (%s)" % (bits, why)) if bits else "UNDECIDED  (%s)" % why))
+    if bits_out is not None:
+        bits_out.append(bits)
     return [("--adc-bits determined from data: %s" % (bits if bits else "not clipped, rerun closer/higher --gain"),
              bits is not None)]
 
@@ -405,7 +408,13 @@ def cmd_adc(dev, a, out=print):
             return False
     e = evaluate(cap, cfg)
     block("adc capture", e, out)
-    return bc.summarize(judge_adc(e["res"], out), out)
+    got = []
+    checks = judge_adc(e["res"], out, got)
+    if got and got[0]:                                   # the tune / sat / endurance / tb commands read this
+        with open(os.path.join(WORKDIR, "adc_bits.txt"), "w") as fh:
+            fh.write("%d\n" % got[0])
+        out("saved: later commands use --adc-bits %d by default (override with --adc-bits N)" % got[0])
+    return bc.summarize(checks, out)
 
 
 # --- cli ------------------------------------------------------------------------------------------------------------
@@ -442,13 +451,16 @@ def main(argv=None):
     p.add_argument("--hpf2", type=int, default=0)
     p.add_argument("--duration", type=float, default=5)
     import bench_a
+    import bench_b
     bench_a.register(sub)
+    bench_b.register(sub)
     a = ap.parse_args(argv)
     offline = a.cmd in ("adc", "bytes") and getattr(a, "capture", None)       # re-analysis of a file: no board needed
     dev = None if offline else bc.find_cli_port(a.cli_port)
     fns = {"long": cmd_long, "restart": cmd_restart, "chan": cmd_chan, "finite": cmd_finite, "start0": cmd_start0,
            "adc": cmd_adc}
     fns.update(bench_a.COMMANDS)
+    fns.update(bench_b.COMMANDS)
     return 0 if fns[a.cmd](dev, a) else 1
 
 

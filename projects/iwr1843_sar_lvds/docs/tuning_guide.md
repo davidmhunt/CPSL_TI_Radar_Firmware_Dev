@@ -75,6 +75,8 @@ hardware confirmation (measured on the bench; see README Status).
 4. **Raise the gain** until the swath's far end is clearly above the noise floor with **clipped chirps 0 for the whole capture**.
 5. Record the chosen point (gain, HPF pair, report numbers, cfg). `sar_tune_sweep.py` tabulates steps 2-4.
 
+On the bench `./bench tune --range M` runs steps 1-4 as one 8-point sweep and prints the clean candidates (`bench_bringup.md` §5d).
+
 ## 7 Reading the report and the sweep table
 
 | Report line | Meaning |

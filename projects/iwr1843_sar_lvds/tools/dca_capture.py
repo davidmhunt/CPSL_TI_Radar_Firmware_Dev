@@ -75,11 +75,34 @@ def configure_dca(dca, lanes=2, timer_s=30, packet_bytes=1472, delay_us=100, log
     log("DCA1000 configured (FPGA version word %d)" % status)
 
 
+def _wait(cli, duration_s, poll_s, on_poll, sidecar):
+    """Sleep for the run; with poll_s, read sarStats at every poll_s seconds on the way."""
+    if not poll_s:
+        time.sleep(duration_s)
+        return
+    t0 = time.time()
+    nxt = poll_s
+    while True:
+        left = duration_s - (time.time() - t0)
+        if left <= 0:
+            return
+        time.sleep(max(0.0, min(left, nxt - (time.time() - t0))))
+        t = time.time() - t0
+        if t >= nxt and t < duration_s:
+            raw = cli.command("sarStats", timeout=3.0)
+            sidecar.setdefault("polls", []).append({"t": round(t, 1), "raw": raw})
+            if on_poll:
+                on_poll(t, raw)
+            nxt += poll_s
+
+
 def capture_run(dca, data_sock, cli, out_path, duration_s, log=print, drain_s=0.5, manual=None,
-                start_cmd="sensorStart"):
+                start_cmd="sensorStart", poll_s=None, on_poll=None):
     """One recording, in the order the capture requirement demands. `dca` has .send(name, data); `cli` has
     .command(line, timeout) (None = manual: `manual()` is called after arming and must return (chirpAvail, runIdx)
-    once the user has run sensorStart ... sensorStop and read sarStats). Returns the sidecar dict."""
+    once the user has run sensorStart ... sensorStop and read sarStats). `poll_s` (with `cli`): read sarStats every
+    poll_s seconds while the run is going (a long endurance run); each reading is appended to sidecar["polls"] as
+    {"t": seconds since sensorStart, "raw": text} and passed to `on_poll(t, raw)`. Returns the sidecar dict."""
     sidecar = {"chirpAvail": None, "runIdx": None, "raw": "", "frameEndTimeout": False, "source": "cli" if cli else "manual"}
     with open(out_path, "wb") as fh:
         common.write_capture_header(fh)
@@ -97,7 +120,7 @@ def capture_run(dca, data_sock, cli, out_path, duration_s, log=print, drain_s=0.
                     raise RuntimeError("%s failed: %r" % (start_cmd, out.strip()[-200:]))
                 started = True
                 log("%s ok; recording %.1f s" % (start_cmd, duration_s))
-                time.sleep(duration_s)
+                _wait(cli, duration_s, poll_s, on_poll, sidecar)
                 stop_out = cli.command("sensorStop", timeout=10.0)
                 started = False
                 if common.FRAME_END_MSG in stop_out:

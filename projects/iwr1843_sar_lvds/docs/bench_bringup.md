@@ -120,6 +120,32 @@ Stop and report if one FAILs. Power-cycle only if a command left the CLI dead (`
 ```
 Paste each block back. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with `--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
 
+Set B (a corner reflector at a MEASURED range; `tools/bench_b.py`; each prints one `RESULT` line per goal G1-G7 where it applies, then `RESULT: PASS|FAIL`):
+
+| Command | What it does | min |
+|---|---|---|
+| `./bench adc` | (before the others) writes `/tmp/bench_run/adc_bits.txt` once it decides 12 or 16 bit; Set B reads it, or take `--adc-bits N` | 1 |
+| `./bench tune --range M` | Step 2.3: gain 24/30/36/42 x HPF 175:350 and 350:700, 5 s each (`--gains`, `--hpf`, `--duration` change it); table of ADC-clipped chirps, firmware saturation flags, noise, reflector SNR; prints the candidates (0 clipped) and the chosen point with the next command | 3 |
+| `./bench sat --range M --gain G --hpf A:B` | 2.6.6: >= 5 gains from the tuned G up (steps of 4) to clipping, 30 s each; firmware `saturatedChirps` vs parser vs ADC-clipped, non-decreasing, 0 at G, > 0 at the top, lag alignment vs no lag | 5 |
+| `./bench endurance --range M --gain G --hpf A:B` | Step 2.4: 30 s cross-check through `sar_parse` + `sar_tune_report`, then 600 s with `sarStats` each minute, `sensorStop`, 2 more reads and one before the next start; streaming analysis (the 4 GB capture does not fit `sar_parse`'s in-memory design). G1, G2, G3, G4, G6 (Step 2.5), G7: 2.6.1, .2, .4, .5, .8 | 15 |
+| `./bench tb --add-us N --range M --gain G --hpf A:B` | Step 2.5 follow-up (only if endurance reports a step): 60 s with Tb = 300 + N us (N 100..500), same step statistics | 2 |
+
+### 5d Order for Set B (reflector needed)
+
+Physical: a corner reflector, static (no wind, no people moving near the beam), and a tape measure; the boresight range M in metres.
+Capture files go to `/tmp/bench_run/` (the 10 min capture is about 4 GB; delete it afterwards).
+```
+# 1. reflector at 1-2 m, close enough to clip at the default 48 dB (./bench adc takes --gain N to change it)
+./bench adc                                   # 1 min; prints "saved ... --adc-bits N"
+./bench tune --range 1.5                      # 3 min; use the real range; note CHOSEN gain G and HPF A:B
+./bench sat --range 1.5 --gain G --hpf A:B    # 5 min; the top gain must clip: move the reflector closer if it does not
+# 2. move the reflector to a measured 3-10 m, do not touch it for the next 20 minutes
+./bench endurance --range M --gain G --hpf A:B   # 15 min
+# 3. only if the output says "G6 follow-up": steps at Tb = 300 us
+./bench tb --add-us 100 --range M --gain G --hpf A:B     # then 200 ... up to 500 until clean
+```
+Add `--adc-bits N` to each if `./bench adc` was not run. Paste the whole output of each command.
+
 ## 6 Hand-off: what to record
 
 Write down: the by-id port names, the host and DCA1000 addresses and ports used, the image sha256 flashed, the exact flash

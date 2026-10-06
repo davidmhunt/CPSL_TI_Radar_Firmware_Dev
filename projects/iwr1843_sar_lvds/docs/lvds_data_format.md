@@ -20,7 +20,7 @@ Status).
 > *other* slot does not hold a `SARM` record with the run's `runIdx` and `globalChirpIdx` = k + 1: no chirp follows
 > the run's last one, so a recording that starts one packet late fails here. (4) Bytes recorded (highest byte count
 > + that datagram's length) = `chirpAvail` × B (`chirpAvail` = packets sent in the run). Checks 3 and 4 are
-> *(bench)*: until confirmed, require both; a recording without a `sarStats` reading is unverified.
+> *(bench)*: until confirmed, require both; without a `sarStats` reading, check 4 fails.
 
 ```
 | HSI header (optional) | ADC samples, RX by RX, 4 B/sample | record slot 0 | record slot 1 |
@@ -37,7 +37,7 @@ The firmware rejects dataFmt 2 unless `adcbufCfg` has complex output (AdcOutputF
 even, so M, B and every packet start are multiples of 8 B (an RX block need not be).
 
 **Byte order.** The device is little-endian. The DCA1000 delivers each 8 bytes sent as 16-bit units `u0 u1 u2 u3` in
-the order **`u0 u2 u1 u3`** [2]. Parse in two steps: (1) over the **whole packet**,
+the order **`u0 u2 u1 u3`** [2] (confirmed for ADC data; header and record *(bench)*). Parse in two steps: (1) over the **whole packet**,
 swap bytes 2-3 with bytes 4-5 in every 8-byte group; (2) read the result as little-endian device memory. All offsets
 below are after step 1 (HSI id example in [1]).
 

@@ -103,13 +103,21 @@ class CaptureRequirement(unittest.TestCase):
         self.assertIn("tail hole", text)
         self.assertTrue(res["accepted"], text)
 
-    def test_final_datagram_covering_record_slots_makes_check_3_not_evaluable_and_rejects(self):
+    def test_final_datagram_covering_record_slots_defers_to_check_4_and_is_accepted(self):
         res, text = run("lost_final_datagram")                  # the lost datagram holds the last 1226 B
-        self.assertEqual(status(res, 4), "PASS")                # F2: check 4 does not false-reject a tail hole
-        self.assertEqual(status(res, 3), "NOT EVALUABLE")
+        self.assertEqual(status(res, 4), "PASS")                # F2: a tail hole does not false-reject check 4
+        self.assertEqual(status(res, 3), "NOT EVALUABLE (tail hole)")
+        self.assertTrue(res["accepted"], text)                  # F3: rely on check 4
+        self.assertIn("check 3 (no chirp follows the last packet): NOT EVALUABLE (tail hole)", text)
+        self.assertIn("VERDICT: ACCEPTED", text)
+
+    def test_check_3_not_evaluable_with_check_4_failing_rejects(self):
+        dg, stats = S.scenario("lost_final_datagram", CFG, N)
+        res = P.analyze(dg[:-3], CFG, stats)                    # three datagrams lost: beyond the tail tolerance
+        self.assertEqual(status(res, 3), "NOT EVALUABLE (tail hole)")
+        self.assertEqual(status(res, 4), "FAIL")
         self.assertFalse(res["accepted"])
-        self.assertIn("check 3 (no chirp follows the last packet): NOT EVALUABLE", text)
-        self.assertIn("failing: check 3", text)
+        self.assertIn("failing: check 3, check 4", P.render(res))
 
     def test_long_run_plus_short_second_run_rejected_by_runidx_check_2(self):
         res, text = run("two_runs")

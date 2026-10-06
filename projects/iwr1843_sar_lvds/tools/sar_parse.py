@@ -201,8 +201,8 @@ def analyze(datagrams, cfg, sarstats=None, flow_error=None):
         off = cand * B + M + 32 * ((cand + 1) % 2)
         t = _rec_at(stream, mask, off)
         if t is None:
-            c3.set("NOT EVALUABLE", "packet %d: the other slot's bytes are not all present (a lost final "
-                                    "datagram covers the record slots), so the start cannot be proven" % cand)
+            c3.set("NOT EVALUABLE (tail hole)", "packet %d: the other slot's bytes are not all present (a lost "
+                   "final datagram covers the record slots); relying on check 4" % cand)
         elif t[0] == MAGIC and (run_idx is None or t[7] == run_idx) and t[6] == (cand + 1) & 0xFFFFFFFF:
             c3.set("FAIL", "packet %d's other slot holds chirp %d of the run: a chirp follows the last packet, so "
                            "the recording starts one packet late" % (cand, cand + 1))
@@ -233,7 +233,10 @@ def analyze(datagrams, cfg, sarstats=None, flow_error=None):
         flow_ok = False
     if flow_error:
         flow_ok = False
-    failing = [c.num for c in checks if c.status != "PASS"]
+    # F3: check 3 not evaluable because of a tail hole defers to check 4; every other failed or not-evaluable
+    # check rejects (F8).
+    c3_deferred = c3.status.startswith("NOT EVALUABLE (tail hole)") and c4.status == "PASS"
+    failing = [c.num for c in checks if c.status != "PASS" and not (c.num == 3 and c3_deferred)]
     accepted = not failing and flow_ok
 
     # per chirp metadata -------------------------------------------------------------------------------------------

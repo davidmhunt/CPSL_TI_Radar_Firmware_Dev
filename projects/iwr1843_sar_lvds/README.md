@@ -124,7 +124,7 @@ uv sync --group tools        # numpy + matplotlib, only for the report and sweep
 uv run python -m unittest discover -s projects/iwr1843_sar_lvds/tools -p 'test_*.py'
 ```
 
-Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only.
+Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only. DCA1000 address and port defaults are the factory ones, and `dca_capture.py --timer-s` (default 30 s) must be checked before captures longer than 30 s.
 
 ## Status
 

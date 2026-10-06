@@ -37,7 +37,7 @@ uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/ttyACM
 
 `dca_capture.py` arms the DCA1000, sends `sensorStart`, waits, sends `sensorStop`, reads `sarStats`, then stops recording; without
 `--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. Add `--fpga-ip --host-ip --cmd-port --data-port`
-unless the DCA1000 is at 192.168.33.180 / .30, ports 4096 / 4098. The report also writes `run1_tune.png`. The sweep needs no power
+unless the DCA1000 is at 192.168.33.180 / .30, ports 4096 / 4098; `--timer-s` (default 30) may cut off longer captures. The report also writes `run1_tune.png`. The sweep needs no power
 cycle; `--dry-run` lists and cfg-checks its points.
 
 ## 4 `sarStats`: the number that proves the run's length
@@ -64,10 +64,10 @@ failing checks. A rejected capture writes no output files (`--force` does, with 
 | 1 | Byte counts consistent: no overlapping datagrams, no restart at 0 (lost, reordered, exact duplicate datagrams are fine) | two recordings joined |
 | 2 | At least 99 % of packets with all record bytes present validate (record equals its position; max(1, 1 %) failures allowed); every record carries the run's `runIdx` | began mid-packet or 2+ packets late; a second run in the file; "firmware lost count" if failures persist |
 | 3 | In the last packet (`chirpAvail` − 1) the *other* slot does not hold the run's next chirp | began one packet late (check 2 cannot see it) |
-| 4 | Bytes recorded = `chirpAvail` × B (B = packet size, printed); a lost final datagram is a tolerated tail hole | short at the start or end, or a second run appended; **no `sarStats` reading: fails** |
+| 4 | Bytes recorded = `chirpAvail` × B (B = packet size, printed); a lost final datagram is a tolerated tail hole (check 4 then decides check 3) | short at the start or end, or a second run appended; **no `sarStats` reading: fails** |
 
-*Not evaluable* (needed bytes lost, e.g. the lost final datagram held the last record slots) counts as a failure. Checks 3 and 4 await
-hardware confirmation (measured on the bench; see README Status): until then require both.
+*Not evaluable* counts as a failure, except check 3 when a lost final datagram held the last record slots: then check 4 decides. Checks 3 and 4 await
+hardware confirmation (measured on the bench; see README Status).
 
 ## 6 Bench procedure
 

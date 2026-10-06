@@ -106,9 +106,7 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 
 ## Capture, parse, tune
 
-Host tools in `tools/` (Python; run from `firmware_dev/`; guide: [`docs/tuning_guide.md`](docs/tuning_guide.md)). A recording is only usable if it
-holds the run's first byte: arm the DCA1000 before `sensorStart`, stop it after `sensorStop`, read `sarStats` after `sensorStop`.
-`sar_parse.py` proves this with checks 1-4 ([`docs/lvds_data_format.md`](docs/lvds_data_format.md) §1) and refuses to write aligned output
+Host tools in `tools/` (Python; run from `firmware_dev/`; guide: [`docs/tuning_guide.md`](docs/tuning_guide.md)). `sar_parse.py` enforces the guide's capture requirement with checks 1-4 ([`docs/lvds_data_format.md`](docs/lvds_data_format.md) §1) and refuses to write aligned output
 for a recording that fails any of them (`--force` writes it for debugging only).
 
 | Tool | Does | Hardware |

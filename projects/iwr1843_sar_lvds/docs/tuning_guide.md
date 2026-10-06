@@ -41,7 +41,7 @@ uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/ttyACM
 
 ## 4 `sarStats`: the number that proves the run's length
 
-Type `sarStats` in the radar CLI after `sensorStop` (`dca_capture.py` does, and stores `run1.cap.sarstats.json`):
+Type `sarStats` in the radar CLI after `sensorStop` (`dca_capture.py` stores it as `run1.cap.sarstats.json`):
 
 ```
 mmwDemo:/>sarStats
@@ -71,7 +71,7 @@ hardware confirmation (measured on the bench; see README Status).
 
 1. Put a **near reflector at 1-2 m** and run the one-point sweep (§3) at **gain 30 dB, HPF 175:350**.
 2. Capture, parse (§3); go on only if `ACCEPTED`. Run the report with `--reflector-range`.
-3. **If chirps clip**, step the HPF up first (re-run with `--hpf 350:700`): it cuts near-range level at 40 dB/decade, countering R⁴. Lower the gain only if it still clips.
+3. **If chirps clip**, step the HPF up first (re-run with `--hpf 350:700`). Lower the gain only if it still clips.
 4. **Raise the gain** until the swath's far end is clearly above the noise floor with **clipped chirps 0 for the whole capture**.
 5. Record the chosen point (gain, HPF pair, report numbers, cfg). `sar_tune_sweep.py` tabulates steps 2-4.
 
@@ -90,7 +90,7 @@ hardware confirmation (measured on the bench; see README Status).
 sending, but the packet's record was written earlier, at chirp start. So chirp n's result arrives in chirp n+1's record (`satRefLag` = 1;
 sometimes 2 or 0). The tools subtract the lag: the clipped count and `sat_slices_this_chirp` (`_meta.csv`) name the chirp that saturated. `satSlices` = how many of up to 64 slices of the ADC window saw saturation. 
 
-Sweep table: one row per point, same quantities; `REJECTED` = a check failed (see `note`, redo it), `SKIPPED` = the cfg checker refused it. Pick the highest gain with clipped 0 and enough SNR.
+Sweep table: one row per point, same quantities; `REJECTED` = a check failed (see `note`, redo it), `SKIPPED` = the cfg checker refused it.
 
 ## 8 Pitfalls
 

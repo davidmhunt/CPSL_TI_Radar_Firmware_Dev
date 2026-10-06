@@ -41,5 +41,22 @@ curl -L -O -C - "https://dr-download.ti.com/software-development/support-softwar
 echo "Downloading Code Composer Studio..."
 curl -L -O -C - "https://dr-download.ti.com/software-development/ide-configuration-compiler-or-debugger/MD-J1VdearkvK/12.8.1/CCS12.8.1.00005_linux-x64.tar.gz"
 
+# 9. TI UniFlash (9.6.0.5764) — flashes the IWR1843 over UART headlessly via dslite.sh (~365 MiB, no login).
+# By downloading and using it you accept TI's UniFlash software license (docs/licenses in the install); the
+# unattended installer does not prompt, matching the other TI items here.
+# Integrity: expected size and sha256 below are TRUST-ON-FIRST-USE, taken from the first download on
+# 2026-10-06 (TI publishes no checksum for this file). A mismatch means TI re-released it or the download
+# is corrupt/tampered: investigate before installing.
+echo "Downloading TI UniFlash..."
+UNIFLASH_RUN="uniflash_sl.9.6.0.5764.run"
+UNIFLASH_SIZE=382687118
+UNIFLASH_SHA256="66e78bfa083492999c524a6ea97c16b4b90be54d65beae7701210fb6404b0d9c"
+curl -L -O -C - "https://software-dl.ti.com/ccs/esd/uniflash/${UNIFLASH_RUN}"
+if [ "$(stat -c %s "${UNIFLASH_RUN}")" != "${UNIFLASH_SIZE}" ] || \
+   ! echo "${UNIFLASH_SHA256}  ${UNIFLASH_RUN}" | sha256sum -c --quiet -; then
+    echo "ERROR: ${UNIFLASH_RUN} size/sha256 does not match the pinned values in download.sh" >&2
+    exit 1
+fi
+
 echo "=== Download Completion Verification ==="
 ls -lh

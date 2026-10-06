@@ -42,12 +42,11 @@ below are after step 1. Example: the HSI id (LE u64 `0x0CDA0ADC0CDA0ADC`) reads 
 
 **Which record is packet k's.** The recording begins at packet 0 (capture requirement, §1). Place each datagram's
 payload at its byte count from the DCA1000 UDP header (10 B, little-endian: u32 sequence number, u48 count of data bytes
-sent before it) [7]. Packet k starts at byte k·B. Lost datagrams leave holes at known positions and alignment holds: a
+sent before it) [7]. Packet k starts at byte k·B. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot holds a valid-looking record for chirp k−1 or k+1: never use it. Lost datagrams leave holes at known positions and alignment holds: a
 record with any missing byte is invalid, missing ADC bytes are lost data (mark that chirp, shift nothing), and a
 truncated final packet is dropped. Headerless recordings are unsupported unless the recorder zero-fills lost datagrams
 at their positions. A multi-run recording can be split only with each run's packet count (`chirpAvail`) and B;
-otherwise align only the first run. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
-for chirp k−1 or k+1: never use it.
+otherwise align only the first run.
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²). Otherwise discard the whole record, including its `tsTicks` and the saturation result it

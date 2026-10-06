@@ -75,7 +75,8 @@ def configure_dca(dca, lanes=2, timer_s=30, packet_bytes=1472, delay_us=100, log
     log("DCA1000 configured (FPGA version word %d)" % status)
 
 
-def capture_run(dca, data_sock, cli, out_path, duration_s, log=print, drain_s=0.5, manual=None):
+def capture_run(dca, data_sock, cli, out_path, duration_s, log=print, drain_s=0.5, manual=None,
+                start_cmd="sensorStart"):
     """One recording, in the order the capture requirement demands. `dca` has .send(name, data); `cli` has
     .command(line, timeout) (None = manual: `manual()` is called after arming and must return (chirpAvail, runIdx)
     once the user has run sensorStart ... sensorStop and read sarStats). Returns the sidecar dict."""
@@ -91,11 +92,11 @@ def capture_run(dca, data_sock, cli, out_path, duration_s, log=print, drain_s=0.
             armed = True
             log("DCA1000 armed")
             if cli is not None:
-                out = cli.command("sensorStart", timeout=5.0)          # 3.
+                out = cli.command(start_cmd, timeout=5.0)              # 3.
                 if "Done" not in out:
-                    raise RuntimeError("sensorStart failed: %r" % out.strip()[-200:])
+                    raise RuntimeError("%s failed: %r" % (start_cmd, out.strip()[-200:]))
                 started = True
-                log("sensorStart ok; recording %.1f s" % duration_s)
+                log("%s ok; recording %.1f s" % (start_cmd, duration_s))
                 time.sleep(duration_s)
                 stop_out = cli.command("sensorStop", timeout=10.0)
                 started = False
@@ -145,6 +146,8 @@ def build_parser():
     ap.add_argument("--lanes", type=int, choices=(2, 4), default=2, help="LVDS lanes (default 2: IWR1843)")
     ap.add_argument("--timer-s", type=int, default=30,
                     help="CONFIG_FPGA_GEN timer byte, seconds (default 30, as every shipped board descriptor)")
+    ap.add_argument("--start-cmd", default="sensorStart", help="CLI start command (default %(default)s; "
+                                                               "e.g. 'sensorStart 0' = restart without a new cfg)")
     ap.add_argument("--rcvbuf-mb", type=int, default=64, help="requested SO_RCVBUF in MiB (default 64)")
     return ap
 
@@ -168,7 +171,8 @@ def main(argv=None):
 
     try:
         configure_dca(dca, opt.lanes, opt.timer_s)
-        capture_run(dca, data_sock, cli, opt.out, opt.duration, manual=None if cli else manual)
+        capture_run(dca, data_sock, cli, opt.out, opt.duration, manual=None if cli else manual,
+                    start_cmd=opt.start_cmd)
     except (RuntimeError, OSError, ValueError) as exc:
         print("error: %s" % exc, file=sys.stderr)
         return 1

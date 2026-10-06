@@ -12,6 +12,8 @@ mounting that joins the two boards (per the DCA1000 guide), and an Ethernet cabl
   `53948f4d20ca501490dd3d1dbe48229622af5346914dfe33daec33980864267a` (built 2026-10-05T23:51Z from `firmware_dev` commit 946f48d).
   Check: `sha256sum projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`. A different hash means a different build: stop and ask.
 - Host: your user must be in the `dialout` group (`id -nG | grep dialout`; if missing, add it and log in again).
+- Host tools: `picocom` (`sudo apt install picocom`; verify `command -v picocom`). No-install fallback (pyserial is in the uv env;
+  exit with Ctrl-]): `uv run python -m serial.tools.miniterm <by-id port> 115200`.
 - Ports, once the board is powered and plugged in: `ls /dev/serial/by-id/`. `...XDS110...-if00` is the CLI port
   (115200 baud, used here); `...-if03` is the data port (unused). Use the by-id names: `/dev/ttyACM*` numbers can change.
 

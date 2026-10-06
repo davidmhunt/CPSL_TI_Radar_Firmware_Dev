@@ -4,7 +4,7 @@
     ./bench long       60 s capture: FPGA timer does not cut it off, bytes = chirpAvail x B, 0 sequence gaps
                        (= CONFIG_PACKET_DATA delay unit check)
     ./bench restart    >= 3 stop / re-cfg (changed rxGain, HPF) / start cycles in one boot, a capture + parse each
-    ./bench chan       channelCfg change after flushCfg: records the CLI reply, then a valid cfg + capture still works
+    ./bench chan       full cfg with a changed channelCfg + sensorStart: rejected at sensorStart, then a valid cfg + capture still works
     ./bench finite     numFrames 5 run ends by itself; sensorStop still works; chirpAvail = 5 x 255; LVDS frame count
     ./bench start0     `sensorStart 0` restart with no new cfg, capture + parse
     ./bench adc        peak |I|,|Q| of a capture (clipped on purpose) -> which --adc-bits (12: 2048, 16: 32768)
@@ -214,12 +214,16 @@ def probe_lines(port, lines, out=print):
     return replies, False
 
 
-def judge_chan(replies, errored, follow, alive):
+def judge_chan(replies, errored, follow, alive, state=None):
+    """The firmware validates channelCfg at sensorStart (mmw_cli.c, "Error: channelCfg differs from the first
+    sensorStart"), not at the channelCfg CLI line, which only stores it and answers Done."""
     last_line, last_body, _ = replies[-1]
     raw_all = " ".join(r[2] for r in replies).lower()
     return [
-        ("channelCfg change answered with a CLI Error (reply: %s)" % (
-            " / ".join(last_body) or "none"), errored and last_line.startswith("channelCfg")),
+        ("sensorStart with the changed channelCfg answered with 'Error: channelCfg differs' (reply: %s)" % (
+            " / ".join(last_body) or "none"),
+         errored and last_line.startswith("sensorStart") and any("channelCfg differs" in b for b in last_body)),
+        ("sensor not started after the rejected sensorStart (Sensor State %s, not 2)" % state, state != 2),
         ("no Exception/assert/halt text in any reply", not any(w in raw_all for w in BAD_WORDS)),
         ("CLI still answers after the rejection (prompt returned)", alive),
         ("following valid cfg + sensorStart: clean capture", capture_ok(follow)),
@@ -228,13 +232,17 @@ def judge_chan(replies, errored, follow, alive):
 
 def cmd_chan(dev, a, out=print):
     os.makedirs(WORKDIR, exist_ok=True)
-    base = bc.cfg_lines(a.cfg, drop_last=True)
-    bad = with_command(base, "channelCfg", a.channel_cfg)
-    cut = bad[:[i for i, l in enumerate(bad) if l.startswith("channelCfg")][0] + 1]
+    full = bc.cfg_lines(a.cfg)                       # includes the final sensorStart
+    bad = with_command(full, "channelCfg", a.channel_cfg)
     port = common.CliPort(dev)
     try:
-        replies, errored = probe_lines(port, cut, out)
-        alive = common.CliPort.PROMPT in port.command("queryDemoStatus", timeout=5.0)
+        replies, errored = probe_lines(port, bad, out)
+        status = port.command("queryDemoStatus", timeout=5.0)
+        alive = common.CliPort.PROMPT in status
+        state = bc.sensor_state(status)
+        if state == 2:                               # accepted (firmware gap): stop it so the follow-up can reconfigure
+            out("sensor STARTED with the changed channelCfg: sending sensorStop")
+            port.command("sensorStop", timeout=5.0)
     finally:
         port.close()
     out("--- now a valid cfg (flushCfg, original channelCfg) and a capture ---")
@@ -244,7 +252,7 @@ def cmd_chan(dev, a, out=print):
         block("follow-up", follow, out)
     else:
         out("follow-up cfg NOT accepted")
-    return bc.summarize(judge_chan(replies, errored, follow, alive), out)
+    return bc.summarize(judge_chan(replies, errored, follow, alive, state), out)
 
 
 # --- finite ---------------------------------------------------------------------------------------------------------

@@ -150,19 +150,21 @@ class Tests2(unittest.TestCase):
         self.assertEqual(len(new), len(CFG))
 
     def test_chan_pass(self):
-        port = FakePort([("channelCfg", "Error: channelCfg change not allowed")])
+        port = FakePort([("sensorStart", "Error: channelCfg differs from the first sensorStart; re-send"),
+                         ("queryDemoStatus", "Sensor State: 3")])
         R.common.CliPort = factory(port)
         R.configure = lambda dev, lines, out=print: True
         R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev())
         a = argparse.Namespace(cfg=R.DEFAULT_CFG, duration=10, channel_cfg="15 1 0")
         out = []
         self.assertTrue(R.cmd_chan("dev", a, out.append))
-        self.assertEqual(port.sent[-2], "channelCfg 15 1 0")           # stopped at the Error, cfg not continued
-        self.assertTrue(any("channelCfg 15 1 0" in l for l in out))
-        self.assertTrue(any("not allowed" in l for l in out))
+        self.assertEqual(port.sent[-2], "sensorStart")                 # full cfg sent, rejected at sensorStart
+        self.assertIn("channelCfg 15 1 0", port.sent)
+        self.assertTrue(any("channelCfg differs" in l for l in out))
 
     def test_chan_not_rejected_or_exception_fails(self):
-        for rule in ([], [("channelCfg", "Error: x\nException in MSS")]):
+        for rule in ([("queryDemoStatus", "Sensor State: 2")],
+                     [("sensorStart", "Error: channelCfg differs\nException in MSS"), ("queryDemoStatus", "Sensor State: 3")]):
             R.common.CliPort = factory(FakePort(rule))
             R.configure = lambda dev, lines, out=print: True
             R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev())

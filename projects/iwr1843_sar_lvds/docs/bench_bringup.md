@@ -89,7 +89,7 @@ After section 5 passed, from `firmware_dev/` with the board in run mode (no powe
 |---|---|
 | `./bench long` | 60 s capture: not cut off by `--timer-s 30`, bytes = `chirpAvail` x B, 0 UDP sequence gaps (CONFIG_PACKET_DATA delay unit) |
 | `./bench restart` | 4 cycles of sensorStop, flushCfg + cfg with changed rxGain/HPF (channelCfg, lowPower, adcCfg identical), sensorStart, 30 s capture, parse |
-| `./bench chan` | `channelCfg` changed after flushCfg: prints the CLI reply (expect an Error, no Exception), then a valid cfg + capture still works |
+| `./bench chan` | full cfg with `channelCfg` changed (every line answers Done: the CLI only stores it), then `sensorStart`: expect `Error: channelCfg differs from the first sensorStart`, Sensor State not 2, no Exception; then the original cfg + capture still works |
 | `./bench finite` | `numFrames 5`: run ends by itself, `sensorStop` still works, `chirpAvail` = 5 x 255, `LVDS HW frames done` = 5 |
 | `./bench start0` | `sensorStart 0` restart with no new cfg, capture + parse |
 | `./bench adc` | gain 48 capture (reflector close, clipping): peak I and Q counts and the `--adc-bits` it implies (12 or 16); `--capture FILE` re-analyses an old capture |

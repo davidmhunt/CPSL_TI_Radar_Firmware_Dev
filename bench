@@ -1,3 +1,4 @@
 #!/bin/bash
 # bench: short wrapper for the one-command bench runs (projects/iwr1843_sar_lvds/tools/bench_run.py). Run from firmware_dev/.
-cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && exec uv run python projects/iwr1843_sar_lvds/tools/bench_run.py "$@"
+# --group tools = numpy + matplotlib (needed by bytes, late-armed analysis, tune, sat, endurance, tb).
+cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && exec uv run --group tools python projects/iwr1843_sar_lvds/tools/bench_run.py "$@"

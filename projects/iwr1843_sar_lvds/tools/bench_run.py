@@ -8,11 +8,12 @@
     ./bench finite     numFrames 5 run ends by itself; sensorStop still works; chirpAvail = 5 x 255; LVDS frame count
     ./bench start0     `sensorStart 0` restart with no new cfg, capture + parse
     ./bench adc        peak |I|,|Q| of a capture (clipped on purpose) -> which --adc-bits (12: 2048, 16: 32768)
+    ./bench fmt4|fmt1|bsize|bytes|late|irq    Set A, no reflector needed: tools/bench_a.py
 
 Each prints PASS/FAIL lines and a short block to paste back. HARDWARE TOOL: configures the radar over the CLI port
 and records from the DCA1000 (via dca_capture.py, then sar_parse's analysis in-process). The board must be in run mode,
 the DCA1000 on its network. A cfg is accepted once per power-up for the first configure; reconfigure after sensorStop +
-flushCfg is what `restart` tests. Python stdlib + sar_common / sar_parse only.
+flushCfg is what `restart` tests. Python stdlib + sar_common / sar_parse; numpy for the bench_a / bench_b commands.
 """
 import argparse
 import json
@@ -440,11 +441,15 @@ def main(argv=None):
     p.add_argument("--hpf1", type=int, default=0)
     p.add_argument("--hpf2", type=int, default=0)
     p.add_argument("--duration", type=float, default=5)
+    import bench_a
+    bench_a.register(sub)
     a = ap.parse_args(argv)
-    dev = bc.find_cli_port(a.cli_port)
-    fn = {"long": cmd_long, "restart": cmd_restart, "chan": cmd_chan, "finite": cmd_finite, "start0": cmd_start0,
-          "adc": cmd_adc}[a.cmd]
-    return 0 if fn(dev, a) else 1
+    offline = a.cmd in ("adc", "bytes") and getattr(a, "capture", None)       # re-analysis of a file: no board needed
+    dev = None if offline else bc.find_cli_port(a.cli_port)
+    fns = {"long": cmd_long, "restart": cmd_restart, "chan": cmd_chan, "finite": cmd_finite, "start0": cmd_start0,
+           "adc": cmd_adc}
+    fns.update(bench_a.COMMANDS)
+    return 0 if fns[a.cmd](dev, a) else 1
 
 
 if __name__ == "__main__":

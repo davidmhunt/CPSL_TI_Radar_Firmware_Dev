@@ -80,7 +80,7 @@ BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
    --data-port`) default to the factory addresses.
 5. The tool ends the run with `sensorStop`; `sarStats` counters reset at every `sensorStart`, so they are from the capture run.
 
-## 5b Bench runs (firmware-10 Step 2.2 and 2.6.0)
+## 5b Bench runs (firmware-10 Step 2.2 and 2.6)
 
 After section 5 passed, from `firmware_dev/` with the board in run mode (no power cycle needed between these; each ends with
 `RESULT: PASS|FAIL` and a short block to paste back; captures and cfgs go to `/tmp/bench_run/`). Source: `tools/bench_run.py`.
@@ -93,6 +93,32 @@ After section 5 passed, from `firmware_dev/` with the board in run mode (no powe
 | `./bench finite` | `numFrames 5`: run ends by itself, `sensorStop` still works, `chirpAvail` = 5 x 255, `LVDS HW frames done` = 5 |
 | `./bench start0` | `sensorStart 0` restart with no new cfg, capture + parse |
 | `./bench adc` | gain 48 capture (reflector close, clipping): peak I and Q counts and the `--adc-bits` it implies (12 or 16); `--capture FILE` re-analyses an old capture |
+
+Set A (no reflector needed; firmware-10 Steps 2.2 and 2.6; `tools/bench_a.py`, analysis in `tools/bench_stream.py`):
+
+| Command | What it checks | min |
+|---|---|---|
+| `./bench bytes` | 2.6.2 raw byte order (HSI id `DC 0A DC 0A DA 0C DA 0C` at packet start, `"SA" 01 00 "RM"` at M and M+32, unscramble gives `SARM`, every slot k mod 2 validates) and 2.6.4 other-slot regime (k+1 or k-1, >= 1000 packets, last packet of each frame excluded). `--capture FILE` re-analyses an old capture with no board: `./bench bytes --capture /tmp/bench_run/long.cap` | 1 |
+| `./bench irq` | 2.6.1: `sarStats` after `sensorStop`, 2 reads 4 s apart, one more with the cfg re-sent (before the next `sensorStart`): `chirpStartIsr` = `chirpAvail` = `chirps`, nothing moves | 1 |
+| `./bench bsize` | 2.6.3: B for header on (13328), header off (13264), and Ns 3302 (R*Ns = 2 mod 4: H 56, B 13328; cfg-checked), 10 s each | 2 |
+| `./bench late` | 2.6.9: a good capture, then offline copies (first packet cut and renumbered; one datagram dropped), then a capture armed 2 s after `sensorStart` | 2 |
+| `./bench fmt1` | 2.6.7: dataFmt 1 (`-1 1 1 0`) 30 s: 0 gaps, stock frame size, offline decode with the C++ converter's pairing, LVDS frame count, `sarStats`, then back to dataFmt 2 | 2 |
+| `./bench fmt4` | 2.2: dataFmt 4 with CQ monitors on (`analogMonitor 1 1`, `CQSigImgMonitor 0 111 4`), then off, then back to dataFmt 2; sizes, 0 gaps, no frame-end warning, LVDS frame count. dataFmt 4's block contents are NOT parsed (no parser path) | 2 |
+
+### 5c Order for Set A (board in run mode, DCA1000 up; no physical action; about 10 min)
+
+Run from `firmware_dev/`, in this order. Each re-sends its own cfg (reconfigure after `sensorStop` + `flushCfg`, the same boot as the earlier cycles).
+Stop and report if one FAILs. Power-cycle only if a command left the CLI dead (`fmt4` is last for that reason).
+```
+./bench bytes --capture /tmp/bench_run/long.cap     # offline, no board: the 60 s capture from ./bench long
+./bench bytes
+./bench irq
+./bench bsize
+./bench late
+./bench fmt1
+./bench fmt4
+```
+Paste each block back. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with `--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
 
 ## 6 Hand-off: what to record
 

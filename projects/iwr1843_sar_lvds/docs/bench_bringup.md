@@ -28,16 +28,45 @@ does not matter here.)
    (repository root) describes the host prerequisites, including the UDP receive-buffer limit for high data rates.
 3. `ping -c 3 192.168.33.180` answers. If not: check the cable and link LED, the DCA1000 power, and that the NIC has the
    address above.
-4. DCA1000 mode switches: set them for the LVDS capture mode with the board powered from its own supply, per the DCA1000EVM
-   user guide (TI SPRUIJ4) section on switch settings. Do not change switches with power on.
+4. DCA1000 switches: for the network address, SW2.6 must be at position 11 (default FPGA addresses; position 6 loads
+   whatever is saved in the EEPROM), per `DCA_Programming/README.md` (repository root). For the LVDS capture mode, see the
+   DCA1000EVM user guide. Do not change switches with power on.
 
 ## 3 Flash (SOP0 + SOP2 closed)
 
-1. Power off. Close SOP0 and SOP2 (flashing mode). Power on and connect USB.
-2. The flash method and exact commands are not decided yet.
+Route and evidence: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md)
+(repository root; paths in this section are relative to `firmware_dev/` unless noted). Nothing here has been run on this board:
+every command is (untested), and the memo's HYPOTHESIS labels apply to each point marked so below.
 
-> **PLACEHOLDER: the flash command, UniFlash settings, success text and the stock-demo restore procedure go here once the flash
-> route is chosen. Do not improvise a flash command.**
+1. Install UniFlash 9.6.0 on the host (untested; no UniFlash is on the host yet). Download, no login, 382687118 bytes (365 MiB):
+   `curl -L -O -C - https://software-dl.ti.com/ccs/esd/uniflash/uniflash_sl.9.6.0.5764.run`, then `chmod +x` it and run
+   `./uniflash_sl.9.6.0.5764.run --help`. HYPOTHESIS: it accepts `--mode unattended --prefix <dir>`; whether it needs a
+   display is unknown. The flasher is `dslite.sh` in the install root. Skip this step if you use the fallback below.
+2. Close the board and the port: power off, close SOP0 and SOP2 (flashing mode), power on, then power-cycle once more so the
+   board is in flash mode before UniFlash starts. Nothing else may hold the CLI port (close terminals and viewers).
+3. Flash `projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin` as Meta Image 1 over the XDS110 `...-if00` port (the
+   Application/User UART, as in section 1). The command has three parts (untested):
+   - A ccxml file for the IWR1843 serial connection. HYPOTHESIS: it uses `connections/Serial_Connection.xml` and
+     `devices/iwr1843.xml` from UniFlash's targetdb; the logged AWR1843 run used the same serial connection with
+     `devices/awr1843.xml`. Writing it by hand is unproven: if `dslite.sh` rejects it, use the fallback.
+   - List the setting ids first (the 9.6 spellings are not documented): `dslite.sh flash -c <ccxml> -S '.*'`, and the
+     operations with `-p`. Use the one that sets the COM port (the memo's log used `COMPort`) and the one for format on download.
+   - Flash: `dslite.sh flash -c <ccxml> -s COMPort=/dev/serial/by-id/<...-if00> -e -g flash.log <image>`, with the image given
+     as Meta Image 1. The 5.1 log wrote it `-f file,1`; 9.6 lists files at the end and its Meta Image 1 syntax is not
+     documented (untested), so take it from `-p` or the fallback package.
+4. Expected output (from the logged AWR1843 run, older UniFlash on Windows): `Connecting to COM Port ...`, `Set break signal`,
+   `AWR1843 device, fileType=META_IMAGE1 detected -> OK`, `Formatting SFLASH storage...`, `Erase storage completed successfully!`,
+   `Downloading [META_IMAGE1] size [...]` (your image: 152132), then `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.`
+   A later `error: Cortex_R4_0: Can't Run Target CPU: Unsupported GTI Function.` was harmless in that log; accept it only if it
+   follows the SUCCESS line, and note the exit code. On any other error: keep `flash.log`, power-cycle, re-plug USB, kill
+   a stale `DSLite` or `Python` process, retry once, then stop and report.
+5. Restore the stock demo (also the recovery if the flash fails): the flash formats all of SFLASH, so the stock demo is gone
+   after step 3. Repeat steps 2 and 3 with `projects/ti_stock_demos/build/iwr1843_demo.bin` (324804 bytes) as Meta Image 1
+   (untested). The same restore applies after a failed flash.
+6. Fallback, if the install or the hand-written ccxml fails: on any machine with the UniFlash GUI, use "Generate Package" (device
+   IWR1843, Meta Image 1 = the image above, the COM port, format option). It emits a zip with `dslite` and a script;
+   copy it over, edit the COM port to the by-id path and run it. Or flash from that GUI machine directly (untested).
+7. Success is confirmed only in section 4 (the `mmwDemo:/>` prompt). If SOP2 stays closed the board will not run the image.
 
 ## 4 Run mode (SOP0 only)
 

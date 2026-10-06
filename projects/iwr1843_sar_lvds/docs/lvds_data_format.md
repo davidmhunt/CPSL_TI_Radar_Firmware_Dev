@@ -7,18 +7,22 @@ Status).
 
 ## 1. Packet layout
 
-> **Capture requirement.** Arm the DCA1000 before `sensorStart` and keep it recording for the whole run. Why: packet k's
-> record is found by its position k, because the other slot holds chirp k−1 or k+1 and a wrong choice validates
-> silently. A capture violates this if the run's first packet is missing (the first valid record's `globalChirpIdx` ≠ 0)
-> or if the DCA1000 byte count restarts or jumps. Treat such a capture, or the affected run, as unalignable: discard it
-> and capture again.
+> **Capture requirement.** Record one run per recording: arm the DCA1000 before `sensorStart`, stop it only after
+> `sensorStop`, and keep the DCA1000 UDP headers. Why: packet k's record is found by its position k, because its other
+> slot holds chirp k−1 or k+1. A recording that misses exactly the run's first packet still validates on every
+> packet, one chirp off. **Check every recording; if any check fails, it cannot be aligned: discard it and capture
+> again.** (1) The first datagram has sequence number 1 and byte count 0, and the count never decreases. (2) Records
+> validate (§2) on nearly every packet; a recording that starts mid-packet or ≥ 2 packets late validates none.
+> (3) In the last complete packet, the *other* slot does not hold `globalChirpIdx` + 1 of the same run: no chirp
+> follows the run's last one, so a recording that starts one packet late fails here *(bench)*. (4) If `sarStats` was
+> read after `sensorStop`: bytes recorded (last datagram's count + its length) = `chirpAvail` × B *(bench)*.
 
 ```
 | HSI header (optional) | ADC samples, RX by RX, 4 B/sample | record slot 0 | record slot 1 |
 0                       H                                   M               M+32            B = M+64
 ```
 
-R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. Packets run back to back; unlike the stock TI demo, no per-frame packet (the C++ driver reads only stock dataFmt 1 framing).
+R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. Packets run back to back; unlike the stock TI demo, no per-frame packet, and the existing C++ driver parses only dataFmt 1, so dataFmt 2 needs new host tools. R, Ns, SampleSwap and Nc are not in the stream (with the header off, nothing is): take them from the cfg used for the run.
 H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = M + 64`**,
 no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on).
 
@@ -36,19 +40,21 @@ below are after step 1. Example: the HSI id (LE u64 `0x0CDA0ADC0CDA0ADC`) reads 
 
 ## 2. Metadata record and host reconstruction
 
-**Which record is packet k's.** The capture begins at packet 0 (capture requirement, §1). Place bytes by
-the DCA1000 UDP header (10 B, little-endian: u32 sequence number, then u48 count of data bytes sent before this
-datagram) [7], not by sequence numbers; lost datagrams leave gaps. The count runs from the start of the recording.
-Packet k (k = 0, 1, … in a run) starts k·B bytes after the run's first byte; a following run (new `runIdx`) starts at the byte
-after the previous run's last packet, with its own B and k from 0. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
-for chirp k−1 or k+1: never use it (the raw magic pattern is a sanity check only).
+**Which record is packet k's.** The recording begins at packet 0 (capture requirement, §1). Place each datagram's
+payload at its byte count from the DCA1000 UDP header (10 B, little-endian: u32 sequence number, u48 count of data bytes
+sent before it) [7]. Packet k starts at byte k·B. Lost datagrams leave holes at known positions and alignment holds: a
+record with any missing byte is invalid, missing ADC bytes are lost data (mark that chirp, shift nothing), and a
+truncated final packet is dropped. Headerless recordings are unsupported unless the recorder zero-fills lost datagrams
+at their positions. A multi-run recording can be split only with each run's packet count (`chirpAvail`) and B;
+otherwise align only the first run. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
+for chirp k−1 or k+1: never use it.
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²). Otherwise discard the whole record, including its `tsTicks` and the saturation result it
-carried (that chirp's saturation is then unknown), keep the packet's ADC data, which is good, and take its time from the grid: from the nearest valid record j,
-t_k = t_j + (k−j)·Tc + b·Tb, where b counts the frame boundaries (k mod Nc = 0) passed between j and k, Tc = idle +
-rampEnd (µs, `profileCfg`) and Tb = framePeriodicity (ms, `frameCfg`) − Nc·Tc. The `LATE`, `SKIP` and `RESYNC` flags only
-explain failures; records that keep failing mean the firmware lost count.
+carried (for chirp k − `satRefLag`, usually k−1: unknown unless another record repeats it), keep the packet's ADC data,
+which is good, and take its time from a valid record j of the same run: t_k = t_j + (k−j)·Tc + (⌊k/Nc⌋ − ⌊j/Nc⌋)·Tb,
+in seconds, with Tc = (idle + rampEnd) µs × 10⁻⁶ (`profileCfg`) and Tb = framePeriodicity ms × 10⁻³ − Nc·Tc (`frameCfg`). Flags only explain failures; records that keep
+failing mean the firmware lost count.
 
 | Off | Type | Field | Meaning |
 |---|---|---|---|
@@ -83,7 +89,7 @@ jitter)*, **not** synchronized to the host, DCA1000 or platform time.
 slices* (`CQRxSatMonitor <profile> <satMonSel> <primarySliceDuration> <numSlices> <rxChanMask>`; enable with
 `analogMonitor 1 <sigImgBand>`) [6]. `satSlices` = how many primary slices (0 … 64, any R) saw at least one saturation
 event on the selected RX channels combined. 0 = clean; > 0 = some samples clipped. Monitor off:
-`SAT_VALID` is 0.
+`SAT_MON` and `SAT_VALID` are 0.
 
 **Why it lags.** The monitor's per-chirp report (called CQ2) for chirp n becomes valid at chirp n's *chirp-available
 event*, when its ADC samples are complete; that same event starts sending packet n. Packet n's record was filled
@@ -98,8 +104,8 @@ assume 1: always subtract. A chirp's result can appear twice (same value) or nev
 
 - *Start of a run*: records before the run's first report (k = 0, sometimes k = 1) have `SAT_VALID` = 0.
 - *Frame boundary*: chirp 0 of frame f+1 reports frame f's last chirp (lag 1, across the blank); nothing is lost.
-- *End of a run*: the last chirp's result is never delivered: no later record exists, and other-slot copies are never used.
-- *Restart*: `sensorStart` clears the stored result and changes `runIdx`; k restarts at 0. Key results by run.
+- *End of a run*: the last chirp's result is never delivered (no later record; other slots are never used).
+- *Restart*: a new run (new `runIdx`, cleared result, k from 0); key results by run.
 
 **Worked example** (3 chirps/frame, monitor on, run stopped after packet 6):
 

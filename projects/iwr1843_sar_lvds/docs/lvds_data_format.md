@@ -2,8 +2,7 @@
 
 The contract between this firmware and any host parser. `lvdsStreamCfg -1 <hdr> 2 0` (`<hdr>` 1 = HSI header on, 0 =
 off) makes every chirp leave the device as one packet: optional header, the chirp's ADC samples, and two 32-byte metadata
-record slots. Bracketed numbers point to **Sources**. Items marked *(bench)* are checked by the bench validation (README,
-Status).
+record slots. Bracketed numbers point to **Sources**.
 
 ## 1. Packet layout
 

@@ -165,8 +165,9 @@ From `firmware_dev/` (see `projects/README.md` for prerequisites):
 ```
 
 **Bench-confirmed once** (firmware-10 Step 2.1, 2026-10-06, one IWR1843BOOST, SOP 101, after a full USB + 5 V
-power-cycle): `./fw flash iwr1843_sar_lvds <by-id -if00 port>` printed `SUCCESS!! File type META_IMAGE1`. Not yet
-observed: the exit code, a trailing `Can't Run Target CPU`, running the flashed image, the stock-demo restore.
+power-cycle): `./fw flash iwr1843_sar_lvds <by-id -if00 port>` printed `SUCCESS!! File type META_IMAGE1`, DSLite
+rc=0 (`Flashed (DSLite rc=0)`), and no trailing `Can't Run Target CPU` line. Still not observed: running the flashed
+image, the stock-demo restore, `DownloadFormat=false`.
 `flash.sh` calls UniFlash 9.6.0's `DSLite` (in the Docker image) with `configs/iwr1843_uniflash.ccxml` and
 `-f <image>,1`. A real flash runs only from your own interactive terminal: `fw` prints the checklist (SOP0+SOP2
 closed = flashing mode, nothing else on the port) and you must type `FLASH MODE CONFIRMED`; there is no bypass, and

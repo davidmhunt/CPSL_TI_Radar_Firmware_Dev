@@ -19,8 +19,10 @@ Status).
 > A recording that starts mid-packet or ≥ 2 packets late validates none. (3) In the last complete packet k, the
 > *other* slot does not hold a `SARM` record with the run's `runIdx` and `globalChirpIdx` = k + 1: no chirp follows
 > the run's last one, so a recording that starts one packet late fails here. (4) Bytes recorded (highest byte count
-> + that datagram's length) = `chirpAvail` × B (`chirpAvail` = packets sent in the run). Checks 3 and 4 are
-> *(bench)*: until confirmed, require both; without a `sarStats` reading, check 4 fails.
+> + that datagram's length) = `chirpAvail` × B (`chirpAvail` = packets sent in the run). Bench-measured (firmware-10): check 4 passed on every
+> capture incl. the 600 s soak (one-datagram tail hole tolerated); check 3 alone rejected the one-packet-late cut capture,
+> but is not evaluable when the final datagram is lost (tolerated, then only check 4 covers the tail); require both;
+> without a `sarStats` reading, check 4 fails.
 
 ```
 | HSI header (optional) | ADC samples, RX by RX, 4 B/sample | record slot 0 | record slot 1 |

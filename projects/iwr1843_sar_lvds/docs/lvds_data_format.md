@@ -29,7 +29,7 @@ Status).
 
 R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. Packets run back to back, with no per-frame packet [8]. R, Ns and SampleSwap are not in the stream: take them from the cfg used for the run. Nc is in every valid record (`numChirpsPerFrame`).
 H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = M + 64`**,
-no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on).
+no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on); Ns = 3302 gives H = 56 and B = 13 328 (measured). With `dataFmt 4` the packet also carries the CQ blocks: B = 13 616 with both CQ monitors on, 13 392 with the saturation monitor only (measured); `dataFmt 4` needs at least one CQ block.
 
 **ADC block.** R blocks, one per enabled RX channel in ascending RX order, each Ns complex samples. A sample is two
 int16 (two's complement); their order in device memory follows `adcbufCfg` SampleSwap: 0 = I then Q, 1 = Q then I [5].
@@ -37,7 +37,7 @@ The firmware rejects dataFmt 2 unless `adcbufCfg` has complex output (AdcOutputF
 even, so M, B and every packet start are multiples of 8 B (an RX block need not be).
 
 **Byte order.** The device is little-endian. The DCA1000 delivers each 8 bytes sent as 16-bit units `u0 u1 u2 u3` in
-the order **`u0 u2 u1 u3`** [2] (confirmed for ADC data; header and record *(bench)*). Parse in two steps: (1) over the **whole packet**,
+the order **`u0 u2 u1 u3`** [2] (confirmed for ADC data, header and record: on a 60 s capture the HSI id reads `DC 0A DC 0A DA 0C DA 0C` raw and `DC 0A DA 0C DC 0A DA 0C` after step 1 at 30 090 of 30 090 packets, and `SARM` validates at 100 % of slots). Parse in two steps: (1) over the **whole packet**,
 swap bytes 2-3 with bytes 4-5 in every 8-byte group; (2) read the result as little-endian device memory. All offsets
 below are after step 1 (HSI id example in [1]).
 
@@ -45,14 +45,14 @@ below are after step 1 (HSI id example in [1]).
 
 **Which record is packet k's.** The recording begins at packet 0 (capture requirement, §1). Place each datagram's
 payload at its byte count from the DCA1000 UDP header (10 B, little-endian: u32 sequence number, u48 count of data bytes
-sent before it) [7]. Packet k starts at byte k·B. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot holds a valid-looking record for chirp k−1 or k+1: never use it. Lost datagrams leave holes at known positions and alignment holds: a
+sent before it) [7]. Packet k starts at byte k·B. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot holds a valid-looking record for chirp k−1 or k+1: never use it. Measured (60 s capture, no reflector): k+1 in 100 % of in-frame packets (29 971 of 29 971) and k−1 in the last packet of each frame, which pins the chirp-start interrupt near the idle start (k−1 would mean near the ramp start). Lost datagrams leave holes at known positions and alignment holds: a
 record with any missing byte is invalid, missing ADC bytes are lost data (mark that chirp, shift nothing), and a
 truncated final packet is dropped. Recordings without the DCA1000 UDP headers are unsupported unless the recorder zero-fills
 lost datagrams at their positions.
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²), and `runIdx` = the run's (that of the first valid record). Otherwise discard the whole record, including its `tsTicks` and the saturation result it
-carried (for chirp k − `satRefLag`, usually k−1: unknown unless another record repeats it), keep the packet's ADC data,
+carried (for chirp k − `satRefLag`, usually k−2: unknown unless another record repeats it), keep the packet's ADC data,
 which is good, and take its time from a valid record j of the same run: t_k = t_j + (k−j)·Tc + (⌊k/Nc⌋ − ⌊j/Nc⌋)·Tb,
 in seconds, with Tc = (idle + rampEnd) µs × 10⁻⁶ (`profileCfg`) and Tb = framePeriodicity ms × 10⁻³ − Nc·Tc (`frameCfg`). Flags only explain failures; records that keep
 failing mean the firmware lost count.
@@ -81,7 +81,7 @@ failing mean the firmware lost count.
 | 5-15 | | 0 |
 
 **Timestamp.** `tsTicks` = the RTI counter at the chirp-start interrupt [3]: **100 MHz (10 ns)** [4], 64-bit from boot,
-never reset or wrapped; chirp start plus a few µs latency *(bench: jitter)*; **not** synchronized to host or platform time.
+never reset or wrapped; chirp start plus a few µs latency; on the 600 s soak (no reflector, example cfg) the in-frame chirp spacing is 2000.00 µs (p99.9 deviation 3.03 µs) and the frame-boundary spacing 2300.51 µs (max deviation 0.77 µs); **not** synchronized to host or platform time.
 
 ## 3. Saturation: the lagged field, and how to align it
 
@@ -95,8 +95,8 @@ event*, when its ADC samples are complete; that same event starts sending packet
 earlier, as chirp n started, so it cannot hold chirp n's result. The next chirp's record carries it.
 
 **How to align.** In a valid record with `SAT_VALID` set: **chirp `globalChirpIdx − satRefLag` saturated in `satSlices`
-slices.** `satRefLag` is the measured distance: normally 1; 2 when this chirp started before the previous chirp's report
-was read; 0 when this chirp's interrupt ran after its own sampling ended. Never
+slices.** `satRefLag` is the measured distance: 2 when this chirp started before the previous chirp's report
+was read (99.61 % of records on the 600 s soak, no reflector, example cfg); 1 only at the 1175 frame-start records (0.39 %); 0 when this chirp's interrupt ran after its own sampling ended (never seen); 2 records had `SAT_VALID` = 0. Never
 assume 1: always subtract. A chirp's result can appear twice (same value) or never.
 
 **Edges.**
@@ -136,10 +136,10 @@ SDK paths are relative to `mmwave_sdk_03_06_02_00-LTS/packages/ti`; firmware pat
    `DC 0A DA 0C DC 0A DA 0C` after step 1, `DC 0A DC 0A DA 0C DA 0C` raw.
 2. The device sends 16-bit units, MSB first per lane, which nets out to no byte swap inside a unit; the `u0 u2 u1 u3`
    order is the one the host driver already decodes for ADC data, `CPSL_TI_Radar_cpp/src/DCA1000/ADCCubeConverter.cpp:67-86`
-   (layout `two_lane_iq_pairs`); the same for header and record is *(bench)*; firmware lanes and
+   (layout `two_lane_iq_pairs`); the same holds for header and record (§1); firmware lanes and
    `msbFirst`: `mss/mmw_lvds_stream.c:140-144`.
 3. Chirp start, frame start and chirp available are MSS interrupts 99, 98, 123 (SDK
-   `common/sys_common_xwr18xx_mss.h:352-374`); handlers in `mss/mmw_sar_meta.c`. No TI xwr18xx code uses 99 *(bench)*.
+   `common/sys_common_xwr18xx_mss.h:352-374`); handlers in `mss/mmw_sar_meta.c`. No TI xwr18xx code uses 99; measured alive on the 600 s soak: `chirpStartIsr` = `chirpAvail` = `chirps` = 299 880, unchanged after `sensorStop`.
 4. BIOS `ti/sysbios/timers/rti/Timer.c:376, 497, 697`: RTI counter 0 = 200 MHz / (prescale 1 + 1). The R4F cycle
    counter was rejected: it stops while the CPU sleeps (WFI) in the idle loop. Profile LSBs: SDK
    `control/mmwavelink/include/rl_sensor.h:650-670`.

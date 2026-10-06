@@ -18,15 +18,14 @@ Status).
 0                       H                                   M               M+32            B = M+64
 ```
 
-R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. One packet per chirp, back to back; unlike the stock TI demo, no per-frame packet (the C++ driver reads only stock dataFmt 1 framing).
-H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = H + 4·R·Ns
-+ 64`**, no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on).
+R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. Packets run back to back; unlike the stock TI demo, no per-frame packet (the C++ driver reads only stock dataFmt 1 framing).
+H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = M + 64`**,
+no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on).
 
 **ADC block.** R blocks, one per enabled RX channel in ascending RX order, each Ns complex samples. A sample is two
 int16 (two's complement); their order in device memory follows `adcbufCfg` SampleSwap: 0 = I then Q, 1 = Q then I [5].
 The firmware rejects dataFmt 2 unless `adcbufCfg` has complex output (AdcOutputFmt 0) and ChanInterleave 1, and R·Ns is
-even, so M, B and every packet start are multiples of 8 B (an RX block need not be; step 1 below ignores block
-boundaries).
+even, so M, B and every packet start are multiples of 8 B (an RX block need not be).
 
 **Byte order.** The device is little-endian and sends 16-bit units, MSB first per lane, which nets out to no byte swap
 inside a unit. The DCA1000 delivers each 8 bytes sent as units `u0 u1 u2 u3` in the order **`u0 u2 u1 u3`**, the order the host driver already decodes for ADC data [2]
@@ -83,8 +82,8 @@ jitter)*, **not** synchronized to the host, DCA1000 or platform time.
 **Meaning.** The radar's RX saturation monitor divides one chirp's ADC sampling window into up to 64 equal *primary
 slices* (`CQRxSatMonitor <profile> <satMonSel> <primarySliceDuration> <numSlices> <rxChanMask>`; enable with
 `analogMonitor 1 <sigImgBand>`) [6]. `satSlices` = how many primary slices (0 … 64, any R) saw at least one saturation
-event on the selected RX channels combined. 0 = clean; > 0 = some samples clipped. Monitor off: `SAT_MON`
-and `SAT_VALID` are 0.
+event on the selected RX channels combined. 0 = clean; > 0 = some samples clipped. Monitor off:
+`SAT_VALID` is 0.
 
 **Why it lags.** The monitor's per-chirp report (called CQ2) for chirp n becomes valid at chirp n's *chirp-available
 event*, when its ADC samples are complete; that same event starts sending packet n. Packet n's record was filled

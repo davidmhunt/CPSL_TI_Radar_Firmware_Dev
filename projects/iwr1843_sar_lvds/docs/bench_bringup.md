@@ -19,8 +19,7 @@ that joins the two boards for LVDS (per the DCA1000 guide), an Ethernet cable fr
 ## 2 Host network (DCA1000)
 
 The DCA1000 uses its factory addresses: FPGA `192.168.33.180`, host NIC `192.168.33.30/24`, command port 4096, data port 4098.
-The tools in `projects/iwr1843_sar_lvds/tools/` default to exactly these. (The C++ driver's own configs use other values; that
-does not matter here.)
+The tools in `projects/iwr1843_sar_lvds/tools/` default to exactly these.
 
 1. Connect the DCA1000 to the host Ethernet port and power it with its 5 V supply. The FPGA/power LEDs light.
 2. Give the host NIC the address: `ip addr` should list `192.168.33.30/24` on the wired interface cabled to the DCA1000. If not,
@@ -35,7 +34,7 @@ does not matter here.)
 ## 3 Flash (SOP0 + SOP2 closed)
 
 Route and evidence: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md)
-(repository root; paths in this section are relative to `firmware_dev/` unless noted). Nothing here has been run on this board:
+(repository root). Nothing here has been run on this board:
 every command is (untested), and the memo's HYPOTHESIS labels apply to each point marked so below.
 
 1. Install UniFlash 9.6.0 on the host (untested; no UniFlash is on the host yet). Download, no login, 382687118 bytes (365 MiB):
@@ -62,18 +61,18 @@ every command is (untested), and the memo's HYPOTHESIS labels apply to each poin
    a stale `DSLite` or `Python` process, retry once, then stop and report.
 5. Restore the stock demo (also the recovery if the flash fails): the flash formats all of SFLASH, so the stock demo is gone
    after step 3. Repeat steps 2 and 3 with `projects/ti_stock_demos/build/iwr1843_demo.bin` (324804 bytes) as Meta Image 1
-   (untested). The same restore applies after a failed flash.
+   (untested).
 6. Fallback, if the install or the hand-written ccxml fails: on any machine with the UniFlash GUI, use "Generate Package" (device
    IWR1843, Meta Image 1 = the image above, the COM port, format option). It emits a zip with `dslite` and a script;
    copy it over, edit the COM port to the by-id path and run it. Or flash from that GUI machine directly (untested).
-7. Success is confirmed only in section 4 (the `mmwDemo:/>` prompt). If SOP2 stays closed the board will not run the image.
+7. Success is confirmed only in section 4 (the `mmwDemo:/>` prompt).
 
 ## 4 Run mode (SOP0 only)
 
 1. Power off. Remove the SOP2 jumper so only SOP0 is closed (functional mode). Power on.
 2. Open the CLI port at 115200 baud (for example `picocom -b 115200 /dev/serial/by-id/...-if00`). Press Enter: the prompt
    `mmwDemo:/>` appears (the boot banner names this firmware). If nothing appears: check the by-id port, that SOP2 is
-   really open, and power-cycle once. Close the terminal before the next step; only one program may hold the port.
+   really open, and power-cycle once.
 
 ## 5 First bring-up check
 

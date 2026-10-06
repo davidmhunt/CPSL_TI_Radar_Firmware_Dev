@@ -162,13 +162,20 @@ From `firmware_dev/` (see `projects/README.md` for prerequisites):
 
 ```bash
 ./fw build iwr1843_sar_lvds                 # outputs in projects/iwr1843_sar_lvds/build/
-./fw flash iwr1843_sar_lvds /dev/ttyACM0    # prints the manual steps, exits 3
+./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...>-if00 --dry-run   # prints the DSLite command + image sha256, no port touched
+./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...>-if00             # real flash (UNTESTED on a board)
 ```
 
-`flash.sh` has no headless flasher to call (no xWR18xx serial-flash target in the image's
-DSLite; TI's tool is the UniFlash GUI), so it prints the steps: IWR1843BOOST SOP0+SOP2 closed
-(flashing mode), power on, UniFlash with the CLI/UART port and `build/iwr1843_sar_lvds.bin` as
-Meta Image 1, then SOP0 only (functional mode) and power-cycle. Send a cfg over the CLI port at
-115200 baud. The TI profiles in `configs/` are references only: they contain object-detection commands
+**UNTESTED on a board (firmware-15).** `flash.sh` calls UniFlash 9.6.0's `DSLite` (in the Docker image)
+with `configs/iwr1843_uniflash.ccxml` and the image as Meta Image 1. A real flash runs only from your own
+interactive terminal: `fw` prints the checklist (IWR1843BOOST SOP0+SOP2 closed = flashing mode, power-cycled,
+nothing else on the port) and you must type `FLASH MODE CONFIRMED`; there is no flag or variable to skip this,
+and it refuses without a TTY, if any process holds the port, or (extra warning plus the same typed phrase) if
+the port is not a `/dev/serial/by-id/...-if00` path. Success is only `SUCCESS!! File type META_IMAGE1` in the
+output (a trailing `Can't Run Target CPU` is accepted only after it); logs go to `build/`. Restore the stock
+demo with the same command and `projects/ti_stock_demos/build/iwr1843_demo.bin` as the image. Afterwards set
+functional mode (SOP0 only), power-cycle, and send a cfg over the CLI port at 115200 baud. If this route fails
+at the bench, the fallback is the UniFlash GUI (`docs/bench_bringup.md` section 3).
+The TI profiles in `configs/` are references only: they contain object-detection commands
 this firmware rejects. To reconfigure, send `sensorStop`, `flushCfg`, the full cfg and `sensorStart`;
 no power cycle is needed unless `channelCfg`, `adcCfg` or `lowPower` change.

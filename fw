@@ -17,8 +17,12 @@ Usage: ./fw <command> [args]          (run from firmware_dev/; guide: projects/R
   new <project>                   Create projects/<project>/ from projects/_template/
   build <project> [args...]       Run projects/<project>/build.sh in the container;
                                   outputs land in projects/<project>/build/
-  flash <project> <port> [image]  Run projects/<project>/flash.sh in the container with
-                                  the host's serial ports; image defaults to the build output
+  flash <project> <port> [image] [--dry-run]
+                                  Run projects/<project>/flash.sh in the container with the
+                                  host's serial ports; image defaults to the build output.
+                                  UniFlash projects (iwr1843_sar_lvds; UNTESTED on a board) need
+                                  a by-id -if00 port, a free port and a typed confirmation at an
+                                  interactive terminal; --dry-run only prints the command
   help                            Show this summary
 
 Prerequisites (once): ./downloads/download.sh && docker compose build
@@ -103,10 +107,88 @@ cmd_build() {
     compose_run firmware-env "/build_context/projects/$(basename "$dir")/build.sh" "$@"
 }
 
+# Projects with configs/*_uniflash.ccxml flash with UniFlash/DSLite and get the safety gates below.
+# Gates run on the host, before any container starts. There is deliberately NO flag or environment
+# variable that skips the typed acknowledgement: only a human at an interactive terminal can flash.
+FLASH_PHRASE="FLASH MODE CONFIRMED"
+
+gated_flash() {   # gated_flash <dir> <dry-run 0|1> <port> [image]
+    local dir="$1" dry="$2" port="$3" image="${4:-}" name; name="$(basename "$1")"
+    local img_host="" real byid=1
+    if [[ -n "$image" ]]; then
+        [[ -f "$image" ]] || die "image $image not found"
+        img_host="$(realpath "$image")"
+    else
+        img_host="$( set +u; ARTIFACTS=''; source "$dir/project.env"; read -r first _ <<<"$ARTIFACTS"; echo "$dir/build/$first" )"
+        [[ -f "$img_host" ]] || die "default image $img_host not found (run ./fw build $name first)"
+    fi
+    [[ "$img_host" == "${FW_ROOT}/"* ]] || die "image must be inside firmware_dev/ (got $img_host)"
+    [[ "$port" =~ ^/dev/serial/by-id/.+-if00$ ]] || byid=0
+
+    if [[ $dry -eq 1 ]]; then
+        [[ $byid -eq 1 ]] || echo "fw: warning: $port is not a /dev/serial/by-id/...-if00 path; a real flash will demand an extra acknowledgement" >&2
+        echo "== DRY RUN: flash-mode checklist a real flash will require you to confirm =="
+        flash_checklist
+        compose_run firmware-env "/build_context/projects/$name/flash.sh" --dry-run "$port" "/build_context/${img_host#"${FW_ROOT}/"}"
+        return
+    fi
+
+    # Gate 2: interactive terminal required (stdin and stdout). No bypass.
+    if ! [[ -t 0 && -t 1 ]]; then
+        echo "fw: refusing to flash: an interactive terminal (TTY) is required to confirm flash mode. Run ./fw flash yourself in a terminal." >&2
+        exit 2
+    fi
+    [[ -e "$port" ]] || die "serial port $port not found (try: ls -l /dev/serial/by-id/)"
+    real="$(readlink -f "$port")"
+    # Gate 3: nothing on the host may hold the port (fuser/lsof only scan /proc; they never open it).
+    local holders=""
+    if command -v fuser >/dev/null 2>&1; then
+        holders="$(fuser "$real" 2>/dev/null || true)"
+    elif command -v lsof >/dev/null 2>&1; then
+        holders="$(lsof -t -- "$real" 2>/dev/null || true)"
+    else
+        die "neither fuser nor lsof is installed, so I cannot check that the port is free; install psmisc or lsof"
+    fi
+    if [[ -n "${holders//[[:space:]]/}" ]]; then
+        echo "fw: refusing to flash: $real is held by process(es): ${holders}" >&2
+        echo "    close the serial monitor / driver / ModemManager that has it open, then retry." >&2
+        exit 1
+    fi
+    echo "image : ${img_host#"${FW_ROOT}/"}"
+    echo "sha256: $(sha256sum "$img_host" | cut -d' ' -f1)"
+    echo "port  : $port -> $real"
+    [[ $byid -eq 1 ]] || echo "WARNING: $port is not a /dev/serial/by-id/...-if00 path; you must be sure it is the board's CLI/UART port."
+    flash_checklist
+    local reply=""
+    read -r -p "Type exactly '${FLASH_PHRASE}' to flash (anything else aborts): " reply || true
+    [[ "$reply" == "$FLASH_PHRASE" ]] || { echo "fw: acknowledgement not given; nothing flashed." >&2; exit 1; }
+    compose_run flash "/build_context/projects/$name/flash.sh" "$port" "/build_context/${img_host#"${FW_ROOT}/"}"
+}
+
+flash_checklist() {
+    cat <<'EOT'
+Before flashing, confirm ALL of these:
+  1. The board is in FLASH mode: SOP0 + SOP2 closed (IWR1843BOOST), set with power off.
+  2. The board was power-cycled after setting the jumpers.
+  3. Nothing else is using the serial port (monitor, driver, ModemManager).
+  4. The port is the board's CLI/UART port (XDS110 ...-if00).
+EOT
+}
+
 cmd_flash() {
     local dir; dir="$(project_dir "${1:-}")"; shift
-    [[ $# -ge 1 && $# -le 2 ]] || die "usage: ./fw flash <project> <port> [image]"
+    local dry=0 pos=() a
+    for a in "$@"; do
+        if [[ "$a" == "--dry-run" ]]; then dry=1; else pos+=("$a"); fi
+    done
+    [[ ${#pos[@]} -ge 1 && ${#pos[@]} -le 2 ]] || die "usage: ./fw flash <project> <port> [image] [--dry-run]"
     [[ -f "$dir/flash.sh" ]] || die "projects/$(basename "$dir")/flash.sh not found"
+    if compgen -G "$dir/configs/*_uniflash.ccxml" >/dev/null; then
+        gated_flash "$dir" "$dry" "${pos[@]}"
+        return
+    fi
+    [[ $dry -eq 0 ]] || die "--dry-run is only supported for UniFlash projects (projects/<p>/configs/*_uniflash.ccxml)"
+    set -- "${pos[@]}"
     local port="$1" args=("$1")
     [[ -e "$port" ]] || die "serial port $port not found (try: ls -l /dev/serial/by-id/)"
     if [[ $# -eq 2 ]]; then

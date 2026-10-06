@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. UNTESTED on a board (firmware-15).
+# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. UNTESTED on a board (firmware-15); 1st bench run failed on file order, fixed with ,1.
 # Runs INSIDE the firmware container (the `flash` service); do not run it by hand, use
 #     ./fw flash iwr1843_sar_lvds <port> [image] [--dry-run]
 # which first asks the human at the bench to confirm flash mode (SOP0+SOP2, power-cycled).
@@ -37,9 +37,11 @@ DSLITE="${UNIFLASH_PATH:-/opt/ti/uniflash_9.6.0}/deskdb/content/TICloudAgent/lin
 mkdir -p build
 DSLITE_LOG="$PWD/build/dslite_flash.log"      # DSLite's own log (-g)
 OUT_LOG="$PWD/build/flash_output.log"         # DSLite's console output
-# BENCH-ONLY unknowns: whether the positional image is Meta Image 1 (vs `-f <file>,1`) and whether
-# `-e` is the right erase/format switch in 9.6; Step 1 saw both spellings parse identically.
-CMD=("$DSLITE" flash -c "$CCXML" -s "COMPort=${PORT}" -e -g "$DSLITE_LOG" "$IMAGE")
+# The image needs an explicit file order (Meta Image 1 = order 1): FlashPython/mmWaveProgFlash rejects order 0
+# ("File Order number value 0 is not in valid range (1-4)"), seen at the bench, firmware-10 Amendment 3. The
+# order is given as "<file>,<order>" (as in the 5.1 flow). Note DSLite's -e is --verbose, NOT erase: format-on-
+# download comes from the DownloadFormat setting, whose default is true (checked via -S '.*').
+CMD=("$DSLITE" flash -c "$CCXML" -s "COMPort=${PORT}" -e -g "$DSLITE_LOG" -f "${IMAGE},1")
 
 echo "image : ${IMAGE#/build_context/} ($(stat -c %s "$IMAGE") B)"
 echo "sha256: $(sha256sum "$IMAGE" | cut -d' ' -f1)"

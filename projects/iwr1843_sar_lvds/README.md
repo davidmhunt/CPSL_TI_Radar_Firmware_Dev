@@ -176,6 +176,13 @@ output (a trailing `Can't Run Target CPU` is accepted only after it); logs go to
 demo with the same command and `projects/ti_stock_demos/build/iwr1843_demo.bin` as the image. Afterwards set
 functional mode (SOP0 only), power-cycle, and send a cfg over the CLI port at 115200 baud. If this route fails
 at the bench, the fallback is the UniFlash GUI (`docs/bench_bringup.md` section 3).
+
+Bench evidence (firmware-10 Amendment 3), still UNTESTED until a flash succeeds: the first real run opened
+the COM port and reached "Flashing can proceed", then aborted before any format/erase with `Internal Error:
+File Order number value 0 is not in valid range (1-4)` / `Failed: Image loading failed` (mmWaveProgFlash.py
+`checkFileHeader` requires order 1-4; a bare positional image has order 0). Fix: the image is now passed as
+`-f <image>,1` (the 5.1 syntax); this exact spelling is not yet confirmed on a board. Also noted: DSLite's
+`-e` is `--verbose`, not erase; format-on-download is the `DownloadFormat` setting (default true).
 The TI profiles in `configs/` are references only: they contain object-detection commands
 this firmware rejects. To reconfigure, send `sensorStop`, `flushCfg`, the full cfg and `sensorStart`;
 no power cycle is needed unless `channelCfg`, `adcCfg` or `lowPower` change.

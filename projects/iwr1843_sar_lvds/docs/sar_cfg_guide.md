@@ -47,7 +47,7 @@ sensorStart
 | `dfeDataOutputMode` | `1` | Only 1 (frame); 2/3 rejected at `sensorStart` [1] |
 | `channelCfg` | rxMask txMask cascading | `1 1 0` = RX0, TX0; Nrx = bits in rxMask. First start only |
 | `adcCfg` / `lowPower` | bits fmt / 0 mode | `2 1` = 16 bit, complex 1x / `0 0`. First start only |
-| `profileCfg` | see §1 | idle 0-5242.87; adcStart 0-40.95; rampEnd 0-5000 us; slope LSB 48.279 kHz/us; fs 2000-37500 ksps, **18750 max with complex 1x output (this cfg)**; Ns 2+; hpf1 0-3 = 175/235/350/700 kHz; hpf2 0-3 = 350/700/1400/2800 kHz; gain even 24-48 dB (API accepts to 52) [2] |
+| `profileCfg` | see §1 | idle 0-5242.87; adcStart 0-40.95; rampEnd 0-5000 us; slope LSB 48.279 kHz/us; fs 2000-37500 ksps, **12500 max with complex 1x output (this cfg; IWR1843 datasheet IF 10 MHz; low-power ADC mode, not used here, lowers it further)**; Ns 2+; hpf1 0-3 = 175/235/350/700 kHz; hpf2 0-3 = 350/700/1400/2800 kHz; gain even 24-48 dB (API accepts to 52) [2] |
 | `chirpCfg` | startIdx endIdx profile startFreqVar slopeVar idleVar adcStartVar txMask | indices 0-511; use `0 0 0 0 0 0 0 1`; for more than 255 chirps per frame define several identical indices |
 | `frameCfg` | startIdx endIdx loops numFrames period(ms) trigger delay(ms) | loops 1-255; period 0.3 to 1342.177 ms, LSB 5 ns; trigger 1 = software [3] |
 | `adcbufCfg` | -1 fmt swap interleave chirpThreshold | `-1 0 1 1 1`: complex (0), non-interleaved, chirpThreshold must be 1 [4] |
@@ -63,7 +63,7 @@ sensorStart
 
 1. **Bandwidth.** `dR = c/(2B)`, so `B >= c/(2 dR)`; add 3-5% (the slope is rounded down, §4).
 2. **Slope.** Pick `Tw` and `S = B/Tw`; `n = floor(S/0.048279)`, `S_real = 0.048279 n` from here on. The sweep (start + `S_real` x rampEnd) must stay inside 77-81 GHz (or 76-78).
-3. **ADC rate.** `fb = 2 S_real R_max / c`; `fs >= max(fb/0.8, 2000 ksps)`: 0.8 fs is the usable IF, 2000 ksps the floor. Round up to a comfortable value (at most 18750 ksps).
+3. **ADC rate.** `fb = 2 S_real R_max / c`; `fs >= max(fb/0.8, 2000 ksps)`: 0.8 fs is the usable IF, 2000 ksps the floor. Round up to a comfortable value (at most 12500 ksps).
 4. **Samples.** `Ns = fs x Tw`; need `Ns x 4 B x Nrx <= 16384` (the ADC buffer half; Ns <= 4096 for 1 RX) and Ns x Nrx even. If Ns is too big at
    fs 2000 ksps, shorten Tw (steeper S, larger fb) or use fewer RX.
 5. **Ramp end.** `rampEnd = adcStart (about 10 us) + Tw + tail (a few us)`; `Tc = idle + rampEnd` (10 ns steps) [2], so `idle = Tc - rampEnd >= 0`.
@@ -127,7 +127,7 @@ Each row changes one thing in the §1 cfg; message hints omitted. Exit 0 = no ER
 
 | Mistake | Checker message (start of line) |
 |---|---|
-| fs under 2000 ksps, or over 18750 with complex output | `[RATE] digOutSampleRate 1557 ksps is outside 2000-37500 ksps` / `... exceeds 18750 ksps, the complex 1x maximum` |
+| fs under 2000 ksps, or over 12500 with complex output | `[RATE] digOutSampleRate 1557 ksps is outside 2000-37500 ksps` / `... exceeds 12500 ksps, the complex 1x maximum` |
 | Ns x 4 B x Nrx over 16 KB (Ns 4100) | `[ADCBUF] numAdcSamples 4100 x 4 B x 1 RX = 16400 B exceeds the 16384 B ADC buffer half` |
 | ADC window runs past rampEnd (rampEnd 1100) | `[ADCWIN] ADC window ends at adcStart 10.00 + 3300/2.200 Msps = 1510.00 us, after rampEnd 1100.00 us` |
 | Sweep leaves 77-81 GHz (start 79.5) | `[SWEEP] sweep 79.5000-83.0225 GHz (start + realized slope x rampEnd) is not inside 77-81 or 76-78 GHz` |

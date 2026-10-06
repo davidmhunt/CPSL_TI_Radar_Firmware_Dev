@@ -18,8 +18,8 @@ lanes, `Blane` Mbps per lane, `Bchirp` bytes per chirp, v platform speed, d_max 
 | idle (`idleTimeConst`) | 0 to 524287 x 10 ns (5.24 ms) | `rl_sensor.h:653` |
 | rampEnd (`rampEndTime`) | 0 to 500000 x 10 ns (5 ms) | `:665` |
 | chirp period Tc | idle + rampEnd; minimum cycle 15 us | `:4570` |
-| ADC rate (`digOutSampleRate`) | 2000 to 37500 ksps; max IF bandwidth 15 MHz | `:742` |
-| complex 1x max rate | 18.75 Msps (regular ADC mode); usable IF about 0.8 x fs (engineering margin) | `:750` |
+| ADC rate (`digOutSampleRate`) | 2000 to 37500 ksps; IF bandwidth 10 MHz on the IWR1843 (15 MHz is the IWR1443-class figure) | `:742` |
+| complex 1x max rate | 12.5 Msps (regular ADC mode, IWR1843 datasheet; the header text `:750` gives the IWR1443-class 18.75 Msps); usable IF about 0.8 x fs (engineering margin) | `:750` |
 | samples per RX (Ns) | 2 to MAX. TI's table lists 1024 (4 RX complex) and 2048 (2 RX); **4096 for 1 RX complex (4 B each, 16 KB) is extrapolated, not TI-stated** | `:731-736` |
 | ADC buffer | 32 KB total; ping and pong halves (inferred from per-half chirp thresholds) | `common/sys_common_xwr18xx.h:306`; `drivers/adcbuf/ADCBuf.h:512-566` |
 | slope (`freqSlopeConst`) | LSB 48.279 kHz/us, range +-2072 (max 100 MHz/us) | `:709-710` |

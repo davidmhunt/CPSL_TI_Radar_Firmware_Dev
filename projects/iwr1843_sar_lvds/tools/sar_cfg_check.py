@@ -177,12 +177,13 @@ def check_profile(p, st, rep, opt):
     complex_out = not (st["adcbuf"] and st["adcbuf"][1] != 0)
     bps = 4 if complex_out else 2
 
-    # ADC rate: rl_sensor.h:742 (2000-37500 ksps); complex 1x max 18.75 Msps: rl_sensor.h:750.
+    # ADC rate: rl_sensor.h:742 (2000-37500 ksps); complex 1x max 12.5 Msps on the IWR1843 (datasheet IF 10 MHz;
+    # the 18.75 Msps in rl_sensor.h:750 is the IWR1443-class figure); low-power ADC mode lowers it further.
     if not 2000 <= p["rate_ksps"] <= 37500:
         rep.err("RATE", "digOutSampleRate %d ksps is outside 2000-37500 ksps (rl_sensor.h:742); raise it to at "
                         "least 2000 and keep the ADC window and numAdcSamples consistent" % p["rate_ksps"])
-    elif complex_out and p["rate_ksps"] > 18750:
-        rep.err("RATE", "digOutSampleRate %d ksps exceeds 18750 ksps, the complex 1x maximum (rl_sensor.h:750)"
+    elif complex_out and p["rate_ksps"] > 12500:
+        rep.err("RATE", "digOutSampleRate %d ksps exceeds 12500 ksps, the IWR1843 complex 1x maximum (datasheet IF 10 MHz)"
                 % p["rate_ksps"])
     # Samples: 2 to MAX; one chirp must fit a 16 KB ADCBUF half (sar_feasibility.md (a)).
     if p["ns"] < 2:

@@ -76,7 +76,10 @@ def cq_on(lines, sigimg="0 111 4"):
 
 
 def cq_off(lines):
-    return R.with_command(lines, "analogMonitor", "0 0")
+    """Signal/image monitor off, saturation monitor (CQ2) kept on. NOT 'analogMonitor 0 0': dataFmt 4 (CBUFF_DataFmt_CP_ADC_CQ)
+    needs >= 1 CQ block, and CBUFF_createSession returns CBUFF_EINVAL with none (cbuff.c, 'Sanity Check: Do we have at least
+    1 CQ'), which the firmware reports as 'ADCBUF/LVDS HW session setup failed' (firmware-10 Log, 2026-10-06)."""
+    return R.with_command(lines, "analogMonitor", "1 0")
 
 
 def with_ns(lines, ns):

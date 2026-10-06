@@ -116,7 +116,7 @@ class Parsing(unittest.TestCase):
         self.assertIn("analogMonitor 1 1", on)
         self.assertIn("CQSigImgMonitor 0 111 4", on)
         self.assertEqual(on[-1], "lvdsStreamCfg -1 1 4 0")
-        self.assertIn("analogMonitor 0 0", A.cq_off(A.set_lvds(base, 1, 4)))
+        self.assertIn("analogMonitor 1 0", A.cq_off(A.set_lvds(base, 1, 4)))
         g = A.geom_cfg(on)
         self.assertEqual((g["B"], g["nchirps"]), (13328, 255))              # geometry read as dataFmt 2
         odd = common.cfg_params("\n".join(A.with_ns(base, 3302) + ["sensorStart"]) + "\n")
@@ -249,7 +249,7 @@ class Flows(Base):
         self.assertEqual(len(self.lines), 3)
         self.assertIn("lvdsStreamCfg -1 1 4 0", self.lines[0])
         self.assertIn("analogMonitor 1 1", self.lines[0])
-        self.assertIn("analogMonitor 0 0", self.lines[1])
+        self.assertIn("analogMonitor 1 0", self.lines[1])
         self.assertIn("lvdsStreamCfg -1 1 2 0", self.lines[2])
         self.assertTrue(any("CQ on - off = 352 B" in l for l in out))
         self.assertTrue(any("NOT verified" in l for l in out))

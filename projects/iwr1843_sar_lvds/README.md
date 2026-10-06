@@ -140,9 +140,7 @@ checker: `docs/sar_cfg_guide.md`. See `docs/sar_feasibility.md` and `docs/lvds_d
   is built.
 - Baseline equivalence (firmware-04): the unmodified `src/` built to the same 324804 B `.bin` as
   `ti_stock_demos`, byte-identical at a path of the same length.
-- On-board: not tested. Streaming, restart without a power cycle, the frame-boundary gap and the per-chirp
-  metadata (chirp-start interrupt, DCA1000 byte order of the record, timestamp rate and jitter) are checked on the
-  bench in firmware-10.
+- On-board: Set A verified + 10-min lossless soak; phase, tuning, boundary and saturation pending firmware-18 (numbers: `docs/RESULTS.md` in the parent repo).
 
 ## How the build works
 

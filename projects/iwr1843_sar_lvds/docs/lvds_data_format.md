@@ -7,14 +7,20 @@ Status).
 
 ## 1. Packet layout
 
+> **Capture requirement.** Arm the DCA1000 before `sensorStart` and keep it recording for the whole run. Why: packet k's
+> record is found by its position k, because the other slot holds chirp k−1 or k+1 and a wrong choice validates
+> silently. A capture violates this if the run's first packet is missing (the first valid record's `globalChirpIdx` ≠ 0)
+> or if the DCA1000 byte count restarts or jumps. Treat such a capture, or the affected run, as unalignable: discard it
+> and capture again.
+
 ```
 | HSI header (optional) | ADC samples, RX by RX, 4 B/sample | record slot 0 | record slot 1 |
 0                       H                                   M               M+32            B = M+64
 ```
 
-R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. One packet per chirp, back to back.
+R = enabled RX channels, Ns = `numAdcSamples`, M = H + 4·R·Ns. One packet per chirp, back to back; unlike the stock TI demo, no per-frame packet (the C++ driver reads only stock dataFmt 1 framing).
 H = 0 with the header off; with it on, H = 64 if R·Ns is a multiple of 4, else 56 [1]. Packet size **`B = H + 4·R·Ns
-+ 64`**, no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off, 88.4 µs on the 2 × 600 Mbps link), 13 328 B (on, 88.9 µs).
++ 64`**, no other padding. Example, R = 1, Ns = 3300: 13 264 B (header off), 13 328 B (on).
 
 **ADC block.** R blocks, one per enabled RX channel in ascending RX order, each Ns complex samples. A sample is two
 int16 (two's complement); their order in device memory follows `adcbufCfg` SampleSwap: 0 = I then Q, 1 = Q then I [5].
@@ -24,26 +30,26 @@ boundaries).
 
 **Byte order.** The device is little-endian and sends 16-bit units, MSB first per lane, which nets out to no byte swap
 inside a unit. The DCA1000 delivers each 8 bytes sent as units `u0 u1 u2 u3` in the order **`u0 u2 u1 u3`**, the order the host driver already decodes for ADC data [2]
-*(bench: same for header and record)*. Parse in two steps: (1) over the **whole packet** (header, ADC and record alike),
+*(bench: same for header and record)*. Parse in two steps: (1) over the **whole packet**,
 swap bytes 2-3 with bytes 4-5 in every 8-byte group; (2) read the result as little-endian device memory. All offsets
 below are after step 1. Example: the HSI id (LE u64 `0x0CDA0ADC0CDA0ADC`) reads `DC 0A DA 0C DC 0A DA 0C` after step 1,
 `DC 0A DC 0A DA 0C DA 0C` raw [1].
 
-## 2. Metadata record
+## 2. Metadata record and host reconstruction
 
-**Which record is packet k's.** Arm the DCA1000 capture before `sensorStart`, so it begins at packet 0. Place bytes by
+**Which record is packet k's.** The capture begins at packet 0 (capture requirement, §1). Place bytes by
 the DCA1000 UDP header (10 B, little-endian: u32 sequence number, then u48 count of data bytes sent before this
 datagram) [7], not by sequence numbers; lost datagrams leave gaps. The count runs from the start of the recording.
-Packet k (k = 0, 1, … in a run) starts k·B bytes after the run's first byte; a following run starts at the byte after the
-previous run's last packet, with its own B. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
-for chirp k−1 or k+1: never use it.
+Packet k (k = 0, 1, … in a run) starts k·B bytes after the run's first byte; a following run (new `runIdx`) starts at the byte
+after the previous run's last packet, with its own B and k from 0. Its record is **slot `k mod 2`**, at M + 32·(k mod 2). The other slot also carries a valid-looking record,
+for chirp k−1 or k+1: never use it (the raw magic pattern is a sanity check only).
 
 **Validation (the one rule).** Slot k mod 2 is packet k's record only if `magic` = `"SARM"`, `version` = 1 and
 `globalChirpIdx` = k (mod 2³²). Otherwise discard the whole record, including its `tsTicks` and the saturation result it
 carried (that chirp's saturation is then unknown), keep the packet's ADC data, which is good, and take its time from the grid: from the nearest valid record j,
 t_k = t_j + (k−j)·Tc + b·Tb, where b counts the frame boundaries (k mod Nc = 0) passed between j and k, Tc = idle +
 rampEnd (µs, `profileCfg`) and Tb = framePeriodicity (ms, `frameCfg`) − Nc·Tc. The `LATE`, `SKIP` and `RESYNC` flags only
-explain failures. Records that keep failing mean the firmware lost count; the ADC data and the grid still hold.
+explain failures; records that keep failing mean the firmware lost count.
 
 | Off | Type | Field | Meaning |
 |---|---|---|---|
@@ -64,21 +70,21 @@ explain failures. Records that keep failing mean the firmware lost count; the AD
 | 0 | `SAT_VALID` | `satSlices`/`satRefLag` hold a result (§3) |
 | 1 | `SAT_MON` | the saturation monitor is enabled in this run |
 | 2 | `LATE` | interrupt over `adcStart + Ns/fs` late: the write may have missed packet k |
-| 3 | `SKIP` | chirp-start interrupts were missed; the missed chirps' packets fail validation, counters realigned to k |
-| 4 | `RESYNC` | a frame start found the counters wrong and set them to (frame starts seen − 1, chirp 0); later records validate only if that is right |
+| 3 | `SKIP` | chirp-start interrupts missed: those chirps' packets fail validation; counters realigned to k |
+| 4 | `RESYNC` | counters wrong at a frame start, set to (frame starts seen − 1, chirp 0); valid again only if right |
 | 5-15 | | 0 |
 
-**Timestamp.** `tsTicks` = the control CPU's RTI free-running counter, read first thing in the chirp-start interrupt
-[3]: **100 MHz (10 ns ticks)**, the profile's time LSB [4], counting from boot (not reset by `sensorStart`, stops or CPU sleep). Its 32 bits (wrap 42.95 s) are extended to 64, so it does not wrap. It is the interrupt time: chirp
-start plus a few µs of latency *(bench: jitter)*, **not** synchronized to the host, DCA1000 or platform time.
+**Timestamp.** `tsTicks` = the control CPU's RTI counter at the chirp-start interrupt [3], **100 MHz (10 ns ticks)** [4],
+64-bit, counting from boot: never reset or wrapped. It is chirp start plus a few µs of interrupt latency *(bench:
+jitter)*, **not** synchronized to the host, DCA1000 or platform time.
 
 ## 3. Saturation: the lagged field, and how to align it
 
 **Meaning.** The radar's RX saturation monitor divides one chirp's ADC sampling window into up to 64 equal *primary
 slices* (`CQRxSatMonitor <profile> <satMonSel> <primarySliceDuration> <numSlices> <rxChanMask>`; enable with
 `analogMonitor 1 <sigImgBand>`) [6]. `satSlices` = how many primary slices (0 … 64, any R) saw at least one saturation
-event on the selected RX channels combined. 0 = that chirp is clean; > 0 = some of its samples clipped. With the monitor
-off, `SAT_MON` and `SAT_VALID` are 0.
+event on the selected RX channels combined. 0 = clean; > 0 = some samples clipped. Monitor off: `SAT_MON`
+and `SAT_VALID` are 0.
 
 **Why it lags.** The monitor's per-chirp report (called CQ2) for chirp n becomes valid at chirp n's *chirp-available
 event*, when its ADC samples are complete; that same event starts sending packet n. Packet n's record was filled
@@ -86,7 +92,7 @@ earlier, as chirp n started, so it cannot hold chirp n's result. The next chirp'
 
 **How to align.** In a valid record with `SAT_VALID` set: **chirp `globalChirpIdx − satRefLag` saturated in `satSlices`
 slices.** `satRefLag` is the measured distance: normally 1; 2 when this chirp started before the previous chirp's report
-was read; 0 when this chirp's interrupt ran after its own sampling ended (the record may then fail validation). Never
+was read; 0 when this chirp's interrupt ran after its own sampling ended. Never
 assume 1: always subtract. A chirp's result can appear twice (same value) or never.
 
 **Edges.**
@@ -96,7 +102,7 @@ assume 1: always subtract. A chirp's result can appear twice (same value) or nev
 - *End of a run*: the last chirp's result is never delivered: no later record exists, and other-slot copies are never used.
 - *Restart*: `sensorStart` clears the stored result and changes `runIdx`; k restarts at 0. Key results by run.
 
-**Worked example** (3 chirps/frame, monitor on so `SAT_MON` is set, run stopped after packet 6):
+**Worked example** (3 chirps/frame, monitor on, run stopped after packet 6):
 
 | k | frame,chirp | `SAT_VALID` | `satRefLag` | `satSlices` | Conclusion |
 |---|---|---|---|---|---|
@@ -110,19 +116,10 @@ assume 1: always subtract. A chirp's result can appear twice (same value) or nev
 
 ```python
 sat = {}                                 # (runIdx, chirp) -> saturated slices; absent = unknown
-for rec in valid_records:                # slot k%2 of packet k, passed validation (section 2)
+for rec in valid_records:                # slot k%2 of packet k, validated
     if rec.flags & 0x1:                  # SAT_VALID
         sat[(rec.runIdx, rec.globalChirpIdx - rec.satRefLag)] = rec.satSlices
 ```
-
-## 4. Host reconstruction and stock-demo differences
-
-- **Time**: seconds = `tsTicks / 100e6`; chirps are Tc apart, Tc + Tb across a frame boundary (§2).
-- **Runs**: a new run starts where `runIdx` changes (or with a new capture); restart k at 0 there.
-- **Resync mid-stream**: in the raw stream, a record starts with `"SA"` `01 00` `"RM"` on an 8-byte boundary. Its slot is `globalChirpIdx & 1`, so its packet starts at pos − M − 32·slot. The other
-  slot matches the pattern too, so confirm: the packet B bytes later must hold `globalChirpIdx` + 1 in its own slot.
-- **Versus the stock demo** (dataFmt 1/4 plus a per-frame point-cloud packet): the C++ driver assumes dataFmt 1
-  framing, so dataFmt 2 needs new host tools.
 
 ## Sources
 

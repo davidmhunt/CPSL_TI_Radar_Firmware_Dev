@@ -111,6 +111,110 @@ class Tests(unittest.TestCase):
         out = []
         self.assertFalse(R.cmd_restart("dev", a, out.append))
 
+P = "\nmmwDemo:/>"
+
+
+class FakePort:
+    """Stands in for common.CliPort: scripted replies by command prefix."""
+    PROMPT = "mmwDemo:/>"
+
+    def __init__(self, rules):
+        self.rules, self.sent = rules, []
+
+    def command(self, line, timeout=2.0):
+        self.sent.append(line)
+        for pre, rep in self.rules:
+            if line.startswith(pre):
+                return line + "\r\n" + rep + P
+        return line + "\r\nDone" + P
+
+    def close(self):
+        pass
+
+
+def factory(port):
+    f = lambda dev: port  # noqa: E731
+    f.PROMPT = FakePort.PROMPT
+    return f
+
+
+class Tests2(unittest.TestCase):
+    def setUp(self):
+        self.saved = (R.common.CliPort, R.configure, R.run_capture)
+        self.addCleanup(lambda: (setattr(R.common, "CliPort", self.saved[0]), setattr(R, "configure", self.saved[1]),
+                                 setattr(R, "run_capture", self.saved[2])))
+
+    def test_with_num_frames(self):
+        new = R.with_num_frames(CFG, 5)
+        self.assertIn("frameCfg 0 0 255 5 510.3 1 0", new)
+        self.assertEqual(len(new), len(CFG))
+
+    def test_chan_pass(self):
+        port = FakePort([("channelCfg", "Error: channelCfg change not allowed")])
+        R.common.CliPort = factory(port)
+        R.configure = lambda dev, lines, out=print: True
+        R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev())
+        a = argparse.Namespace(cfg=R.DEFAULT_CFG, duration=10, channel_cfg="15 1 0")
+        out = []
+        self.assertTrue(R.cmd_chan("dev", a, out.append))
+        self.assertEqual(port.sent[-2], "channelCfg 15 1 0")           # stopped at the Error, cfg not continued
+        self.assertTrue(any("channelCfg 15 1 0" in l for l in out))
+        self.assertTrue(any("not allowed" in l for l in out))
+
+    def test_chan_not_rejected_or_exception_fails(self):
+        for rule in ([], [("channelCfg", "Error: x\nException in MSS")]):
+            R.common.CliPort = factory(FakePort(rule))
+            R.configure = lambda dev, lines, out=print: True
+            R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev())
+            a = argparse.Namespace(cfg=R.DEFAULT_CFG, duration=10, channel_cfg="15 1 0")
+            self.assertFalse(R.cmd_chan("dev", a, lambda *_: None))
+
+    def test_finite(self):
+        R.common.CliPort = factory(FakePort([("queryDemoStatus", "Sensor State: 0\nLVDS HW frames done: 5")]))
+        R.configure = lambda dev, lines, out=print: True
+        R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev(avail=1275, frames=5.0, n=1275))
+        a = argparse.Namespace(cfg=R.DEFAULT_CFG, frames=5, extra_s=3.0)
+        self.assertTrue(R.cmd_finite("dev", a, lambda *_: None))
+        R.run_capture = lambda dev, cap, cfg, dur, extra=(): (0, ev(avail=1020, frames=4.0, n=1020))
+        self.assertFalse(R.cmd_finite("dev", a, lambda *_: None))
+
+    def test_start0_passes_start_cmd(self):
+        seen = []
+        R.run_capture = lambda dev, cap, cfg, dur, extra=(): seen.append(list(extra)) or (0, ev())
+        a = argparse.Namespace(cfg=R.DEFAULT_CFG, duration=10)
+        self.assertTrue(R.cmd_start0("dev", a, lambda *_: None))
+        self.assertEqual(seen, [["--start-cmd", "sensorStart 0"]])
+
+    def test_decide_adc_bits(self):
+        self.assertEqual(R.decide_adc_bits(5000, 0, 0)[0], 16)
+        self.assertEqual(R.decide_adc_bits(2047, 40, 12)[0], 12)
+        self.assertIsNone(R.decide_adc_bits(900, 0, 0)[0])
+
+    def fake_res(self, samples, swap=0):
+        import array
+        a = array.array("h", samples)
+        B, H, ns = 4 * len(samples) // 2 // 1, 0, len(samples) // 2
+        cfg = {"B": 2 * len(samples) + 64, "H": 0, "nrx": 1, "ns": ns, "swap": swap}
+        return {"cfg": cfg, "n_chirps": 1, "adc_ok": [True], "stream": bytearray(a.tobytes() + bytes(64))}
+
+    def test_adc_peaks_swap(self):
+        # interleaved half-words [w0, w1, ...]: SampleSwap 0 -> w0 = I; 1 -> w0 = Q
+        res = self.fake_res([100, -300, 50, 20], swap=0)
+        lo, hi, n = R.adc_peaks(res)
+        self.assertEqual((lo["I"], hi["I"], lo["Q"], hi["Q"], n), (0, 100, -300, 20, 1))
+        lo, hi, _ = R.adc_peaks(self.fake_res([100, -300, 50, 20], swap=1))
+        self.assertEqual((hi["Q"], lo["I"]), (100, -300))
+
+    def test_judge_adc_12_and_16_and_undecided(self):
+        out = []
+        r12 = self.fake_res([2047] * 20 + [-2048] * 20)
+        self.assertTrue(R.judge_adc(r12, out.append)[0][1])
+        self.assertIn("12", out[-1])
+        r16 = self.fake_res([30000, -32768, 5, 7])
+        self.assertTrue(R.judge_adc(r16, out.append)[0][1])
+        self.assertIn("16", out[-1])
+        self.assertFalse(R.judge_adc(self.fake_res([100, -90, 3, 4]), out.append)[0][1])
+
 
 if __name__ == "__main__":
     unittest.main()

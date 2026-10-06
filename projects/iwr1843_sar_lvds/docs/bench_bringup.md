@@ -1,7 +1,7 @@
 # Bench bring-up: flash the IWR1843BOOST and run the first check
 
 Numbered steps for the person at the bench, with what you should see and what to do if you do not. Steps marked
-"(untested)" are unconfirmed on hardware; the section 3 flash is confirmed on one board. Paths are relative to `firmware_dev/` unless noted.
+"(untested)" are unconfirmed on hardware; sections 3 to 5 (flash, run mode, first check) are confirmed on one board (2026-10-06). Paths are relative to `firmware_dev/` unless noted.
 
 ## 1 Before you start
 
@@ -32,7 +32,7 @@ The tools in `projects/iwr1843_sar_lvds/tools/` default to exactly these.
 
 ## 3 Flash (SOP0 + SOP2 closed)
 
-Confirmed on hardware once (2026-10-06, one IWR1843BOOST, this command); the image running and the restore path are not yet confirmed.
+Confirmed on hardware (2026-10-06, one IWR1843BOOST, this command): the flashed image boots to the `mmwDemo:/>` prompt in SOP 001. The stock-demo restore is not yet confirmed.
 Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md).
 
 1. SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; `readme_images/IWR1843_SOP_nodes.png`, repository root): flash mode
@@ -43,7 +43,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
    `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run` (prints the command and image sha256; compare with section 1).
    Then the same without `--dry-run`, in your own terminal; type `FLASH MODE CONFIRMED` when asked (it refuses without a TTY).
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
-   Exit code and any trailing `Can't Run Target CPU` message are not yet recorded: note them. On failure: keep `build/flash_output.log`,
+   Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
 5. Restore the stock demo (also the recovery; the flash formats all SFLASH; untested): power-cycle in SOP 101, then the same command with
    `projects/ti_stock_demos/build/iwr1843_demo.bin` as the image argument after the port.
@@ -65,7 +65,7 @@ prints each reply in full plus a PASS/FAIL line:
 BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
 ```
 
-1. `$BC cfg` sends the cfg line by line (untested on hardware). Every line must end with `Done`; the last line is `sensorStart`.
+1. `$BC cfg` sends the cfg line by line (confirmed). Every line must end with `Done`; the last line is `sensorStart`.
    It stops at the first `Error`: keep the output and report it.
 2. `$BC status`: sensor running, `chirps` and `frames` increasing over 5 s (`--wait`), `chirpStartIsr` equal to `chirps`.
 3. `$BC stop` (`sensorStop`): must not print `no BSS frame-end event after sensorStop`.
@@ -79,6 +79,20 @@ BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
    No datagrams at all: recheck section 2 and the DCA1000 switches. The capture options (`--fpga-ip --host-ip --cmd-port
    --data-port`) default to the factory addresses.
 5. The tool ends the run with `sensorStop`; `sarStats` counters reset at every `sensorStart`, so they are from the capture run.
+
+## 5b Bench runs (firmware-10 Step 2.2 and 2.6.0)
+
+After section 5 passed, from `firmware_dev/` with the board in run mode (no power cycle needed between these; each ends with
+`RESULT: PASS|FAIL` and a short block to paste back; captures and cfgs go to `/tmp/bench_run/`). Source: `tools/bench_run.py`.
+
+| Command | What it checks |
+|---|---|
+| `./bench long` | 60 s capture: not cut off by `--timer-s 30`, bytes = `chirpAvail` x B, 0 UDP sequence gaps (CONFIG_PACKET_DATA delay unit) |
+| `./bench restart` | 4 cycles of sensorStop, flushCfg + cfg with changed rxGain/HPF (channelCfg, lowPower, adcCfg identical), sensorStart, 30 s capture, parse |
+| `./bench chan` | `channelCfg` changed after flushCfg: prints the CLI reply (expect an Error, no Exception), then a valid cfg + capture still works |
+| `./bench finite` | `numFrames 5`: run ends by itself, `sensorStop` still works, `chirpAvail` = 5 x 255, `LVDS HW frames done` = 5 |
+| `./bench start0` | `sensorStart 0` restart with no new cfg, capture + parse |
+| `./bench adc` | gain 48 capture (reflector close, clipping): peak I and Q counts and the `--adc-bits` it implies (12 or 16); `--capture FILE` re-analyses an old capture |
 
 ## 6 Hand-off: what to record
 

@@ -4,6 +4,10 @@
     ./bench long       60 s capture: FPGA timer does not cut it off, bytes = chirpAvail x B, 0 sequence gaps
                        (= CONFIG_PACKET_DATA delay unit check)
     ./bench restart    >= 3 stop / re-cfg (changed rxGain, HPF) / start cycles in one boot, a capture + parse each
+    ./bench chan       channelCfg change after flushCfg: records the CLI reply, then a valid cfg + capture still works
+    ./bench finite     numFrames 5 run ends by itself; sensorStop still works; chirpAvail = 5 x 255; LVDS frame count
+    ./bench start0     `sensorStart 0` restart with no new cfg, capture + parse
+    ./bench adc        peak |I|,|Q| of a capture (clipped on purpose) -> which --adc-bits (12: 2048, 16: 32768)
 
 Each prints PASS/FAIL lines and a short block to paste back. HARDWARE TOOL: configures the radar over the CLI port
 and records from the DCA1000 (via dca_capture.py, then sar_parse's analysis in-process). The board must be in run mode,
@@ -13,6 +17,7 @@ flushCfg is what `restart` tests. Python stdlib + sar_common / sar_parse only.
 import argparse
 import json
 import os
+import re
 import subprocess
 import sys
 
@@ -190,6 +195,210 @@ def cmd_restart(dev, a, out=print):
     return bc.summarize(checks, out)
 
 
+# --- chan -----------------------------------------------------------------------------------------------------------
+BAD_WORDS = ("exception", "assert", "halt", "abort")
+
+
+def probe_lines(port, lines, out=print):
+    """Send lines, stop at the first Error. Returns (replies, errored) where replies = [(line, body_lines, raw)]."""
+    replies = []
+    for l in lines:
+        raw = port.command(l, timeout=5.0)
+        body = bc.reply_body(l, raw)
+        replies.append((l, body, raw))
+        out("> " + l)
+        for b in body:
+            out("    " + b)
+        if any("Error" in b for b in body):
+            return replies, True
+    return replies, False
+
+
+def judge_chan(replies, errored, follow, alive):
+    last_line, last_body, _ = replies[-1]
+    raw_all = " ".join(r[2] for r in replies).lower()
+    return [
+        ("channelCfg change answered with a CLI Error (reply: %s)" % (
+            " / ".join(last_body) or "none"), errored and last_line.startswith("channelCfg")),
+        ("no Exception/assert/halt text in any reply", not any(w in raw_all for w in BAD_WORDS)),
+        ("CLI still answers after the rejection (prompt returned)", alive),
+        ("following valid cfg + sensorStart: clean capture", capture_ok(follow)),
+    ]
+
+
+def cmd_chan(dev, a, out=print):
+    os.makedirs(WORKDIR, exist_ok=True)
+    base = bc.cfg_lines(a.cfg, drop_last=True)
+    bad = with_command(base, "channelCfg", a.channel_cfg)
+    cut = bad[:[i for i, l in enumerate(bad) if l.startswith("channelCfg")][0] + 1]
+    port = common.CliPort(dev)
+    try:
+        replies, errored = probe_lines(port, cut, out)
+        alive = common.CliPort.PROMPT in port.command("queryDemoStatus", timeout=5.0)
+    finally:
+        port.close()
+    out("--- now a valid cfg (flushCfg, original channelCfg) and a capture ---")
+    follow = None
+    if configure(dev, bc.cfg_lines(a.cfg, drop_last=True), lambda *_: None):
+        _, follow = run_capture(dev, os.path.join(WORKDIR, "chan.cap"), a.cfg, a.duration)
+        block("follow-up", follow, out)
+    else:
+        out("follow-up cfg NOT accepted")
+    return bc.summarize(judge_chan(replies, errored, follow, alive), out)
+
+
+# --- finite ---------------------------------------------------------------------------------------------------------
+def with_num_frames(lines, n):
+    """frameCfg <start> <end> <loops> <numFrames> <period> <trig> <delay> with numFrames replaced."""
+    out, hit = [], 0
+    for l in lines:
+        t = l.split()
+        if t[:1] == ["frameCfg"] and len(t) == 8:
+            t[4] = str(n)
+            l, hit = " ".join(t), hit + 1
+        out.append(l)
+    if hit != 1:
+        raise ValueError("expected exactly one 8-token frameCfg line, found %d" % hit)
+    return out
+
+
+def lvds_frames(dev):
+    """'LVDS HW frames done' from queryDemoStatus (None if absent)."""
+    port = common.CliPort(dev)
+    try:
+        text = port.command("queryDemoStatus", timeout=5.0)
+    finally:
+        port.close()
+    m = re.search(r"LVDS HW frames done:\s*(\d+)", text)
+    return (int(m.group(1)) if m else None), bc.reply_body("queryDemoStatus", text)
+
+
+def judge_finite(e, n_frames, nchirps, lvds):
+    return [
+        ("capture accepted, 0 gaps, 0 missing", capture_ok(e)),
+        ("chirpAvail %s = %d frames x %d" % (e["avail"], n_frames, nchirps), e["avail"] == n_frames * nchirps),
+        ("LVDS HW frames done %s = %d frames sent" % (lvds, n_frames), lvds == n_frames),
+    ]
+
+
+def cmd_finite(dev, a, out=print):
+    os.makedirs(WORKDIR, exist_ok=True)
+    lines = with_num_frames(bc.cfg_lines(a.cfg, drop_last=True), a.frames)
+    cfg = write_cfg(lines + ["sensorStart"], os.path.join(WORKDIR, "finite.cfg"))
+    if not configure(dev, lines, lambda *_: None):
+        out("RESULT: FAIL (cfg not accepted)")
+        return False
+    nchirps = common.cfg_params(open(cfg).read())["nchirps"]
+    dur = a.frames * 0.5103 + a.extra_s                 # the run ends by itself before dca_capture's sensorStop
+    _, e = run_capture(dev, os.path.join(WORKDIR, "finite.cap"), cfg, dur)
+    block("finite numFrames %d (%.1f s)" % (a.frames, dur), e, out)
+    if e is None:
+        out("RESULT: FAIL (capture tool failed)")
+        return False
+    lvds, body = lvds_frames(dev)
+    out("queryDemoStatus: " + " | ".join(body))
+    return bc.summarize(judge_finite(e, a.frames, nchirps, lvds), out)
+
+
+# --- start0 ---------------------------------------------------------------------------------------------------------
+def cmd_start0(dev, a, out=print):
+    os.makedirs(WORKDIR, exist_ok=True)
+    out("(no cfg sent: the board keeps the last one; geometry is read from %s)" % os.path.basename(a.cfg))
+    _, e = run_capture(dev, os.path.join(WORKDIR, "start0.cap"), a.cfg, a.duration,
+                       ["--start-cmd", "sensorStart 0"])
+    block("sensorStart 0", e, out)
+    if e is None:
+        out("RESULT: FAIL (capture tool failed or sensorStart 0 refused)")
+        return False
+    return bc.summarize([("capture clean after `sensorStart 0` restart", capture_ok(e)),
+                         ("chirpAvail %s > 0" % e["avail"], bool(e["avail"]))], out)
+
+
+# --- adc ------------------------------------------------------------------------------------------------------------
+def adc_peaks(res):
+    """Peak I and Q (counts, signed min/max each) over every chirp whose ADC bytes are all present."""
+    import array
+    cfg, B, H = res["cfg"], res["cfg"]["B"], res["cfg"]["H"]
+    n_h = 2 * cfg["nrx"] * cfg["ns"]
+    lo = {"I": 0, "Q": 0}
+    hi = {"I": 0, "Q": 0}
+    cnt = {}
+    nused = 0
+    for k in range(res["n_chirps"]):
+        if not res["adc_ok"][k]:
+            continue
+        blk = array.array("h")
+        blk.frombytes(bytes(res["stream"][k * B + H:k * B + H + 2 * n_h]))
+        if sys.byteorder == "big":
+            blk.byteswap()
+        halves = (blk[0::2], blk[1::2])
+        names = ("Q", "I") if cfg["swap"] == 1 else ("I", "Q")        # SampleSwap 1: low half-word = Q
+        for nm, h in zip(names, halves):
+            lo[nm], hi[nm] = min(lo[nm], min(h)), max(hi[nm], max(h))
+        nused += 1
+    return lo, hi, nused
+
+
+def count_at(res, value):
+    import array
+    cfg, B, H = res["cfg"], res["cfg"]["B"], res["cfg"]["H"]
+    n = 0
+    for k in range(res["n_chirps"]):
+        if res["adc_ok"][k]:
+            blk = array.array("h")
+            blk.frombytes(bytes(res["stream"][k * B + H:k * B + H + 4 * cfg["nrx"] * cfg["ns"]]))
+            n += blk.count(value)
+    return n
+
+
+def decide_adc_bits(peak, n_at_pos, n_at_neg):
+    """(adc_bits or None, reason). Signed full scale: 12-bit -> -2048..2047, 16-bit -> -32768..32767."""
+    if peak > 2048:
+        return 16, "peak %d exceeds 12-bit range (2048): 16-bit full scale" % peak
+    if (n_at_pos >= 10 and n_at_neg + n_at_pos >= 10) and peak >= 2047:
+        return 12, "samples pile up at the 12-bit rails (%d at +2047, %d at -2048)" % (n_at_pos, n_at_neg)
+    return None, "peak %d is below 2047 with no rail pile-up: not clipped, cannot tell 12 from 16 bit" % peak
+
+
+def judge_adc(res, out=print):
+    lo, hi, nused = adc_peaks(res)
+    peak = max(-lo["I"], -lo["Q"], hi["I"], hi["Q"])
+    out("ADC peaks over %d complete chirps: I %d..%d, Q %d..%d (peak |.| %d)" % (
+        nused, lo["I"], hi["I"], lo["Q"], hi["Q"], peak))
+    bits = None
+    if peak > 2048:
+        bits, why = decide_adc_bits(peak, 0, 0)
+        for rail in (32767, -32768):
+            out("    samples at %d: %d" % (rail, count_at(res, rail)))
+    else:
+        bits, why = decide_adc_bits(peak, count_at(res, 2047), count_at(res, -2048))
+    out("--adc-bits decision: %s" % (("%d  (%s)" % (bits, why)) if bits else "UNDECIDED  (%s)" % why))
+    return [("--adc-bits determined from data: %s" % (bits if bits else "not clipped, rerun closer/higher --gain"),
+             bits is not None)]
+
+
+def cmd_adc(dev, a, out=print):
+    os.makedirs(WORKDIR, exist_ok=True)
+    cfg = a.cfg
+    if a.capture:
+        cap = a.capture
+    else:
+        lines = with_profile(bc.cfg_lines(cfg, drop_last=True), a.gain, a.hpf1, a.hpf2)
+        cfg = write_cfg(lines + ["sensorStart"], os.path.join(WORKDIR, "adc.cfg"))
+        if not configure(dev, lines, lambda *_: None):
+            out("RESULT: FAIL (cfg not accepted)")
+            return False
+        out("gain %d dB: put the reflector close / raise --gain until it clips" % a.gain)
+        cap = os.path.join(WORKDIR, "adc.cap")
+        rc, e = run_capture(dev, cap, cfg, a.duration)
+        if e is None:
+            out("RESULT: FAIL (capture tool failed)")
+            return False
+    e = evaluate(cap, cfg)
+    block("adc capture", e, out)
+    return bc.summarize(judge_adc(e["res"], out), out)
+
+
 # --- cli ------------------------------------------------------------------------------------------------------------
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -205,9 +414,28 @@ def main(argv=None):
     p.add_argument("--points", default=DEFAULT_POINTS, help="rxGain_dB:hpf1:hpf2 per cycle (default %(default)s)")
     p.add_argument("--min-cycles", type=int, default=3)
     p.add_argument("--verbose", action="store_true", help="print every CLI reply")
+    p = sub.add_parser("chan", help="channelCfg change rejection + a following valid start")
+    p.add_argument("--cfg", default=DEFAULT_CFG)
+    p.add_argument("--duration", type=float, default=10)
+    p.add_argument("--channel-cfg", default="15 1 0", help="the changed channelCfg args (default '%(default)s': 4 RX)")
+    p = sub.add_parser("finite", help="finite numFrames: run ends by itself, sensorStop still works")
+    p.add_argument("--cfg", default=DEFAULT_CFG)
+    p.add_argument("--frames", type=int, default=5)
+    p.add_argument("--extra-s", type=float, default=3.0, help="seconds to wait beyond the run's end")
+    p = sub.add_parser("start0", help="`sensorStart 0` restart with no new cfg (run after another capture)")
+    p.add_argument("--cfg", default=DEFAULT_CFG)
+    p.add_argument("--duration", type=float, default=10)
+    p = sub.add_parser("adc", help="peak |I|,|Q| of a clipped capture: which --adc-bits")
+    p.add_argument("--cfg", default=DEFAULT_CFG)
+    p.add_argument("--capture", help="analyse this existing capture instead of taking one")
+    p.add_argument("--gain", type=int, default=48, help="rxGain dB for the capture (default 48)")
+    p.add_argument("--hpf1", type=int, default=0)
+    p.add_argument("--hpf2", type=int, default=0)
+    p.add_argument("--duration", type=float, default=5)
     a = ap.parse_args(argv)
     dev = bc.find_cli_port(a.cli_port)
-    fn = {"long": cmd_long, "restart": cmd_restart}[a.cmd]
+    fn = {"long": cmd_long, "restart": cmd_restart, "chan": cmd_chan, "finite": cmd_finite, "start0": cmd_start0,
+          "adc": cmd_adc}[a.cmd]
     return 0 if fn(dev, a) else 1
 
 

@@ -108,5 +108,5 @@ Go when all hold:
 4. A capture of at least 10 minutes loses no packets and every chirp's metadata counter is consecutive.
 5. Per-chirp saturation stays below the agreed threshold at the chosen HPF corners and RX gain.
 
-The 10x margin (1), the 10-minute capture (4) and the saturation threshold (5) are the Firmware role's proposals
-pending user confirmation. No-go: any of 1-3 fails (change the cfg), or 4 fails within limits (revisit (d)).
+The 10x margin (1), the 10-minute capture (4) and the saturation threshold (5; default 0 clipped chirps at the tuned point)
+are confirmed by the user (2026-10-05, firmware-10 'User decisions'). No-go: any of 1-3 fails (change the cfg), or 4 fails within limits (revisit (d)).

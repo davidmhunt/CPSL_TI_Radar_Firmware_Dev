@@ -124,7 +124,7 @@ uv sync --group tools        # numpy + matplotlib, only for the report and sweep
 uv run python -m unittest discover -s projects/iwr1843_sar_lvds/tools -p 'test_*.py'
 ```
 
-Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only. DCA1000 address and port defaults are the factory ones, and `dca_capture.py --timer-s` (default 30 s) must be checked before captures longer than 30 s.
+Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only. `dca_capture.py` and the sweep default to the factory DCA1000 address 192.168.33.180 / host .30 and ports 4096 / 4098 (this repo's driver configs use others: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s` (default 30) is the CONFIG_FPGA_GEN timer byte: check its meaning before captures longer than 30 s.
 
 ## Status
 

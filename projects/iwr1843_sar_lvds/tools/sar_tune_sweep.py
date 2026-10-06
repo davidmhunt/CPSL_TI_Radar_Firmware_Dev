@@ -40,6 +40,13 @@ def hpf_codes(pair):
                                                                                          chk.HPF2_KHZ))
 
 
+def check_gain(gain):
+    """Refuse gains outside the datasheet range (24-48 dB, even) before anything is sent (the API accepts 24-52)."""
+    if gain % 2 or not 24 <= gain <= 48:
+        raise ValueError("rxGain %d dB: the sweep accepts even values 24-48 dB, the range the datasheet "
+                         "(SWRS228B 7.7) specifies; the radar API also takes 50 and 52, which are outside it" % gain)
+
+
 def edit_cfg(text, gain, h1, h2):
     """Return cfg text with the profileCfg rxGain / hpfCornerFreq1 / hpfCornerFreq2 replaced (codes 0-3 for HPF)."""
     out, done = [], False
@@ -74,6 +81,7 @@ def run_point(gain, pair, base_text, cli, dca, data_sock, outdir, duration, refl
               adc_bits=12):
     """One sweep point. Returns a dict row (verdict, peak_db, clipped, noise_db, snr_db or skip reason)."""
     import sar_tune_report as rep
+    check_gain(gain)
     h1, h2 = hpf_codes(pair)
     tag = "point_%d_%s" % (gain, pair.replace(":", "-"))
     base = os.path.join(outdir, tag)
@@ -123,7 +131,7 @@ def build_parser():
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0], epilog="Read docs/tuning_guide.md.")
     ap.add_argument("cfg", help="base cfg (sensorStop ... sensorStart), e.g. configs/sar_example_2ms.cfg")
     ap.add_argument("outdir", help="directory for the per-point files and sweep.txt")
-    ap.add_argument("--gains", default="30", help="comma list of rxGain, dB (even, 24-48) (default 30)")
+    ap.add_argument("--gains", default="30", help="comma list of rxGain, dB: even, 24-48 (datasheet range; others are refused) (default 30)")
     ap.add_argument("--hpf", default="175:350", help="comma list of HPF1:HPF2 pairs in kHz (default 175:350)")
     ap.add_argument("--duration", type=float, default=3.0, help="seconds per point (default 3)")
     ap.add_argument("--reflector-range", type=float, help="range of a known reflector, m (adds SNR)")
@@ -143,6 +151,8 @@ def main(argv=None):
     opt = build_parser().parse_args(argv)
     try:
         gains = [int(x) for x in opt.gains.split(",")]
+        for g in gains:
+            check_gain(g)
         pairs = [p.strip() for p in opt.hpf.split(",")]
         for p in pairs:
             hpf_codes(p)

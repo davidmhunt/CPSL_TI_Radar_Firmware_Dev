@@ -15,6 +15,8 @@ capture-requirement checks of docs/lvds_data_format.md (section 1) to prove it d
 implementation of those checks. Any check that fails or cannot be evaluated rejects the capture: it cannot be proven
 aligned, so discard it and capture again. A rejected capture writes no aligned output unless --force is given
 (debugging only; the files then sit beside a *_FORCED_REJECTED.txt marker).
+A chirpAvail typed by hand (--chirp-avail, or a sidecar with "source": "manual") is not machine-read proof: a check 3
+that is not evaluable then rejects instead of deferring to check 4.
 
 Outputs on an accepted capture:
     PREFIX_adc.bin   int16 I,Q pairs, chirp-major: [chirp][rx][sample][I,Q]; lost bytes are zeros
@@ -235,7 +237,9 @@ def analyze(datagrams, cfg, sarstats=None, flow_error=None):
         flow_ok = False
     # F3: check 3 not evaluable because of a tail hole defers to check 4; every other failed or not-evaluable
     # check rejects (F8).
-    c3_deferred = c3.status.startswith("NOT EVALUABLE (tail hole)") and c4.status == "PASS"
+    # A typed chirpAvail (--chirp-avail, or a sidecar with source "manual") is not proof: no deferral then.
+    typed = bool(sarstats) and sarstats.get("source") == "manual"
+    c3_deferred = c3.status.startswith("NOT EVALUABLE (tail hole)") and c4.status == "PASS" and not typed
     failing = [c.num for c in checks if c.status != "PASS" and not (c.num == 3 and c3_deferred)]
     accepted = not failing and flow_ok
 
@@ -389,7 +393,7 @@ def build_parser():
 
 def load_sarstats(opt):
     if opt.chirp_avail is not None:
-        return {"chirpAvail": opt.chirp_avail, "runIdx": opt.run_idx}
+        return {"chirpAvail": opt.chirp_avail, "runIdx": opt.run_idx, "source": "manual"}
     path = opt.sarstats or opt.capture + ".sarstats.json"
     if os.path.exists(path):
         with open(path) as fh:

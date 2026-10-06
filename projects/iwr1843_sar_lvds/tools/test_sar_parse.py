@@ -119,6 +119,19 @@ class CaptureRequirement(unittest.TestCase):
         self.assertFalse(res["accepted"])
         self.assertIn("failing: check 3, check 4", P.render(res))
 
+    def test_typed_chirp_avail_never_defers_check_3_triple_fault_rejects(self):
+        # one packet late + lost final datagram + chirpAvail typed one too small: with the deferral this was accepted
+        # one chirp off (other-slot regime k-1). Typed counts are not proof: not evaluable rejects.
+        pk = S.build_run(CFG, N, sat_chirps=SAT)
+        dg = S.to_datagrams(pk[1:])[:-1]
+        res = P.analyze(dg, CFG, {"chirpAvail": N - 1, "runIdx": 1, "source": "manual"})
+        self.assertEqual(status(res, 3), "NOT EVALUABLE (tail hole)")
+        self.assertFalse(res["accepted"])
+        # the same typed value on a clean tail-hole recording also rejects; machine-read sarStats still defers
+        dg2, stats = S.scenario("lost_final_datagram", CFG, N)
+        self.assertFalse(P.analyze(dg2, CFG, dict(stats, source="manual"))["accepted"])
+        self.assertTrue(P.analyze(dg2, CFG, dict(stats, source="cli"))["accepted"])
+
     def test_long_run_plus_short_second_run_rejected_by_runidx_check_2(self):
         res, text = run("two_runs")
         self.assertEqual(status(res, 2), "FAIL")

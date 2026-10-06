@@ -23,8 +23,9 @@ the R⁴ excess of near echoes: 175 + 350 kHz attenuates 48 / 36 / 21 / 11 / 5 /
 
 ## 3 The commands
 
-Once: `uv sync --group tools` (numpy, matplotlib). Check the cfg with `T/sar_cfg_check.py CFG`, then send it to the CLI port **except its
-last line, `sensorStart`** (the capture tool sends that).
+Once: `uv sync --group tools` (numpy, matplotlib). `CFG` is your cfg, e.g. `projects/iwr1843_sar_lvds/configs/sar_example_2ms.cfg`. To send it
+(or change gain/HPF) and capture in one go, run a one-point sweep: `--gains 30 --hpf 175:350` (HPF1:HPF2 in kHz, values in §2). It cfg-checks,
+sends the cfg, then captures, parses and reports. `dca_capture.py` alone needs a radar that already holds the cfg.
 
 ```bash
 T=projects/iwr1843_sar_lvds/tools
@@ -32,13 +33,11 @@ uv run python $T/dca_capture.py run1.cap --cli-port /dev/ttyACM0 --duration 5   
 uv run python $T/sar_parse.py run1.cap --cfg CFG      # checks 1-4, run1_adc.bin, run1_meta.csv
 uv run --group tools python $T/sar_tune_report.py run1 --cfg CFG --reflector-range 1.5
 uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/ttyACM0 \
-    --gains 24,30,36 --hpf 175:350,350:700                                       # HW
+    --gains 30 --hpf 175:350 --reflector-range 1.5                               # HW: one point
 ```
 
 `dca_capture.py` arms the DCA1000, sends `sensorStart`, waits, sends `sensorStop`, reads `sarStats`, then stops recording; without
-`--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. Add `--fpga-ip --host-ip --cmd-port --data-port`
-unless the DCA1000 is at 192.168.33.180 / .30, ports 4096 / 4098; `--timer-s` (default 30) may cut off longer captures. The report also writes `run1_tune.png`. The sweep needs no power
-cycle; `--dry-run` lists and cfg-checks its points.
+`--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. DCA1000 address, port and `--timer-s` options: README. The report also writes `run1_tune.png`. A sweep needs no power cycle (several points: comma lists; `--dry-run` only cfg-checks).
 
 ## 4 `sarStats`: the number that proves the run's length
 
@@ -49,10 +48,9 @@ mmwDemo:/>sarStats
 run 1 (sensor state 0), dataFmt 2, satMon 1
 chirps 5100 frames 20 chirpStartIsr 5100 chirpAvail 5100  <-- packets sent in this run
 saturatedChirps 4
-lateIsr 0 missedChirpIsr 0 ...                        (more counters follow)
 ```
 
-(Illustrative; counters reset at each `sensorStart`.) If `sensorStop` prints `no BSS frame-end event after sensorStop`, discard the run.
+(Illustrative values.) If `sensorStop` prints `no BSS frame-end event after sensorStop`, discard the run.
 
 ## 5 The four checks and the discard policy
 
@@ -71,9 +69,9 @@ hardware confirmation (measured on the bench; see README Status).
 
 ## 6 Bench procedure
 
-1. Send the cfg; put a **near reflector at 1-2 m**. Start at **gain 30 dB, HPF 175 + 350 kHz** (`profileCfg` ends `0 0 30`).
+1. Put a **near reflector at 1-2 m** and run the one-point sweep (§3) at **gain 30 dB, HPF 175:350**.
 2. Capture, parse (§3); go on only if `ACCEPTED`. Run the report with `--reflector-range`.
-3. **If chirps clip**, step the HPF up first (e.g. `350:700`): it cuts near-range level at 40 dB/decade, countering R⁴. Lower the gain only if it still clips.
+3. **If chirps clip**, step the HPF up first (re-run with `--hpf 350:700`): it cuts near-range level at 40 dB/decade, countering R⁴. Lower the gain only if it still clips.
 4. **Raise the gain** until the swath's far end is clearly above the noise floor with **clipped chirps 0 for the whole capture**.
 5. Record the chosen point (gain, HPF pair, report numbers, cfg). `sar_tune_sweep.py` tabulates steps 2-4.
 
@@ -85,6 +83,7 @@ hardware confirmation (measured on the bench; see README Status).
 | `clipped chirps` | each chirp counted once if **ADC full-scale hit** (samples at the rails) or **firmware saturation** (`satSlices` > 0). Target 0. "Firmware result unknown": no answer for that chirp (the run's last, or its record was lost); not the same as clean |
 | `noise floor` | median of the mean range profile over a quiet far region (default: last fifth of the usable bins; `--noise-range A B`); keep targets out |
 | `mean range profile`, `HPF` | strongest bin, its height over the noise floor; HPF corner ranges and attenuation at 1-50 m. The image plots the profile against range, HPF response dashed (right axis) |
+| `summary` (`sar_parse`) | chirps; packets wholly absent / ADC partly lost (marked, never shifted); records valid; LATE-flagged (interrupt late, record may be missing); saturated chirps (firmware monitor only, lag applied); in-frame / boundary dt vs Tc and Tc+Tb (mean, p99.9; a boundary excess means the frame gap varies) |
 | `reflector near R` | peak within ±0.25 m of `--reflector-range`; SNR over the noise floor |
 
 **Lag-1 saturation.** The saturation monitor delivers a chirp's result only once its ADC samples are complete, when its packet starts
@@ -95,5 +94,4 @@ Sweep table: one row per point, same quantities; `REJECTED` = a check failed (se
 
 ## 8 Pitfalls
 
-- **Two clip detectors.** Monitor and ADC-rail test are independent; either makes a chirp "clipped". ADC-only with `satMon 0` in `sarStats`: monitor off.
 - **DC and near-range leakage.** A peak in the first bins that ignores the reflector is leakage: raise the HPF.

@@ -167,8 +167,30 @@ class Sweep(unittest.TestCase):
     def test_bad_point_is_skipped_by_the_cfg_checker(self):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
-        row = W.run_point(31, "175:350", TP.CFG_TEXT, None, None, None, tmp.name, 1.0, log=lambda m: None)
-        self.assertEqual(row["verdict"], "SKIPPED")          # odd gain: sar_cfg_check rejects it before any hardware use
+        row = W.run_point(30, "175:350", TP.CFG_TEXT.replace(" 2200 ", " 1000 "), None, None, None, tmp.name, 1.0, log=lambda m: None)
+        self.assertEqual(row["verdict"], "SKIPPED")          # ADC rate below 2000 ksps: sar_cfg_check rejects it before any hardware use
+
+    def test_gains_outside_24_48_refused_before_anything_is_sent(self):
+        for g in (50, 52, 22, 31):
+            with self.assertRaises(ValueError):
+                W.check_gain(g)
+        W.check_gain(24), W.check_gain(48)
+        events = []
+        cli = TP.FakeCli(events, ("127.0.0.1", 9), [], "")
+        with self.assertRaises(ValueError):
+            W.run_point(50, "175:350", TP.CFG_TEXT, cli, TP.FakeDca(events), None, tempfile.mkdtemp(), 1.0,
+                        log=lambda m: None)
+        self.assertEqual(events, [])                           # nothing sent to the radar or the DCA1000
+        tmp = tempfile.mkdtemp()
+        cfgp = os.path.join(tmp, "b.cfg")
+        with open(cfgp, "w") as fh:
+            fh.write(TP.CFG_TEXT)
+        err = io.StringIO()
+        from contextlib import redirect_stderr
+        with redirect_stderr(err):
+            code = W.main([cfgp, tmp, "--gains", "30,50", "--dry-run"])
+        self.assertEqual(code, 2)
+        self.assertIn("24-48", err.getvalue())
 
     def test_dry_run_needs_no_hardware(self):
         tmp = tempfile.TemporaryDirectory()

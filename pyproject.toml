@@ -10,6 +10,14 @@ dependencies = [
     "pymdown-extensions>=11.0",
 ]
 
+[dependency-groups]
+# Optional: host-side SAR tuning tools (projects/iwr1843_sar_lvds/tools/sar_tune_report.py, sar_tune_sweep.py).
+# Install with: uv sync --group tools   (or: uv run --group tools python ...)
+tools = [
+    "numpy>=1.26",
+    "matplotlib>=3.8",
+]
+
 [tool.uv]
 # Helper scripts only — uv manages the environment, nothing is installed as a package.
 package = false

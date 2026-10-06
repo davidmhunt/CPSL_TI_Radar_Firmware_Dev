@@ -102,6 +102,29 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
   the lagged saturation field, host parsing.
 - [`docs/sar_cfg_guide.md`](docs/sar_cfg_guide.md): how to build a valid SAR cfg: command reference, requirements to values, timing, HPF/gain, worked example, common mistakes. Example `configs/sar_example_2ms.cfg`; checker `tools/sar_cfg_check.py` (tests: `tools/test_sar_cfg_check.py`).
 - [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
+- [`docs/tuning_guide.md`](docs/tuning_guide.md): the capture requirement, `sarStats`, the four capture checks, the bench procedure for gain and HPF corners, how to read the tuning report and sweep table.
+
+## Capture, parse, tune
+
+Host tools in `tools/` (Python; run from `firmware_dev/`; guide: [`docs/tuning_guide.md`](docs/tuning_guide.md)). A recording is only usable if it
+holds the run's first byte: arm the DCA1000 before `sensorStart`, stop it after `sensorStop`, read `sarStats` after `sensorStop`.
+`sar_parse.py` proves this with checks 1-4 ([`docs/lvds_data_format.md`](docs/lvds_data_format.md) §1) and refuses to write aligned output
+for a recording that fails any of them (`--force` writes it for debugging only).
+
+| Tool | Does | Hardware |
+|---|---|---|
+| `tools/dca_capture.py` | configure and arm the DCA1000, drive `sensorStart` / `sensorStop` / `sarStats` on the CLI port, record datagrams with their UDP headers, store `chirpAvail` beside the recording | DCA1000, radar CLI port |
+| `tools/sar_parse.py` | place packets by DCA1000 byte count, run checks 1-4, write `_adc.bin` (int16 I/Q, chirp-major) and `_meta.csv` (saturation lag applied) | none |
+| `tools/sar_tune_report.py` | peak dBFS, clipped chirps, noise floor, range profile with the HPF response, reflector SNR; needs the `tools` uv group | none |
+| `tools/sar_tune_sweep.py` | per gain / HPF point: cfg check, send cfg, capture, parse, report, one table; no power cycle | DCA1000, radar CLI port |
+| `tools/sar_synth.py` | synthetic captures (clean, late, mid-packet, lost datagram, ...) for the tests and for trying the tools | none |
+
+```bash
+uv sync --group tools        # numpy + matplotlib, only for the report and sweep
+uv run python -m unittest discover -s projects/iwr1843_sar_lvds/tools -p 'test_*.py'
+```
+
+Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only.
 
 ## Status
 

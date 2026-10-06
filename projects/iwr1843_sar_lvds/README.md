@@ -103,6 +103,7 @@ open release-gate item on shipping TI binaries publicly is unchanged by this pro
 - [`docs/sar_cfg_guide.md`](docs/sar_cfg_guide.md): how to build a valid SAR cfg: command reference, requirements to values, timing, HPF/gain, worked example, common mistakes. Example `configs/sar_example_2ms.cfg`; checker `tools/sar_cfg_check.py` (tests: `tools/test_sar_cfg_check.py`).
 - [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
 - [`docs/tuning_guide.md`](docs/tuning_guide.md): the capture requirement, `sarStats`, the four capture checks, the bench procedure for gain and HPF corners, how to read the tuning report and sweep table.
+- [`docs/bench_bringup.md`](docs/bench_bringup.md): bench steps for flashing the IWR1843BOOST, DCA1000 network setup and the first bring-up check.
 
 ## Capture, parse, tune
 

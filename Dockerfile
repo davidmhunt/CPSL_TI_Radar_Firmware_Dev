@@ -119,5 +119,19 @@ RUN --mount=type=bind,source=downloads,target=/downloads \
 ENV CCS_INSTALL_PATH=/opt/ti/ccs
 ENV PATH="/opt/ti/ccs/eclipse:${PATH}"
 
+# ---------------------------------------------------------------------------------------------
+# UniFlash 9.6.0 (headless serial flashing of xWR18xx via dslite; firmware-15). Kept LAST so the
+# ~20 min CCS layer above stays cached. Step 1 probe: the unattended installer needs no display
+# (no xvfb) and no extra apt libs for the CLI (DSLite has no missing libs; the "Failed to locate
+# system libraries" notice only concerns the GUI). Installs as root; chmod so any host UID can run it.
+# Using it implies accepting TI's UniFlash license terms (see downloads/download.sh).
+# ---------------------------------------------------------------------------------------------
+RUN --mount=type=bind,source=downloads,target=/downloads \
+    echo "Installing UniFlash 9.6.0..." \
+    && install_ti /downloads/uniflash_sl.9.6.0.5764.run --prefix /opt/ti/uniflash_9.6.0 \
+    && chmod -R a+rX /opt/ti/uniflash_9.6.0
+
+ENV UNIFLASH_PATH=/opt/ti/uniflash_9.6.0
+
 # Default command launches a bash session
 CMD ["/bin/bash"]

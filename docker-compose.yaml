@@ -16,6 +16,7 @@ services:
       - MMWAVE_SDK_PATH=/opt/ti/mmwave_sdk_03_06_02_00-LTS
       - SYSCONFIG_PATH=/opt/ti/sysconfig_1.22.0
       - RADAR_TOOLBOX_INSTALL_PATH=/opt/ti/radar_toolbox_4_00_00_05
+      - UNIFLASH_PATH=/opt/ti/uniflash_9.6.0
     stdin_open: true
     tty: true
     command: /bin/bash
@@ -23,6 +24,7 @@ services:
   # Flashing / serial bring-up: same image, with the host's serial devices passed through.
   # /dev is bind-mounted (rather than listing devices) so ports that re-enumerate after the
   # EVM is power-cycled stay visible; the cgroup rules allow ttyUSB (188) and ttyACM (166).
+  # group_add: dialout for ttyUSB, plugdev for ttyACM (root:plugdev on this host).
   #   ./fw flash awr2243_cascade_ddm /dev/ttyUSB0 prebuilt
   flash:
     extends: firmware-env
@@ -34,3 +36,4 @@ services:
       - 'c 166:* rmw'
     group_add:
       - dialout
+      - plugdev

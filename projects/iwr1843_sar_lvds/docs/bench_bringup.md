@@ -59,38 +59,22 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 ## 5 First bring-up check
 
 A cfg is accepted once per power-up: power-cycle the board before this step if it has already been configured since power-on.
-Run from `firmware_dev/` in one shell, after defining:
+Run from `firmware_dev/`; `bench_check.py` finds the CLI port itself (the single `*XDS110*-if00`; `--cli-port` overrides) and
+prints each reply in full plus a PASS/FAIL line:
 ```bash
-CLI=$(ls /dev/serial/by-id/*XDS110*-if00)
-CFG=projects/iwr1843_sar_lvds/configs/sar_example_2ms.cfg
+BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
 ```
 
-1. Send the cfg line by line and print every reply (untested on hardware):
-   ```bash
-   uv run python - "$CLI" "$CFG" <<'EOF'
-   import sys; sys.path.insert(0, "projects/iwr1843_sar_lvds/tools")
-   import sar_common as c
-   p = c.CliPort(sys.argv[1])
-   for l in open(sys.argv[2]):
-       l = l.strip()
-       if l and not l.startswith("%"):
-           print(l, "->", p.command(l, timeout=5.0).strip().splitlines()[-1:])
-   EOF
-   ```
-   Every line must end with `Done`; the last line is `sensorStart`. Any `Error` line: stop, keep the output, and report it.
-2. In a terminal on the CLI port: `queryDemoStatus` reports the sensor running; `sarStats` shows chirps and frames increasing
-   when sent twice a few seconds apart, with `chirpStartIsr` equal to `chirps`.
-3. `sensorStop`. It must not print `no BSS frame-end event after sensorStop`.
-4. Capture, which is also the reconfigure test: no power cycle since step 1. The capture tool sends `sensorStart` itself, so
-   send the cfg without its last line (`sed '$d' "$CFG" > /tmp/sar_nostart.cfg`, then step 1 with that file; it begins with
-   `sensorStop` and `flushCfg`). Then:
-   ```bash
-   T=projects/iwr1843_sar_lvds/tools
-   uv run python $T/dca_capture.py /tmp/bringup.cap --cli-port "$CLI" --duration 5
-   uv run python $T/sar_parse.py /tmp/bringup.cap --cfg "$CFG"
-   ```
+1. `$BC cfg` sends the cfg line by line (untested on hardware). Every line must end with `Done`; the last line is `sensorStart`.
+   It stops at the first `Error`: keep the output and report it.
+2. `$BC status`: sensor running, `chirps` and `frames` increasing over 5 s (`--wait`), `chirpStartIsr` equal to `chirps`.
+3. `$BC stop` (`sensorStop`): must not print `no BSS frame-end event after sensorStop`.
+4. Capture, which is also the reconfigure test: no power cycle since step 1. `$BC capture [--duration 5]` sends the cfg without
+   its last line (the capture tool sends `sensorStart` itself), then runs `dca_capture.py` and `sar_parse.py`
+   (the same as `dca_capture.py /tmp/bringup.cap --cli-port <CLI> --duration 5`, then `sar_parse.py /tmp/bringup.cap --cfg <cfg>`)
+   and prints the VERDICT and `chirpAvail` from `/tmp/bringup.cap.sarstats.json`.
    Pass: every line of the second cfg is acked, the parser prints checks 1 to 4 as passing and `VERDICT: ACCEPTED`, and
-   `chirpAvail` in `/tmp/bringup.cap.sarstats.json` is 2295 or 2550 (9 or 10 frames of 255 chirps at 510.3 ms; record it).
+   `chirpAvail` is 2295 or 2550 (9 or 10 frames of 255 chirps at 510.3 ms; record it).
    Meaning of each check: `docs/tuning_guide.md` section 5. On `REJECTED`, keep both files and report the failed check.
    No datagrams at all: recheck section 2 and the DCA1000 switches. The capture options (`--fpga-ip --host-ip --cmd-port
    --data-port`) default to the factory addresses.

@@ -1,11 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!--
-  UNTESTED on a board (firmware-15). Serial (UART bootloader) flash target for the IWR1843 for UniFlash
+  Bench-confirmed accepted by a real flash (firmware-10 Step 2.1, 2026-10-06). Serial (UART bootloader) flash target for the IWR1843 for UniFlash
   9.6.0's DSLite, used by flash.sh. Structure found by probing DSLite in the no-/dev firmware-env
   container: `DSLite flash -c <this file> -S '.*'` lists the settings (COMPort, DownloadFormat,
-  FlashVerboseMode) and `-N` lists Cortex_R4_0 / ETM_0 / C674X_0. Whether it is ACCEPTED by a real
-  flash, and the Meta Image 1 argument spelling, are bench-only (firmware-10 Step 2.1).
-  The COM port is not stored here; flash.sh passes it as `-s COMPort=<port>`.
+  FlashVerboseMode) and `-N` lists Cortex_R4_0 / ETM_0 / C674X_0.   The COM port is not stored here; flash.sh passes it as `-s COMPort=<port>`.
   Seven serial_* driver instances are needed, one per isa in devices/iwr1843.xml
   ("No device driver was specified for X" otherwise).
 -->

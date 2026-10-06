@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. UNTESTED on a board (firmware-15); 1st bench run failed on file order, fixed with ,1.
+# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. Bench-confirmed once (firmware-10 Step 2.1, 2026-10-06, one IWR1843BOOST); exit code and stock-demo restore not yet observed.
 # Runs INSIDE the firmware container (the `flash` service); do not run it by hand, use
 #     ./fw flash iwr1843_sar_lvds <port> [image] [--dry-run]
 # which first asks the human at the bench to confirm flash mode (SOP0+SOP2, power-cycled).
@@ -7,7 +7,8 @@
 # Exit codes: 0 flashed, 1 failed, 2 bad arguments, 3 DSLite missing in the image.
 # --dry-run prints the exact DSLite command and the image sha256, touches no port, and exits 0.
 # Success is only "SUCCESS!! File type META_IMAGE1" in the DSLite output; a trailing
-# "Can't Run Target CPU" is accepted only AFTER that line (bench-only: expected after a format+flash).
+# "Can't Run Target CPU" is accepted only AFTER that line (not seen in the confirmed run's log; unproven).
+# Power-cycle (USB + 5 V) before EVERY attempt: a retry without it fails with "Received unexpected data".
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 source ./project.env
@@ -39,9 +40,11 @@ DSLITE_LOG="$PWD/build/dslite_flash.log"      # DSLite's own log (-g)
 OUT_LOG="$PWD/build/flash_output.log"         # DSLite's console output
 # The image needs an explicit file order (Meta Image 1 = order 1): FlashPython/mmWaveProgFlash rejects order 0
 # ("File Order number value 0 is not in valid range (1-4)"), seen at the bench, firmware-10 Amendment 3. The
-# order is given as "<file>,<order>" (as in the 5.1 flow). Note DSLite's -e is --verbose, NOT erase: format-on-
-# download comes from the DownloadFormat setting, whose default is true (checked via -S '.*').
-CMD=("$DSLITE" flash -c "$CCXML" -s "COMPort=${PORT}" -e -g "$DSLITE_LOG" -f "${IMAGE},1")
+# order is given as "<file>,<order>" (accepted on the bench). DSLite's -e is --verbose,
+# NOT erase (it grew dslite_flash.log to 52 MB), so it is not passed: format-on-download comes from the
+# DownloadFormat setting, default true. The success line is an info: line of the flash script; if a run without
+# -e ever lacks it, this script reports FAILED (fail-safe): then re-add -e.
+CMD=("$DSLITE" flash -c "$CCXML" -s "COMPort=${PORT}" -g "$DSLITE_LOG" -f "${IMAGE},1")
 
 echo "image : ${IMAGE#/build_context/} ($(stat -c %s "$IMAGE") B)"
 echo "sha256: $(sha256sum "$IMAGE" | cut -d' ' -f1)"

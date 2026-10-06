@@ -111,9 +111,9 @@ Details:
   not a regression.
 - **flash.sh exit codes.** `0` flashed and confirmed; `1` failed; `2` bad arguments;
   `3` the flasher is missing (or, for boards without a headless flasher, the manual steps were printed).
-  `iwr1843_sar_lvds` flashes with UniFlash's DSLite behind typed-confirmation gates (UNTESTED on a board; see its README).
+  `iwr1843_sar_lvds` flashes with UniFlash's DSLite behind typed-confirmation gates (bench-confirmed once; see its README).
 - **Flashing a board.** Boards boot from jumpers: the IWR boards use the SOP jumpers (flashing
-  mode vs functional mode, flashed with TI's UniFlash GUI, or for `iwr1843_sar_lvds` DSLite via `./fw flash`, UNTESTED on a board); the cascade EVM uses jumper J6
+  mode vs functional mode, flashed with TI's UniFlash GUI, or for `iwr1843_sar_lvds` DSLite via `./fw flash`, bench-confirmed once); the cascade EVM uses jumper J6
   (bottom two pins = UART flash mode, top two = QSPI run mode; change only with power off).
   The exact steps are in each project README: [`awr2243_cascade_ddm`](awr2243_cascade_ddm/README.md),
   [`ti_stock_demos`](ti_stock_demos/README.md), [`iwr1843_sar_lvds`](iwr1843_sar_lvds/README.md).

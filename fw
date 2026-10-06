@@ -20,7 +20,7 @@ Usage: ./fw <command> [args]          (run from firmware_dev/; guide: projects/R
   flash <project> <port> [image] [--dry-run]
                                   Run projects/<project>/flash.sh in the container with the
                                   host's serial ports; image defaults to the build output.
-                                  UniFlash projects (iwr1843_sar_lvds; UNTESTED on a board) need
+                                  UniFlash projects (iwr1843_sar_lvds; bench-confirmed once) need
                                   a by-id -if00 port, a free port and a typed confirmation at an
                                   interactive terminal; --dry-run only prints the command
   help                            Show this summary

@@ -188,7 +188,7 @@ For a streamlined development experience, this repository supports Microsoft's *
 
 ## ⚡ Headless Flashing Instructions
 
-This section is for the cascade EVM. `iwr1843_sar_lvds` flashes through UniFlash 9.6.0's DSLite in the image (`./fw flash <p> <by-id -if00 port> [--dry-run]`; needs a typed flash-mode confirmation at an interactive terminal; UNTESTED on a board). The other IWR projects have no headless flasher; their READMEs give the SOP-jumper and UniFlash GUI steps.
+This section is for the cascade EVM. `iwr1843_sar_lvds` flashes through UniFlash 9.6.0's DSLite in the image (`./fw flash <p> <by-id -if00 port> [--dry-run]`; needs a typed flash-mode confirmation at an interactive terminal; bench-confirmed once). The other IWR projects have no headless flasher; their READMEs give the SOP-jumper and UniFlash GUI steps.
 
 Flashing uses the MCU+ SDK UART bootloader (`uart_uniflash.py`) from the `flash` compose service, which passes the
 host's `/dev` (ttyUSB/ttyACM) into the container. Find the EVM's ports with `ls -l /dev/serial/by-id/` and flash over

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!--
+  Bench-confirmed accepted by a real flash (firmware-10 Step 2.1, 2026-10-06). Serial (UART bootloader) flash target for the IWR1843 for UniFlash
+  9.6.0's DSLite, used by flash.sh. Structure found by probing DSLite in the no-/dev firmware-env
+  container: `DSLite flash -c <this file> -S '.*'` lists the settings (COMPort, DownloadFormat,
+  FlashVerboseMode) and `-N` lists Cortex_R4_0 / ETM_0 / C674X_0.   The COM port is not stored here; flash.sh passes it as `-s COMPort=<port>`.
+  Seven serial_* driver instances are needed, one per isa in devices/iwr1843.xml
+  ("No device driver was specified for X" otherwise).
+-->
+<configurations XML_version="1.2" id="configurations_0">
+    <configuration XML_version="1.2" id="Serial Connection">
+        <instance XML_version="1.2" desc="Serial Connection" href="connections/Serial_Connection.xml" id="Serial Connection" xml="Serial_Connection.xml" xmlpath="connections"/>
+        <connection XML_version="1.2" id="Serial Connection">
+            <instance XML_version="1.2" href="drivers/serial_debugssm.xml" id="drivers" xml="serial_debugssm.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_csdap.xml" id="drivers" xml="serial_csdap.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_cortexr.xml" id="drivers" xml="serial_cortexr.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_icepick_m.xml" id="drivers" xml="serial_icepick_m.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_csetb.xml" id="drivers" xml="serial_csetb.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_cschild.xml" id="drivers" xml="serial_cschild.xml" xmlpath="drivers"/>
+            <instance XML_version="1.2" href="drivers/serial_c674x.xml" id="drivers" xml="serial_c674x.xml" xmlpath="drivers"/>
+            <platform XML_version="1.2" id="platform_0">
+                <instance XML_version="1.2" desc="IWR1843" href="devices/iwr1843.xml" id="IWR1843" xml="iwr1843.xml" xmlpath="devices"/>
+            </platform>
+        </connection>
+    </configuration>
+</configurations>

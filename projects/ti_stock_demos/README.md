@@ -61,10 +61,14 @@ From `firmware_dev/`:
 
 ```bash
 ./fw build ti_stock_demos            # both families; or: ./fw build ti_stock_demos 18xx
-./fw flash ti_stock_demos /dev/ttyACM0 projects/ti_stock_demos/build/iwr1843_demo.bin
+./fw flash ti_stock_demos /dev/serial/by-id/<...>-if00 projects/ti_stock_demos/build/iwr1843_demo.bin
 ```
 
-`flash.sh` has no headless flasher to call (TI's tool is the GUI UniFlash), so it prints the manual
-steps and exits 3: put the board in flashing mode (SOP jumpers per the board guide), flash the
-`.bin` with UniFlash, return to functional mode. Send a `configs/xwr*/profile_*.cfg` over the CLI
-port (115200 baud) after power-up; a cfg is accepted once per power-up.
+`./fw flash` (IWR1843 only) uses UniFlash 9.6.0's DSLite with `configs/iwr1843_uniflash.ccxml`, exactly as
+`iwr1843_sar_lvds` does, and gets the same host gates (by-id `-if00` port, typed `FLASH MODE CONFIRMED` on a TTY).
+Board in SOP 101 and power-cycled (USB + 5 V) before every attempt; add `--dry-run` to check the command and image
+sha256 with no board. Success = `SUCCESS!! File type META_IMAGE1`. Untested on the bench for this project until
+firmware-19 Step 2 (the SAR project's identical flow is bench-confirmed). `flash.sh` refuses `iwr6843_demo.bin`
+(exit 2): flash the 6843 by hand (flashing-mode SOP0+SOP2, UniFlash GUI, Format = "bin", then functional mode).
+After flashing, set functional mode (SOP0 only), power-cycle, and send a `configs/xwr*/profile_*.cfg` over the CLI
+port (115200 baud); a cfg is accepted once per power-up.

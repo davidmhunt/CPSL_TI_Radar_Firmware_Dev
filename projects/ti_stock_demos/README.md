@@ -64,6 +64,8 @@ From `firmware_dev/`:
 ./fw flash ti_stock_demos /dev/serial/by-id/<...>-if00 projects/ti_stock_demos/build/iwr1843_demo.bin
 ```
 
+Bench steps: [`docs/bench_flash_iwr1843_demo.md`](docs/bench_flash_iwr1843_demo.md).
+
 `./fw flash` (IWR1843 only) uses UniFlash 9.6.0's DSLite with `configs/iwr1843_uniflash.ccxml`, exactly as
 `iwr1843_sar_lvds` does, and gets the same host gates (by-id `-if00` port, typed `FLASH MODE CONFIRMED` on a TTY).
 Board in SOP 101 and power-cycled (USB + 5 V) before every attempt; add `--dry-run` to check the command and image

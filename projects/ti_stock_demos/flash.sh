@@ -1,6 +1,6 @@
 #!/bin/bash
 # Flash the stock SDK 3.6 IWR1843 demo with UniFlash 9.6.0's DSLite (same flow as iwr1843_sar_lvds/flash.sh, which is bench-confirmed;
-# this stock-demo flash is untested on the bench until firmware-19 Step 2). IWR1843 images only: an IWR6843 image is refused (exit 2).
+# this stock-demo flash confirmed on the bench 2026-10-07, firmware-19 Step 2). IWR1843 images only: an IWR6843 image is refused (exit 2).
 # Runs INSIDE the firmware container (the `flash` service); do not run it by hand, use
 #     ./fw flash ti_stock_demos <port> [image] [--dry-run]
 # which first asks the human at the bench to confirm flash mode (SOP0+SOP2, power-cycled).

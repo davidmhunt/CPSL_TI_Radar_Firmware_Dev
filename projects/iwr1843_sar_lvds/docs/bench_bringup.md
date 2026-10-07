@@ -47,7 +47,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
    Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
-5. Restore the stock demo (also the recovery; the flash formats all SFLASH; untested): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; untested until firmware-19 Step 2).
+5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07, firmware-19: rc=0, `mmwDemo:/>` in SOP 001).
 6. Fallback only if `./fw flash` fails repeatedly: UniFlash GUI "Generate Package" (device IWR1843, Meta Image 1 = the image, COM port).
 7. Power off and set SOP2 OFF (SOP0 stays ON, 001). Success is confirmed only in section 4 (the `mmwDemo:/>` prompt).
 

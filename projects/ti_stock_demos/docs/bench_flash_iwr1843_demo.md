@@ -1,6 +1,6 @@
 # Bench: flash the stock IWR1843 demo and check the CLI
 
-Status: **untested** on hardware (firmware-19 Step 2 pending); the identical flow is bench-confirmed for `iwr1843_sar_lvds`
+Status: **confirmed on the bench 2026-10-07** (firmware-19 Step 2: `Flashed (DSLite rc=0)`, `mmwDemo:/>` after SOP 001); the same flow is confirmed for `iwr1843_sar_lvds`
 ([`bench_bringup.md`](../../iwr1843_sar_lvds/docs/bench_bringup.md) section 3). No cfg is sent here. Paths are relative to `firmware_dev/`.
 
 ## 1 Prerequisites
@@ -48,13 +48,14 @@ picocom -b 115200 "$PORT"        # exit: Ctrl-A Ctrl-X
 # fallback: uv run python -m serial.tools.miniterm "$PORT" 115200   (exit: Ctrl-])
 ```
 
-Press Enter: expect the `mmwDemo:/>` prompt. Type `version`: expect a reply from the SDK 3.6 demo (platform xWR18xx,
-SDK 03.06.02.00 line; paste it as seen). Do not send a cfg (accepted once per power-up). Close the terminal.
+Press Enter: expect the `mmwDemo:/>` prompt. Type `version`: expect (observed 2026-10-07): Platform xWR18xx; mmWave SDK 03.06.02.00;
+Device Info IWR18xx non-secure ES 02.00; RF F/W 02.00.00.01.17.10.05; RF patch 01.02.06.11.20.06.02; mmWaveLink 01.02.06.06;
+Lot/Wafer/X/Y are per chip (seen: 3937325, 2, 5, 34); then `Done`. Do not send a cfg (accepted once per power-up). Close the terminal.
 
 ## 7 Report back
 
 DSLite rc (`Flashed (DSLite rc=...)`), the `SUCCESS!!` line, the `mmwDemo:/>` prompt, the `version` reply, and any failure
-log. The Firmware role then replaces "untested" in the README and `bench_bringup.md`.
+log. 
 
 ## 8 Restore the SAR image afterwards
 

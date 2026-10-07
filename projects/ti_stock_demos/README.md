@@ -69,8 +69,8 @@ Bench steps: [`docs/bench_flash_iwr1843_demo.md`](docs/bench_flash_iwr1843_demo.
 `./fw flash` (IWR1843 only) uses UniFlash 9.6.0's DSLite with `configs/iwr1843_uniflash.ccxml`, exactly as
 `iwr1843_sar_lvds` does, and gets the same host gates (by-id `-if00` port, typed `FLASH MODE CONFIRMED` on a TTY).
 Board in SOP 101 and power-cycled (USB + 5 V) before every attempt; add `--dry-run` to check the command and image
-sha256 with no board. Success = `SUCCESS!! File type META_IMAGE1`. Untested on the bench for this project until
-firmware-19 Step 2 (the SAR project's identical flow is bench-confirmed). `flash.sh` refuses `iwr6843_demo.bin`
+sha256 with no board. Success = `SUCCESS!! File type META_IMAGE1`. Confirmed on the bench 2026-10-07 (firmware-19 Step 2: rc=0, no
+trailing `Can't Run Target CPU`, demo boots to `mmwDemo:/>` in SOP 001). `flash.sh` refuses `iwr6843_demo.bin`
 (exit 2): flash the 6843 by hand (flashing-mode SOP0+SOP2, UniFlash GUI, Format = "bin", then functional mode).
 After flashing, set functional mode (SOP0 only), power-cycle, and send a `configs/xwr*/profile_*.cfg` over the CLI
 port (115200 baud); a cfg is accepted once per power-up.

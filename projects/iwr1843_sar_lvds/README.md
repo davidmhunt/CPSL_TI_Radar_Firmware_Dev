@@ -36,7 +36,7 @@ and descriptor checks, and `tools/sar_cfg_check.py` over `configs/sar_example_2m
 
 ## Layout
 
-`src/` (TI demo source, edited), `configs/` (example SAR cfg, TI reference profiles, DSLite ccxml), `tools/` (host tools and their tests), `docs/`, `build/` (outputs, gitignored).
+`src/` (TI demo source, edited), `configs/` (example SAR cfg, DSLite ccxml), `tools/` (host tools and their tests), `docs/`, `build/` (outputs, gitignored).
 
 ## Changes vs TI
 
@@ -56,8 +56,8 @@ Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`). See every c
     `include/mmw_config.h` / `mss/mmw_mss.h`: GUI-monitor and DPC config types, DPM handles;
   - CLI commands that only fed the DPC or the TLV output: `guiMonitor`, `cfarCfg`, `multiObjBeamForming`,
     `calibDcRangeSig`, `clutterRemoval`, `compRangeBiasAndRxChanPhase`, `measureRangeBiasAndRxChanPhase`,
-    `aoaFovCfg`, `cfarFovCfg`, `extendedMaxVelocity`, `configDataPort`. A stock TI cfg (including
-    `configs/*.cfg`, kept as TI reference profiles) now fails on the first of these.
+    `aoaFovCfg`, `cfarFovCfg`, `extendedMaxVelocity`, `configDataPort`. A stock TI cfg (such as
+    the profiles in `ti_stock_demos/configs/xwr18xx/`) now fails on the first of these.
   - build: `makefile` builds `mmwDemo` = `mssDemo` + `generateMetaImage.sh <bin> $(SHMEM_ALLOC) <mss> <radarss> NULL`
     (`SHMEM_ALLOC` = SDK default `0x00000008`); DSS, AOP and secure (HS) targets dropped; `mmw_mss.mak` no
     longer links `libdpm`; the linker cmd no longer places `.demoSharedMem` in HS_RAM.
@@ -110,8 +110,8 @@ parsing: [`docs/lvds_data_format.md`](docs/lvds_data_format.md).
   interrupts, the sticky CBUFF chirp/frame-start error bits, LVDS frames done, current timestamp.
 
 The baseline was copied verbatim from `packages/ti/demo/xwr18xx/mmw/` of the SDK: `mss/ dss/ include/ makefile
-mmw_res.h` into `src/`, `profiles/*.cfg` into `configs/`, `profiles/mmwDemo_xwr18xx_update_config.pl`
-into `tools/`. Left out (not source): `docs/` (generated doxygen) and TI's prebuilt outputs
+mmw_res.h` into `src/`, `profiles/*.cfg` and `profiles/mmwDemo_xwr18xx_update_config.pl`
+into `configs/` and `tools/` (both removed in fwstd-07 as byte-identical duplicates of `ti_stock_demos/configs/xwr18xx/`). Left out (not source): `docs/` (generated doxygen) and TI's prebuilt outputs
 (`*.bin *.map *.xer4f *.xe674 *.rov.xs`, including the AOP variants).
 
 ## LICENSE
@@ -120,7 +120,7 @@ The TI sources in `src/`, `configs/` and `tools/` are tracked under TI's own ter
 headers carry TI's BSD-3-clause header ("Redistribution and use in source and binary forms ...").
 Files without that header fall into two groups:
 
-- **No header at all:** `makefile`, `*.mak`, `*_linker.cmd`, the `*.cfg` chirp profiles and the `.pl` helper.
+- **No header at all:** `makefile`, `*.mak`, `*_linker.cmd`, the TI `*.cfg` chirp profiles and the `.pl` helper (now only in `ti_stock_demos`).
 - **Old header:** the XDC/BIOS config `mss/mmw_mss.cfg` (and `dss/mmw_dss.cfg` until firmware-07 removed it) carries an older
   "Copyright 2011 ... Restricted rights" boilerplate instead of the BSD text.
 

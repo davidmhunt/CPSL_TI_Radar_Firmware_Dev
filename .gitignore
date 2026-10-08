@@ -43,3 +43,5 @@ __pycache__/
 
 # User's local scenario note, not tracked
 /projects/iwr1843_sar_lvds/configs/sar_sample.md
+/.fw/
+__pycache__/

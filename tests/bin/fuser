@@ -1,0 +1,5 @@
+#!/bin/bash
+# Fake fuser: prints a PID when the device's real path is listed in $FAKE_FUSER_HELD.
+real="$(readlink -f "$1")"
+if [[ -n "${FAKE_FUSER_HELD:-}" ]] && grep -qxF "$real" "$FAKE_FUSER_HELD" 2>/dev/null; then echo " 4242"; exit 0; fi
+exit 1

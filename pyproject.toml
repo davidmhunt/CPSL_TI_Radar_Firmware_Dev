@@ -17,6 +17,16 @@ tools = [
     "numpy>=1.26",
     "matplotlib>=3.8",
 ]
+# fw's own hardware-free suite: `uv run --group dev pytest tests -q`
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["tools"]
+# ROS 2 (sourced in the shell) ships pytest plugins this env lacks deps for; keep them out.
+addopts = ["-p", "no:launch_testing", "-p", "no:launch_ros"]
 
 [tool.uv]
 # Helper scripts only — uv manages the environment, nothing is installed as a package.

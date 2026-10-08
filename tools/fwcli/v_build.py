@@ -9,7 +9,7 @@ from pathlib import Path
 
 from . import manifest as mf
 from . import procs
-from .core import (FAILED, REFUSED, ROOT, SHIPPED_DIR, USAGE, FwExit, Out, git, git_head, is_dirty, rel,
+from .core import (FAILED, REFUSED, ROOT, SHIPPED_DIR, USAGE, FwExit, Out, git, git_head, is_dirty, changed_since, rel,
                    sha256_file)
 from .state import lock
 
@@ -77,8 +77,7 @@ def build_state(m: mf.Manifest) -> tuple[str, dict | None, str]:
             if not p.is_file() or sha256_file(p) != sha:
                 return "stale", rec, f"artifact {f} differs from the build record"
         commit = rec.get("firmware_dev_commit", "")
-        r = git("diff", "--quiet", commit, "HEAD", "--", f"projects/{m.name}", "fw", "tools")
-        if r is None or r.returncode != 0:
+        if changed_since(m.name, commit):
             return "stale", rec, f"projects/{m.name}, fw or tools changed since build commit {commit}"
         if rec.get("dirty") or is_dirty(m.name):
             return "dirty", rec, "built from, or sitting on, uncommitted changes"

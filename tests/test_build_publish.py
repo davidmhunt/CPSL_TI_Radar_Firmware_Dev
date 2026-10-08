@@ -189,3 +189,49 @@ def test_sigterm_during_build_kills_child_releases_project_lock(tree):
     except ProcessLookupError:
         alive = False
     assert not alive and not (tree.fw / ".fw" / "locks" / "project-proj").exists()
+
+
+# ---- A7 exemption: [[bench]] / [project].status edits do not dirty or stale a build (fwstd-07) ------
+def _toml(t):
+    return t.fw / "projects" / "proj" / "project.toml"
+
+
+def _bench_edit(t):
+    s = _toml(t).read_text().replace('status = "built"', 'status = "bench"')
+    _toml(t).write_text(s + '\n[[bench]]\nboard = "IWR9999"\ndate = "2026-10-08"\nsha256 = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"\nresult = "pass"\ndoc = "d.md"\n')
+
+
+def _other_edit(t):
+    _toml(t).write_text(_toml(t).read_text().replace('summary = "test fw"', 'summary = "changed"'))
+
+
+def test_A7_bench_only_commit_stays_clean(built):
+    _bench_edit(built)
+    built.commit("bench record")
+    assert state(built) == "clean"
+
+
+def test_A7_bench_plus_other_key_commit_is_stale(built):
+    _bench_edit(built)
+    _other_edit(built)
+    built.commit("bench + summary")
+    assert state(built) == "stale"
+
+
+def test_A7_bench_only_uncommitted_stays_clean(built):
+    _bench_edit(built)
+    assert state(built) == "clean"
+
+
+def test_A7_bench_plus_other_key_uncommitted_is_dirty(built):
+    _bench_edit(built)
+    _other_edit(built)
+    assert state(built) == "dirty"
+
+
+def test_A7_bench_commit_plus_other_file_is_stale(built):
+    _bench_edit(built)
+    (built.fw / "projects" / "proj" / "src").mkdir(exist_ok=True)
+    (built.fw / "projects" / "proj" / "src" / "y.c").write_text("y")
+    built.commit("bench + src")
+    assert state(built) == "stale"

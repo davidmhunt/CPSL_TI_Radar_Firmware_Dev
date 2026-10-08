@@ -92,12 +92,67 @@ def git_head() -> str:
     return r.stdout.strip()
 
 
+def _strip_record_keys(text: str) -> dict | None:
+    """project.toml parsed without `bench` and `[project].status` (None if unparsable)."""
+    import tomllib
+    try:
+        d = tomllib.loads(text)
+    except tomllib.TOMLDecodeError:
+        return None
+    d.pop("bench", None)
+    if isinstance(d.get("project"), dict):
+        d["project"].pop("status", None)
+    return d
+
+
+def toml_same_ignoring_records(project: str, old_rev: str, new_rev: str | None) -> bool:
+    """A7 exemption: projects/<p>/project.toml differs between old_rev and new_rev (None = working tree)
+    only in `[[bench]]` entries and/or `[project].status`."""
+    path = f"projects/{project}/project.toml"
+    a = git("show", f"{old_rev}:{path}")
+    if a is None or a.returncode != 0:
+        return False
+    if new_rev is None:
+        try:
+            new_text = (ROOT / path).read_text()
+        except OSError:
+            return False
+    else:
+        b = git("show", f"{new_rev}:{path}")
+        if b is None or b.returncode != 0:
+            return False
+        new_text = b.stdout
+    x, y = _strip_record_keys(a.stdout), _strip_record_keys(new_text)
+    return x is not None and x == y
+
+
+def changed_since(project: str, commit: str) -> bool:
+    """A7 stale test: projects/<p>, fw or tools changed between `commit` and HEAD, except a project.toml
+    change confined to `[[bench]]` / `[project].status`."""
+    r = git("diff", "--name-only", commit, "HEAD", "--", f"projects/{project}", "fw", "tools")
+    if r is None or r.returncode != 0:
+        return True
+    files = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    if not files:
+        return False
+    if files == [f"projects/{project}/project.toml"]:
+        return not toml_same_ignoring_records(project, commit, "HEAD")
+    return True
+
+
 def is_dirty(project: str) -> bool:
-    """A7: `git status --porcelain -- projects/<p> fw tools` is non-empty."""
+    """A7: `git status --porcelain -- projects/<p> fw tools` is non-empty, except uncommitted edits confined
+    to `[[bench]]` / `[project].status` in project.toml."""
     r = git("status", "--porcelain", "--", f"projects/{project}", "fw", "tools")
     if r is None or r.returncode != 0:
         raise FwExit(REFUSED, "git unavailable: cannot determine whether the tree is dirty")
-    return bool(r.stdout.strip())
+    lines = [ln for ln in r.stdout.splitlines() if ln.strip()]
+    if not lines:
+        return False
+    path = f"projects/{project}/project.toml"
+    if len(lines) == 1 and lines[0][3:] == path and lines[0][:2].strip() == "M":
+        return not toml_same_ignoring_records(project, "HEAD", None)
+    return True
 
 
 def rel(p: Path) -> str:

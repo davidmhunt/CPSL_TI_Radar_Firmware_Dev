@@ -140,9 +140,15 @@ def _test_one(name: str, skip_commands: bool) -> dict:
             except ValueError:
                 errs.append(f"descriptor {d}.json is not valid JSON")
                 continue
-            src = dj.get("source")
-            if isinstance(src, dict) and src.get("fw_project") not in (None, name):
-                errs.append(f"descriptor {d}: source.fw_project is '{src.get('fw_project')}', not '{name}'")
+            ent = (dj.get("identify") or {}).get(a["board"])
+            src = ent.get("source") if isinstance(ent, dict) else None
+            if isinstance(src, dict):
+                if src.get("fw_project") != name:
+                    errs.append(f"descriptor {d}: identify.{a['board']}.source.fw_project is "
+                                f"'{src.get('fw_project')}', not '{name}'")
+                elif src.get("artifact") not in {x["file"] for x in m.artifacts}:
+                    errs.append(f"descriptor {d}: identify.{a['board']}.source.artifact "
+                                f"'{src.get('artifact')}' is not an artifact of {name}")
             if a.get("flashable") and m.verify and not m.legacy and d == m.verify.get("descriptor") \
                     and a["board"] not in (dj.get("identify") or {}):
                 errs.append(f"descriptor {d} has no identify entry for {a['board']}")

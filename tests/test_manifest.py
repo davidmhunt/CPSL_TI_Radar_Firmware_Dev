@@ -132,11 +132,17 @@ def test_descriptor_consistency(tree):
 
 
 def test_descriptor_backlink_mismatch(tree):
-    d = {"identify": {"IWR9999": {"probes": []}}, "source": {"fw_project": "someone_else", "artifact": "x"}}
+    d = {"identify": {"IWR9999": {"probes": [], "source": {"fw_project": "someone_else", "artifact": "img.bin"}}}}
     tree.descriptor("dummy", d)
     tree.add_project()
     r = tree.run("test", "proj", "--json")
     assert r.returncode == 1 and "source.fw_project" in r.stdout
+    d["identify"]["IWR9999"]["source"] = {"fw_project": "proj", "artifact": "nope.bin"}
+    tree.descriptor("dummy", d)
+    assert "source.artifact" in tree.run("test", "proj", "--json").stdout
+    d["identify"]["IWR9999"]["source"] = {"fw_project": "proj", "artifact": "img.bin"}
+    tree.descriptor("dummy", d)
+    assert tree.run("test", "proj", "--json").returncode == 0
 
 
 def test_template_new_then_test_passes_with_todo_warnings(tree):

@@ -40,9 +40,7 @@ item number to fetch.
 docker compose run --rm firmware-env       # a bash shell inside the image, TI tools under /opt/ti
 ```
 
-The container does not see git metadata; `fw` passes the commit in as `FW_COMMIT`. Inside it you can
-browse the SDK sources under `/opt/ti/`. There is no Dev Container config; to use an IDE, attach it to a
-running `firmware-env` container yourself.
+Browse the SDK sources under `/opt/ti/`. The container does not see git metadata; `fw` passes the commit in as `FW_COMMIT`.
 
 ## Next
 

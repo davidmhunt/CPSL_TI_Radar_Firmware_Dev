@@ -38,9 +38,6 @@ projects, from `./fw list` (the live status and build state are in that command,
   Boards are single-user and need a person for jumpers and power.
 - **A cfg is accepted once per power-up** on the cascade (and the IWR demos): power-cycle before every run
   that sends one.
-- **Builds are traceable.** `fw build` writes `build/build_info.json` (commit, sha256 of each artifact);
-  `fw publish` refuses a dirty or stale build.
-- **Only source is committed.** TI SDKs, compilers and installers are downloaded, never tracked.
 
 ## Where to go next
 

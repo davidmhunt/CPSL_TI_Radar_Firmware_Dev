@@ -52,13 +52,5 @@ refused, `5` confirmation missing or invalid.
 
 ## Notes
 
-- `CCS_CONFIG` and any `FW_*` variable pass into the container. `fw` sets `FW_COMMIT` to the short hash of
-  `firmware_dev` HEAD, with `-dirty` if `git status --porcelain` lists anything.
-- The container runs as your user, so `build/` is yours and needs no `sudo`.
-- Compilers embed the build path, so hashes compare only at the same project folder name.
+- `fw` sets `FW_COMMIT` to the short hash of `firmware_dev` HEAD, with `-dirty` if `git status --porcelain` lists anything.
 - A board is single-user: one flash or capture at a time. Serial ports: `ls -l /dev/serial/by-id/`.
-
-## Troubleshooting
-
-- `docker compose build` fails early: an installer is missing; run `./downloads/download.sh` and `./fw deps`.
-- `fw: no project ...` or an empty `firmware_dev/`: initialize the submodule (top-level README).

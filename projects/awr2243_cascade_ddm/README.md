@@ -27,8 +27,7 @@ From `firmware_dev/` (prerequisites: `projects/README.md`):
 
 Outputs in `build/`: `am273x_cascade.appimage` (flashable, both cores), `am273x_cascade.elf` (MSS),
 `am273x_cascade_dss.xe66` (DSS), `build_info.json` (sha256 of each), `build_info.txt`; the CCS
-workspace and its logs stay in `build/ccs_workspace/`. Binaries embed the in-container build path,
-so hashes compare only at the same project folder name (`docs/firmware.md` Quirks).
+workspace and its logs stay in `build/ccs_workspace/`.
 
 ## Test
 
@@ -95,7 +94,5 @@ TI references (not stored here):
 ## Known limits
 
 - One cfg per power-up (TI known issue): power-cycle before every configured run.
-- `fw verify` cannot probe this firmware (it would count as the one cfg); it only listens.
 - New boards may need the QSPI Quad Enable bit set (see "Possible Flashing Issues" in the cascade
   user guide; rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
-- Not yet flashed or run through `fw` (bench check pending).

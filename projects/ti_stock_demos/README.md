@@ -81,4 +81,3 @@ project (`./fw new`) and copy the demo folder into its `src/` (`iwr1843_sar_lvds
 
 - Headless flashing is IWR1843 only; the IWR6843 image is flashed by hand (no ccxml for it).
 - The IWR6843 image has never been run on a board; its descriptor level is `source`-derived.
-- Not byte-identical to TI's prebuilt `.bin` (build-path strings); the section layout matches.

@@ -1,22 +1,23 @@
 #!/bin/bash
 # Flash the stock SDK 3.6 IWR1843 demo with UniFlash 9.6.0's DSLite (same flow as iwr1843_sar_lvds/flash.sh, which is bench-confirmed;
-# this stock-demo flash confirmed on the bench 2026-10-07, firmware-19 Step 2). IWR1843 images only: an IWR6843 image is refused (exit 2).
-# Runs INSIDE the firmware container (the `flash` service); do not run it by hand, use
-#     ./fw flash ti_stock_demos <port> [image] [--dry-run]
-# which first asks the human at the bench to confirm flash mode (SOP0+SOP2, power-cycled).
-# IWR6843 (iwr6843_demo.bin): no ccxml/board here; flash it by hand with the GUI UniFlash (README).
-# Exit codes: 0 flashed, 1 failed, 2 bad arguments, 3 DSLite missing in the image.
+# this stock-demo flash is recorded in project.toml [[bench]]). Runs INSIDE the firmware container (the `flash` service); do not
+# run it by hand, use  ./fw flash ti_stock_demos <port> [image] [--dry-run]
+# fw runs the safety gates on the host first. Standard environment (set by fw): FW_PROJECT, FW_PORT, FW_IMAGE (container
+# path of the image), FW_DRY_RUN (1 = print the command, flash nothing); the same values arrive as arguments:
+# flash.sh [--dry-run] <port> <image>.
+# IWR6843 image (iwr6843_demo.bin): no headless flasher (no ccxml/board for the 6843): the UniFlash GUI steps are printed and
+# the exit code is 3 (the contract's `manual` method), also for --dry-run.
+# Exit codes: 0 flashed, 1 failed, 2 bad arguments, 3 no headless flasher (DSLite missing in the image, or an IWR6843 image).
 # --dry-run prints the exact DSLite command and the image sha256, touches no port, and exits 0.
 # Success is only "SUCCESS!! File type META_IMAGE1" in the DSLite output; a trailing
 # "Can't Run Target CPU" is accepted only AFTER that line (not seen in the confirmed run's log; unproven).
 # Power-cycle (USB + 5 V) before EVERY attempt: a retry without it fails with "Received unexpected data".
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
-usage() { sed -n '2,10p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
+usage() { sed -n '2,14p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 
-DRY=0; POS=()
+DRY="${FW_DRY_RUN:-0}"; POS=()
 for a in "$@"; do
     case "$a" in
         -h|--help) usage ;;
@@ -24,15 +25,23 @@ for a in "$@"; do
         *) POS+=("$a") ;;
     esac
 done
-[[ ${#POS[@]} -ge 1 && ${#POS[@]} -le 2 ]] || usage
+[[ ${#POS[@]} -le 2 ]] || usage
 
-PORT="${POS[0]}"
-read -r FIRST_ARTIFACT _ <<<"${ARTIFACTS}"
-IMAGE="$(realpath -m "${POS[1]:-build/${FIRST_ARTIFACT}}")"
+PORT="${POS[0]:-${FW_PORT:-}}"
+[[ -n "$PORT" ]] || usage
+IMAGE="$(realpath -m "${POS[1]:-${FW_IMAGE:-build/iwr1843_demo.bin}}")"
 case "$(basename "$IMAGE")" in
-    *6843*|*68xx*) echo "ERROR: refusing IWR6843 image ${IMAGE##*/}: headless flashing is IWR1843 only (no ccxml/board for 6843). Flash it by hand with UniFlash, see README.md." >&2; exit 2 ;;
+    *6843*|*68xx*)
+        cat <<EOT
+No headless flasher for the IWR6843 (no ccxml/board here): flash ${IMAGE##*/} by hand with the UniFlash GUI.
+  1. Power off the IWR6843ISK, set flashing mode (SOP0 + SOP2), power on.
+  2. UniFlash GUI: device IWR6843, the board's serial port (${PORT}); Meta Image 1 = ${IMAGE#/build_context/}, Format = "bin".
+  3. Flash and wait for success.
+  4. Power off, set functional mode (SOP0 only), power on.
+EOT
+        exit 3 ;;
 esac
-[[ -f "${IMAGE}" ]] || { echo "ERROR: image not found: ${IMAGE} (run ./fw build ti_stock_demos 18xx first?)" >&2; exit 1; }
+[[ -f "${IMAGE}" ]] || { echo "ERROR: image not found: ${IMAGE} (run ./fw build ti_stock_demos --variant 18xx first?)" >&2; exit 1; }
 
 export HOME="${HOME:-/tmp/fwhome}"; mkdir -p "$HOME"
 CCXML="$PWD/configs/iwr1843_uniflash.ccxml"

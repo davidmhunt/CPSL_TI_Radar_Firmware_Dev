@@ -1,19 +1,30 @@
 #!/bin/bash
 # Build TI's unmodified SDK 3.6 xwr18xx and xwr68xx mmw demos out of tree. Runs INSIDE the
 # firmware container; start it from firmware_dev/ with
-#     ./fw build ti_stock_demos [18xx|68xx ...]     (default: both)
+#     ./fw build ti_stock_demos [--variant 18xx|68xx]     (default: both)
+# Standard environment (set by fw): FW_PROJECT, FW_VARIANT (18xx or 68xx; empty = both), FW_COMMIT
+# (firmware_dev short hash, `-dirty` if the tree is). fw also passes the variant as $1 and writes
+# build/build_info.json (sha256 of every artifact) afterwards. Do not call git here.
 # Nothing is written under /opt/ti: the SDK is overlaid in build/sdk/ (symlinks to the SDK,
 # except the two demo folders, which are real copies that make builds in).
-# Contract (projects/README.md): source project.env, work from this folder, write only to ./build/.
+# Contract (projects/README.md): facts live in project.toml, work from this folder, write only to ./build/.
+# A build wipes build/ first, so a one-variant build removes the other family's outputs.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
-PROJECT="$(basename "$PWD")"
+PROJECT="${FW_PROJECT:-$(basename "$PWD")}"
+# Provenance strings for build_info.txt (the same facts as project.toml [deps]/[source]).
+SDK="mmwave_sdk"; SDK_VERSION="03.06.02.00-LTS"
+TOOLCHAIN="ti-cgt-arm 16.9.6.LTS + ti-cgt-c6000 8.3.3 (SDK make, XDC 3.50.08.24, BIOS 6.73.01.01)"
+BASELINE="mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr{18,68}xx/mmw"; BASELINE_COMMIT="n/a (stock, untracked)"
+ARTIFACTS="iwr1843_demo.bin iwr1843_demo.elf iwr6843_demo.bin iwr6843_demo.elf"
+BOARD="IWR1843BOOST+IWR6843ISK"
 OUT_DIR="$PWD/build"
 OVL="${OUT_DIR}/sdk"
 SDK_ROOT="${MMWAVE_SDK_PATH:-/opt/ti/mmwave_sdk_03_06_02_00-LTS}"
-FAMILIES=("$@"); [[ ${#FAMILIES[@]} -gt 0 ]] || FAMILIES=(18xx 68xx)
+FAMILIES=(); [[ -z "${FW_VARIANT:-}" ]] || FAMILIES=("${FW_VARIANT}")
+[[ ${#FAMILIES[@]} -gt 0 ]] || FAMILIES=("$@")
+[[ ${#FAMILIES[@]} -gt 0 ]] || FAMILIES=(18xx 68xx)
 
 # make_overlay SRC DST KEEP...: DST becomes a real directory whose entries symlink to SRC's,
 # except entries on a KEEP path (relative to SRC): those are recursed into the same way, and the
@@ -91,6 +102,7 @@ baseline=${BASELINE} @ ${BASELINE_COMMIT}
 families=${FAMILIES[*]}
 firmware_dev_commit=${FW_COMMIT:-unknown}
 built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+variant=${FW_VARIANT:-none}
 artifacts=${ARTIFACTS}
 sha256:
 $(cd "${OUT_DIR}" && sha256sum *.bin 2>/dev/null)

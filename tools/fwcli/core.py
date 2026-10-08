@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -92,17 +93,36 @@ def git_head() -> str:
     return r.stdout.strip()
 
 
-def _strip_record_keys(text: str) -> dict | None:
-    """project.toml parsed without `bench` and `[project].status` (None if unparsable)."""
-    import tomllib
-    try:
-        d = tomllib.loads(text)
-    except tomllib.TOMLDecodeError:
-        return None
-    d.pop("bench", None)
-    if isinstance(d.get("project"), dict):
-        d["project"].pop("status", None)
-    return d
+_HEADER = re.compile(r"^\s*\[\[?\s*([^\]\s]+(?:\s*\.\s*[^\]\s]+)*)\s*\]\]?\s*(#.*)?$")
+_STATUS = re.compile(r"^status\s*=")
+
+
+def _strip_record_keys(text: str) -> list[str]:
+    """project.toml as text lines minus the A7 record areas: everything inside `[[bench]]` tables and the
+    `status = ...` line of `[project]`. Every other byte (comments, quote style, ordering) is kept, because
+    build.sh reads `key = "value"` lines with sed. Blank lines before a `[[bench]]` header are dropped so
+    that adding a bench block is not a diff; blank lines after it are kept."""
+    kept: list[str] = []
+    section, in_bench = "", False
+    for ln in text.splitlines():
+        m = _HEADER.match(ln)
+        if m:
+            in_bench = ln.strip().startswith("[[") and m.group(1) == "bench"
+            section = m.group(1)
+            if in_bench:
+                while kept and not kept[-1].strip():
+                    kept.pop()
+                continue
+        elif in_bench:
+            if not ln.strip():
+                kept.append(ln)  # trailing blanks of a bench block stay
+            continue
+        elif section == "project" and _STATUS.match(ln):
+            continue
+        kept.append(ln)
+    while kept and not kept[-1].strip():
+        kept.pop()
+    return kept
 
 
 def toml_same_ignoring_records(project: str, old_rev: str, new_rev: str | None) -> bool:
@@ -123,7 +143,7 @@ def toml_same_ignoring_records(project: str, old_rev: str, new_rev: str | None) 
             return False
         new_text = b.stdout
     x, y = _strip_record_keys(a.stdout), _strip_record_keys(new_text)
-    return x is not None and x == y
+    return x == y
 
 
 def changed_since(project: str, commit: str) -> bool:

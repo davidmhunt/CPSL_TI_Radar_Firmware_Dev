@@ -235,3 +235,36 @@ def test_A7_bench_commit_plus_other_file_is_stale(built):
     (built.fw / "projects" / "proj" / "src" / "y.c").write_text("y")
     built.commit("bench + src")
     assert state(built) == "stale"
+
+
+# ---- A7 exemption is a TEXT diff: only [[bench]] tables and the [project] status line are ignored ----
+def _comment_edit(t):
+    _toml(t).write_text("# a new comment\n" + _toml(t).read_text())
+
+
+def _quote_edit(t):
+    s = _toml(t).read_text()
+    assert 'summary = "test fw"' in s
+    _toml(t).write_text(s.replace('summary = "test fw"', "summary = 'test fw'"))
+
+
+def test_A7_comment_edit_is_dirty_then_stale(built):
+    _comment_edit(built)
+    assert state(built) == "dirty"
+    built.commit("comment")
+    assert state(built) == "stale"
+
+
+def test_A7_quote_style_edit_is_dirty_then_stale(built):
+    _quote_edit(built)
+    assert state(built) == "dirty"
+    built.commit("quotes")
+    assert state(built) == "stale"
+
+
+def test_A7_comment_inside_bench_and_status_line_stay_clean(built):
+    _bench_edit(built)
+    _toml(built).write_text(_toml(built).read_text().replace("[[bench]]\n", "[[bench]]\n# note\n"))
+    assert state(built) == "clean"
+    built.commit("bench + status only")
+    assert state(built) == "clean"

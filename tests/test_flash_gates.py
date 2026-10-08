@@ -266,10 +266,10 @@ def test_concurrent_flash_second_gets_4_and_dead_lock_is_reclaimed(built):
     port, _ = built.port()
     sleeper = subprocess.Popen(["sleep", "30"])
     try:
+        tok = built.result(plan(built, port))["data"]["token"]
         lf = lockfile(built, port)
         lf.parent.mkdir(parents=True, exist_ok=True)
         lf.write_text(json.dumps({"pid": sleeper.pid}))
-        tok = built.result(plan(built, port))["data"]["token"]
         r = built.run("flash", "proj", port, "--confirm", tok, "--json")
         assert built.result(r)["code"] == 4 and "lock held" in built.result(r)["reason"]
     finally:
@@ -307,3 +307,38 @@ def test_sigterm_during_flash_kills_child_releases_lock(built):
             time.sleep(0.1)
         os.kill(child, 0)
     assert not lockfile(built, port).exists()
+
+
+# ---- review fixes D1, D2, S1 --------------------------------------------------------------------
+def test_plan_refuses_when_fw_port_lock_is_live_and_issues_no_token(built):
+    port, _ = built.port()
+    sleeper = subprocess.Popen(["sleep", "30"])
+    try:
+        lf = lockfile(built, port)
+        lf.parent.mkdir(parents=True, exist_ok=True)
+        lf.write_text(json.dumps({"pid": sleeper.pid}))
+        res = built.result(plan(built, port))
+        assert res["code"] == 4 and "lock held" in res["reason"]
+        assert not list((built.fw / ".fw" / "tokens").glob("*")) if (built.fw / ".fw" / "tokens").exists() else True
+    finally:
+        sleeper.kill()
+        sleeper.wait()
+
+
+def test_confirm_with_image_deleted_exits_4_image_missing(built):
+    port, _ = built.port()
+    tok = built.result(plan(built, port))["data"]["token"]
+    (built.fw / "projects" / "proj" / "build" / "img.bin").unlink()
+    res = built.result(built.run("flash", "proj", port, "--confirm", tok, "--json"))
+    assert res["code"] == 4 and "image missing" in res["reason"] and not built.compose_calls()
+
+
+def test_token_claim_is_atomic_two_confirms_one_wins(built):
+    port, _ = built.port()
+    tok = built.result(plan(built, port))["data"]["token"]
+    ps = [subprocess.Popen([str(built.fw / "fw"), "flash", "proj", port, "--confirm", tok, "--json"],
+                           env=built.env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                           stderr=subprocess.PIPE, text=True) for _ in range(2)]
+    codes = sorted(json.loads(p.communicate(timeout=30)[0].splitlines()[-1])["code"] for p in ps)
+    assert codes in ([0, 4], [0, 5]) and len(calls(built)) == 1  # 4 if it hit the port lock, else 5
+

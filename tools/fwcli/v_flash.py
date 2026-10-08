@@ -16,7 +16,7 @@ from . import manifest as mf
 from . import procs
 from .core import (DESCRIPTOR_DIR, FAILED, NOCONFIRM, REFUSED, ROOT, UNSUPPORTED, USAGE, FwExit, Out, git_head,
                    rel, sha256_file)
-from .state import lock, make_token, take_token
+from .state import lock, lock_held, make_token, take_token
 
 
 def is_tty() -> bool:
@@ -61,6 +61,8 @@ def cmd_flash(args) -> None:
                 (args.image and str(Path(args.image).resolve()) != rec.get("image")):
             raise FwExit(NOCONFIRM, "token does not belong to this project/port/image")
         img = Path(rec["image"])
+        if not img.is_file():
+            raise FwExit(REFUSED, f"image missing: {img}")
     elif args.image == "prebuilt" and fl.get("method") == "uart_uniflash" and not args.plan:
         keyword = "prebuilt"
         img = None
@@ -113,6 +115,8 @@ def cmd_flash(args) -> None:
     if args.plan:
         real = gates.g2_exists(port)                                      # G2
         gates.g3_free(real)                                               # G3
+        if lock_held(f"port-{real}"):                                     # R8: a live fw lock counts as held
+            raise FwExit(REFUSED, f"lock held: {port} is in use by another fw process")
         if not byid:                                                      # G4 (no acknowledgement possible)
             raise FwExit(REFUSED, f"{port} is not a {gates.SERIAL_DIR}/...-if00 path; --plan accepts by-id ports only")
         tok, exp = make_token({"project": m.name, "port": port, "real_port": real, "image": str(img),

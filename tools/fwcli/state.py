@@ -68,6 +68,16 @@ def lock(name: str, what: str):
             path.unlink()
 
 
+def lock_held(name: str) -> bool:
+    """True when a live fw process holds lock `name` (does not take it)."""
+    safe = re.sub(r"[^A-Za-z0-9_.-]", "_", name).strip("_") or "lock"
+    path = FW_DIR / "locks" / safe
+    try:
+        return pid_alive(int(json.loads(path.read_text()).get("pid", 0)))
+    except (OSError, ValueError):
+        return False
+
+
 # ---- tokens ------------------------------------------------------------------------------------
 
 def sweep_tokens() -> None:
@@ -106,12 +116,18 @@ def take_token(tok: str) -> dict:
     if not re.fullmatch(r"[0-9a-f]{32}", tok or ""):
         raise FwExit(NOCONFIRM, "token invalid")
     path = FW_DIR / "tokens" / f"{tok}.json"
+    used = path.with_suffix(".used")
     try:
-        rec = json.loads(path.read_text())
-    except (OSError, ValueError):
+        os.rename(path, used)  # atomic claim: exactly one racing --confirm wins
+    except OSError:
         raise FwExit(NOCONFIRM, "token unknown, expired or already used")
-    with contextlib.suppress(OSError):
-        path.unlink()
+    try:
+        rec = json.loads(used.read_text())
+    except (OSError, ValueError):
+        rec = {}
+    finally:
+        with contextlib.suppress(OSError):
+            used.unlink()
     if rec.get("expires_at", 0) < time.time():
         raise FwExit(NOCONFIRM, "token unknown, expired or already used")
     return rec

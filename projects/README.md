@@ -32,7 +32,7 @@ firmware_dev/
 │   ├── README.md         # this guide
 │   ├── _template/        # copied by ./fw new; never built itself
 │   └── <project>/        # one folder per firmware (see section 3)
-├── tools/                # scripts any project can use: md_to_pdf.py
+├── tools/                # scripts any project can use (fwcli/ = the fw logic)
 ├── Dockerfile, docker-compose.yaml   # the build environment, shared by every project
 └── downloads/            # TI installers (download.sh is tracked; the installers are not)
 ```

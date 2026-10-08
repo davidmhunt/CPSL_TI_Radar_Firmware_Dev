@@ -14,7 +14,7 @@ because this build has never been flashed through `fw` (bench check: fwstd-09).
 - Prebuilt libraries (`.aer5f`/`.ae66`) are not in git here: `build.sh` takes them from the Radar
   Toolbox in the image. The ignore rules still allow committing rebuilt copies under `src/ti/**/lib/`.
 - **Open item: drop TI binaries.** `prebuilt_binaries/` holds TI's SBL images (`sbl_qspi`,
-  `sbl_uart_uniflash`, needed by `flash.sh`) and `demo.cfg`; whether TI binaries may be shipped
+  `sbl_uart_uniflash`, needed by `flash.sh`); whether TI binaries may be shipped
   publicly is an open licensing question (user decision).
 
 ## Build
@@ -72,10 +72,10 @@ manual cfg + TLV check:
 | `build.sh`, `flash.sh` | Container build and UART flash scripts (standard `FW_*` env) |
 | `src/` | CCS projectspecs + demo and library sources (Radar Toolbox baseline plus our edits) |
 | `configs/` | Chirp cfgs `cascade_*.cfg` |
-| `prebuilt_binaries/` | TI SBL images for `flash.sh`, `demo.cfg` |
+| `prebuilt_binaries/` | TI SBL images for `flash.sh` |
 | `tools/` | `cascade_serial_check.py` (manual bring-up check) |
 | `tests/` | Hardware-free host tests |
-| `docs/` | `cascade_demo_guide.md` (architecture, build, packet formats), `bench_check.md`, TI PDFs |
+| `docs/` | `cascade_demo_guide.md` (architecture, build, packet formats), `bench_check.md` |
 | `build/` | Outputs (gitignored) |
 
 ## Changes vs TI
@@ -86,6 +86,11 @@ There is no unmodified-baseline commit: `704930d` ("track modified awr2243 firmw
 first commit that tracks the source, and it already includes the edits. To see what we changed,
 diff `src/` against the Radar Toolbox install (`/opt/ti/radar_toolbox_4_00_00_05/...` in the image).
 Also not from TI: `configs/`, `docs/cascade_demo_guide.md`, the build/flash scripts and `tools/`.
+
+## TI references (not stored here)
+
+- Two Chip Cascade user guide and release notes: in the Radar Toolbox download that `downloads/download.sh` fetches (`source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/docs/`); toolbox page: https://www.ti.com/tool/download/RADAR-TOOLBOX
+- AWR2243-2X-CAS-EVM user's guide (SWRU639): https://www.ti.com/lit/pdf/SWRU639
 
 ## Known limits
 

@@ -88,8 +88,8 @@ Below is the directory map of the Cascade project under `projects/awr2243_cascad
 ```text
 projects/awr2243_cascade_ddm/
 ├── configs/                        # Reference chirp configurations (.cfg files)
-├── docs/                           # Documentation (release notes, user guide, and this guide)
-├── prebuilt_binaries/              # Precompiled .appimage and .elf reference binaries
+├── docs/                           # Documentation (this guide, bench_check.md)
+├── prebuilt_binaries/              # TI SBL images (.tiimage) that flash.sh needs
 │
 └── src/                            # Source code root (the Radar Toolbox awr2243/ folder)
     ├── mmwave2chipCascade_mss.projectspec  # CCS MSS Project definition (Cortex-R5F)

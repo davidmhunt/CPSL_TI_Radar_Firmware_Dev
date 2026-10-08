@@ -41,7 +41,7 @@ It provides a containerized, headless development environment (Docker/Compose) h
 │   ├── ti_stock_demos/         # Stock SDK 3.6 IWR1843/IWR6843 demos
 │   ├── iwr1843_sar_lvds/       # IWR1843 SAR/LVDS base (SDK 3.6)
 │   └── <project>/              # README.md, project.env, build.sh, flash.sh, src/, configs/, tools/, docs/, build/
-└── tools/                      # Shared scripts: md_to_pdf.py (fwcli/ = the fw logic)
+└── tools/                      # Shared scripts (fwcli/ = the fw logic)
 ```
 
 ---
@@ -228,8 +228,8 @@ to a board that is already running, use `--skip-config`.
 
 To run the out-of-box demo and view its output in the TI mmWave Demo Visualizer, start with these guides:
 
-- **Two Chip Cascade User Guide (Radar Toolbox lab)**: [Local copy](projects/awr2243_cascade_ddm/docs/Two_Chip_Cascade_user_guide.html). Step-by-step instructions for flashing the lab binaries, switching between UART/QSPI boot modes, and running the cascade visualizer (standalone executable or MATLAB). Download the file and open it in a browser, because GitHub shows HTML files as source instead of rendering them.
-- **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [Local copy (Git LFS)](projects/awr2243_cascade_ddm/docs/swru639_AWR2243-2X-CAS-EVM_user_guide.pdf) | [Latest version on ti.com](https://www.ti.com/lit/pdf/SWRU639)
+- **Two Chip Cascade User Guide (Radar Toolbox lab)**: step-by-step instructions for flashing the lab binaries, switching between UART/QSPI boot modes, and running the cascade visualizer. It ships inside the Radar Toolbox download that `downloads/download.sh` fetches, under `source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/docs/`; the toolbox itself is at [ti.com/tool/download/RADAR-TOOLBOX](https://www.ti.com/tool/download/RADAR-TOOLBOX).
+- **AWR2243-2X-CAS-EVM User's Guide (SWRU639)**: [ti.com/lit/pdf/SWRU639](https://www.ti.com/lit/pdf/SWRU639)
 
 The user guide points to these TI resources:
 

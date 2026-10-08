@@ -40,6 +40,11 @@ def _flash_run(m: mf.Manifest, port: str, image_arg: str, dry: bool) -> tuple[in
     return procs.run_streaming(argv, "flash")
 
 
+def _script_lines(out: str) -> list[str]:
+    """flash.sh's manual-step output as a checklist (blank lines dropped)."""
+    return [ln.strip() for ln in out.splitlines() if ln.strip()]
+
+
 def cmd_flash(args) -> None:
     m = mf.load(args.project)
     if args.plan and args.confirm:
@@ -91,6 +96,18 @@ def cmd_flash(args) -> None:
             Out.say("  - " + s)
         raise FwExit(UNSUPPORTED, "manual flash method: follow the steps above", {"checklist": steps})
 
+    # ---- per-image manual flash ([flash].manual_images): flash.sh prints its own steps and exits 3, so --plan and
+    # --dry-run show those steps (image-specific), never the manifest-level mode_steps, and issue no token.
+    if img is not None and img.name in fl.get("manual_images", []) and (args.plan or args.dry_run):
+        rc, out = _flash_run(m, port, cimg, True)
+        if rc != 3:
+            raise FwExit(FAILED, f"{img.name} is listed in [flash].manual_images but flash.sh --dry-run exited {rc}, not 3")
+        manual = _script_lines(out)
+        for ln in manual:
+            Out.say("  - " + ln)
+        raise FwExit(UNSUPPORTED, f"manual flash image {img.name}: follow the steps above",
+                     {"checklist": manual, "image": shown, "manual": True})
+
     # ---- G7: --dry-run flashes nothing
     if args.dry_run:
         if not byid:
@@ -100,9 +117,10 @@ def cmd_flash(args) -> None:
         for ln in gates.checklist_text(steps):
             Out.say(ln)
         if fl["method"] == "dslite":
-            rc, _ = _flash_run(m, port, cimg, True)
+            rc, dry_out = _flash_run(m, port, cimg, True)
             if rc != 0:
-                raise FwExit(UNSUPPORTED if rc == 3 else FAILED, f"flash.sh --dry-run failed (exit {rc})")
+                raise FwExit(UNSUPPORTED if rc == 3 else FAILED, f"flash.sh --dry-run failed (exit {rc})",
+                             {"checklist": _script_lines(dry_out)} if rc == 3 else None)
         else:
             Out.say(f"image : {shown}")
             Out.say(f"sha256: {sha}")
@@ -172,7 +190,8 @@ def cmd_flash(args) -> None:
     if rc == 0 and marker and marker not in out:
         raise FwExit(FAILED, f"flash.sh exited 0 but the success marker '{marker}' was not seen")
     if rc != 0:
-        raise FwExit(UNSUPPORTED if rc == 3 else USAGE if rc == 2 else FAILED, f"flash failed (flash.sh exit {rc})")
+        raise FwExit(UNSUPPORTED if rc == 3 else USAGE if rc == 2 else FAILED, f"flash failed (flash.sh exit {rc})",
+                     {"checklist": _script_lines(out)} if rc == 3 else None)
     for s in fl.get("after_steps", []):
         Out.say("  - " + s)
     raise FwExit(0, "", {"port": port, "sha256": sha, "after_steps": fl.get("after_steps", [])})

@@ -24,7 +24,7 @@ SPEC = {
     "build": {"script": STR, "variants": STRS, "est_minutes": INT},
     "artifact": {"file": STR, "board": STR, "descriptor": STR, "flashable": BOOL},
     "flash": {"method": STR, "gate": STR, "port_glob": STR, "mode_steps": STRS, "after_steps": STRS,
-              "success_marker": STR},
+              "success_marker": STR, "manual_images": STRS},
     "verify": {"cli_port_glob": STR, "baud": INT, "descriptor": STR},
     "test": {"commands": STRS, "cfgs": STRS, "bench_doc": STR},
     "bench": {"board": STR, "date": STR, "sha256": STR, "result": STR, "doc": STR},

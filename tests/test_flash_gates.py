@@ -342,3 +342,54 @@ def test_token_claim_is_atomic_two_confirms_one_wins(built):
     codes = sorted(json.loads(p.communicate(timeout=30)[0].splitlines()[-1])["code"] for p in ps)
     assert codes in ([0, 4], [0, 5]) and len(calls(built)) == 1  # 4 if it hit the port lock, else 5
 
+
+
+# ---- per-image manual flash ([flash].manual_images, fwstd-07 amendment) --------------------------
+MANUAL_FLASH_SH = """#!/bin/bash
+DRY=0; POS=()
+for a in "$@"; do case "$a" in --dry-run) DRY=1;; *) POS+=("$a");; esac; done
+case "${POS[1]}" in
+    *man.bin) echo "No headless flasher: flash man.bin by hand."; echo "  1. Set SOP-MANUAL"; echo "  2. UniFlash GUI"; exit 3 ;;
+esac
+echo "$@" >> "$FAKE_FLASH_LOG"
+echo "SUCCESS!! File type META_IMAGE1"
+"""
+
+
+def _with_manual_image(t):
+    from conftest import base_manifest, toml_dump
+    m = base_manifest()
+    m["artifact"].append({"file": "man.bin", "board": "IWR9999", "descriptor": "dummy", "flashable": True})
+    m["flash"]["manual_images"] = ["man.bin"]
+    d = t.fw / "projects" / "proj"
+    (d / "project.toml").write_text(toml_dump(m))
+    (d / "flash.sh").write_text(MANUAL_FLASH_SH)
+    (d / "build" / "man.bin").write_bytes(b"manual")
+    return d / "build" / "man.bin"
+
+
+def test_plan_manual_image_uses_flash_sh_steps_not_manifest_sop(built):
+    img = _with_manual_image(built)
+    port, _ = built.port()
+    res = built.result(plan(built, port, str(img)))
+    assert res["code"] == 3 and res["data"]["checklist"] == [
+        "No headless flasher: flash man.bin by hand.", "1. Set SOP-MANUAL", "2. UniFlash GUI"]
+    assert "Set SOP" not in " ".join(res["data"]["checklist"]).replace("SOP-MANUAL", "")
+    assert "token" not in res["data"]
+    assert not list((built.fw / ".fw" / "tokens").glob("*.json")) if (built.fw / ".fw" / "tokens").exists() else True
+
+
+def test_plan_dslite_image_keeps_manifest_checklist_when_another_image_is_manual(built):
+    _with_manual_image(built)
+    port, _ = built.port()
+    res = built.result(plan(built, port))                     # default image img.bin is not manual
+    assert res["code"] == 0 and res["data"]["checklist"] == ["Set SOP", "Power-cycle"]
+    assert not built.compose_calls()
+
+
+def test_confirm_exit3_carries_flash_sh_output_in_checklist(built):
+    port, _ = built.port()
+    tok = built.result(plan(built, port))["data"]["token"]
+    r = built.run("flash", "proj", port, "--confirm", tok, "--json", env={"FAKE_FLASH_RC": "3"})
+    res = built.result(r)
+    assert res["code"] == 3 and res["data"]["checklist"][-1] == "SUCCESS!! File type META_IMAGE1"

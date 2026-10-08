@@ -422,7 +422,7 @@ class TuneFlow(Base):
                 pass
 
             def command(self, line, timeout=2.0):
-                return "Done\nmmwDemo:/>"
+                return "Done\nmm_sar_lvds:/>"
         self.patch(common, "CliPort", lambda dev: Fake())
         self.patch(common, "Dca1000", lambda *a: Fake())
         self.patch(dca_capture, "open_data_socket", lambda *a, **k: Fake())

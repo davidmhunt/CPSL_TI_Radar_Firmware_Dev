@@ -288,7 +288,7 @@ class SarStatsText(unittest.TestCase):
             "chirps 5100 frames 20 chirpStartIsr 5100 chirpAvail 5100\n"
             "saturatedChirps 4\nlateIsr 0 missedChirpIsr 0 frameResync 0 availResync 0\n"
             "cbuffErrIrq 0 cbuffChirpErr 0 cbuffFrameStartErr 0 (error bits sticky since boot), lvdsFramesDone 20\n"
-            "tsTicks 0x0000000a1b2c3d4e (100000000 Hz)\nmmwDemo:/>")
+            "tsTicks 0x0000000a1b2c3d4e (100000000 Hz)\nmm_sar_lvds:/>")
 
     def test_parse(self):
         s = common.parse_sarstats(self.TEXT)
@@ -308,7 +308,7 @@ class FakeDca:
 class FakeCli:
     """Radar CLI stand-in: after sensorStart the 'DCA1000' (this object) sends the run's datagrams to the data socket."""
 
-    def __init__(self, events, data_addr, datagrams, stats_text, stop_text="Done\nmmwDemo:/>"):
+    def __init__(self, events, data_addr, datagrams, stats_text, stop_text="Done\nmm_sar_lvds:/>"):
         self.events, self.addr, self.datagrams, self.stats_text, self.stop_text = (events, data_addr, datagrams,
                                                                                   stats_text, stop_text)
 
@@ -321,16 +321,16 @@ class FakeCli:
                 if i % 20 == 0:
                     time.sleep(0.001)
             tx.close()
-            return "Done\nmmwDemo:/>"
+            return "Done\nmm_sar_lvds:/>"
         if line == "sensorStop":
             return self.stop_text
         if line == "sarStats":
             return self.stats_text
-        return "Done\nmmwDemo:/>"
+        return "Done\nmm_sar_lvds:/>"
 
 
 class CaptureFlow(unittest.TestCase):
-    def flow(self, stop_text="Done\nmmwDemo:/>", scenario="clean"):
+    def flow(self, stop_text="Done\nmm_sar_lvds:/>", scenario="clean"):
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         dg, stats = S.scenario(scenario, CFG, N)
@@ -357,7 +357,7 @@ class CaptureFlow(unittest.TestCase):
         self.assertTrue(res["accepted"], P.render(res))
 
     def test_frame_end_message_marks_recording_failed(self):
-        events, side, out = self.flow("no BSS frame-end event after sensorStop\nDone\nmmwDemo:/>")
+        events, side, out = self.flow("no BSS frame-end event after sensorStop\nDone\nmm_sar_lvds:/>")
         stored = json.loads(slurp(out + ".sarstats.json"))
         self.assertTrue(stored["frameEndTimeout"])
         res = P.analyze(common.read_capture(out), CFG, stored)

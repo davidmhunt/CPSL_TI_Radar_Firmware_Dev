@@ -50,8 +50,8 @@ mode_steps = [
 after_steps = ["Power off, set functional mode (SOP0 only), power on; then send a cfg at 115200 baud (accepted once per power-up)."]
 success_marker = "SUCCESS!! File type META_IMAGE1"
 
-# Probe set = the descriptor's `identify` block (version, sarStats) as it is today. firmware-17 will change the
-# CLI prompt and the sarStats reply; it updates the descriptor, not this table.
+# Probe set = the descriptor's `identify` block (version, sarStats). The CLI prompt is `mm_sar_lvds:/>` (firmware-17);
+# the descriptor, not this table, holds the probes.
 [verify]
 cli_port_glob = "*-if00"
 baud = 115200
@@ -76,7 +76,7 @@ bench_doc = "docs/bench_check.md"
 # Partial: flash (rc=0, boots to `mmwDemo:/>`), Set A and the 10-min soak (299,880 chirps, 0 gaps, 0 missing)
 # passed on their gates; NOT evaluated and pending firmware-18 (reflector + GUI): phase continuity (G3), tuned
 # gain/HPF and ADC bits (G4), boundary Tb (G6), saturation-vs-gain, I/Q order. Set A was measured on this
-# pre-firmware-17 image; firmware-17 will change it and the record.
+# pre-firmware-17 image (prompt `mmwDemo:/>`); the firmware-17 image is recorded in a later [[bench]] entry.
 [[bench]]
 board = "IWR1843"
 date = "2026-10-06"

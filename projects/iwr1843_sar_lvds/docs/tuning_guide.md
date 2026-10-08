@@ -44,7 +44,7 @@ uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/ttyACM
 Type `sarStats` in the radar CLI after `sensorStop` (`dca_capture.py` stores it as `run1.cap.sarstats.json`):
 
 ```
-mmwDemo:/>sarStats
+mm_sar_lvds:/>sarStats
 run 1 (sensor state 0), dataFmt 2, satMon 1
 chirps 5100 frames 20 chirpStartIsr 5100 chirpAvail 5100  <-- packets sent in this run
 saturatedChirps 4

@@ -65,7 +65,7 @@ Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`). See every c
   (complex, chirpThreshold 1), `lvdsStreamCfg` (HW session, dataFmt 0/1/4, header on/off, dataFmt 2 since firmware-08; `enableSW 1`
   rejected), `analogMonitor`, `CQRxSatMonitor`, `CQSigImgMonitor`, `calibData`, `queryDemoStatus`,
   `sensorStart`, `sensorStop`; calibration save/restore to flash; HSI clock 600 Mbps DDR; CLI prompt
-  `mmwDemo:/>` (banner now names this firmware).
+  `mm_sar_lvds:/>` (banner now names this firmware).
 - **Changed**:
   - DSP left halted (`SOC_DSSCfg_HALT`, as in TI's MSS-only xwr64xx demo); mmWave runs in isolation mode.
   - Only `dfeDataOutputMode 1` (frame) is accepted; advanced frame and continuous mode are rejected at

@@ -106,7 +106,7 @@ def parse_sarstats(text):
 class CliPort:
     """Radar CLI over a serial device, 115200 8N1, raw, via termios (Linux). Opens the device when constructed."""
 
-    PROMPT = "mmwDemo:/>"
+    PROMPT = "mm_sar_lvds:/>"
 
     def __init__(self, dev, baud=115200):
         import termios

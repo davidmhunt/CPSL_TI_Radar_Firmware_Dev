@@ -111,12 +111,12 @@ class Tests(unittest.TestCase):
         out = []
         self.assertFalse(R.cmd_restart("dev", a, out.append))
 
-P = "\nmmwDemo:/>"
+P = "\nmm_sar_lvds:/>"
 
 
 class FakePort:
     """Stands in for common.CliPort: scripted replies by command prefix."""
-    PROMPT = "mmwDemo:/>"
+    PROMPT = "mm_sar_lvds:/>"
 
     def __init__(self, rules):
         self.rules, self.sent = rules, []

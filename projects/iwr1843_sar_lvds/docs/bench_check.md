@@ -27,13 +27,13 @@ outcome as a `[[bench]]` entry in `project.toml`. All commands run from `firmwar
 ## Expected output
 
 - Flash: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.`, `Flashed (DSLite rc=0)`, no trailing `Can't Run Target CPU`.
-- Run mode: the CLI answers at 115200 baud with the `mmwDemo:/>` prompt; `version` reports `Platform : xWR18xx`; `sarStats` answers `Done`.
+- Run mode: the CLI answers at 115200 baud with the `mm_sar_lvds:/>` prompt; `version` reports `Platform : xWR18xx`; `sarStats` answers `Done`.
 - Capture: every cfg line acked `Done`, parser checks 1 to 4 pass and `VERDICT: ACCEPTED`; `chirpAvail` 2295 or 2550 for a 5 s capture of the example cfg.
 
 ## Pass/fail
 
 - Pass when every expected output above is seen. `Received unexpected data` on flash means the power-cycle was skipped: power-cycle fully and retry once. Anything else is fail or partial; say which part and keep `build/flash_output.log` and the capture files.
-- The prompt text and the `sarStats` reply are as of today's image; firmware-17 changes them and updates the descriptor and this section.
+- The prompt is `mm_sar_lvds:/>` (firmware-17); the stock demo keeps `mmwDemo:/>`. A board still printing `mmwDemo:/>` runs the old SAR image or the stock demo.
 
 ## Results log
 

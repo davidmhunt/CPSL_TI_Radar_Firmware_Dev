@@ -749,7 +749,7 @@ void MmwDemo_CLIInit (uint8_t taskPriority)
     memset ((void *)&cliCfg, 0, sizeof(CLI_Cfg));
 
     /* Populate the CLI configuration: */
-    cliCfg.cliPrompt                    = "mmwDemo:/>";
+    cliCfg.cliPrompt                    = "mm_sar_lvds:/>";
     cliCfg.cliBanner                    = demoBanner;
     cliCfg.cliUartHandle                = gMmwMssMCB.commandUartHandle;
     cliCfg.taskPriority                 = taskPriority;

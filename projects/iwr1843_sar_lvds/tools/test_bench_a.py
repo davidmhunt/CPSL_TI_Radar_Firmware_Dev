@@ -73,7 +73,7 @@ def stats_text(chirps, nc, fmt=2, runidx=3, isr=None, avail=None, lvds=None, lat
     return ("sarStats\nrun %d (sensor state 3), dataFmt %d, satMon 1\n\rchirps %d frames %d chirpStartIsr %d chirpAvail %d\n\r"
             "saturatedChirps %d\n\rlateIsr %d missedChirpIsr 0 frameResync 0 availResync 0\n\r"
             "cbuffErrIrq 0 cbuffChirpErr 0 cbuffFrameStartErr 0 (error bits sticky since boot), lvdsFramesDone %d\n\r"
-            "tsTicks 0x0000001000000000 (100000000 Hz)\n\rDone\n\rmmwDemo:/>" % (
+            "tsTicks 0x0000001000000000 (100000000 Hz)\n\rDone\n\rmm_sar_lvds:/>" % (
                 runidx, fmt, chirps, chirps // nc, isr, avail, sat, late, lvds))
 
 

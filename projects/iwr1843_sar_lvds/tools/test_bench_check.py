@@ -10,7 +10,7 @@ import unittest
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import bench_check as B  # noqa: E402
 
-P = "\nmmwDemo:/>"
+P = "\nmm_sar_lvds:/>"
 
 
 def stats(chirps, frames, isr):

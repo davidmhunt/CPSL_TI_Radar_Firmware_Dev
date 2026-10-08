@@ -1,19 +1,21 @@
 #!/bin/bash
-# Flash the AM273x + AWR2243 2-chip cascade demo over the UART bootloader. Runs INSIDE the
-# firmware container (the `flash` service, host /dev passed through); start it from firmware_dev/ with
-#     ./fw flash awr2243_cascade_ddm <serial_port> [image|prebuilt]
-#   <serial_port>  Application/User UART of the EVM, e.g. /dev/ttyUSB0 or /dev/serial/by-id/...
+# Flash the AM273x + AWR2243 2-chip cascade demo over the UART bootloader. Runs INSIDE the firmware container
+# (the `flash` service, host /dev passed through); start it from firmware_dev/ with
+#     ./fw flash awr2243_cascade_ddm <serial_port> [image|prebuilt] [--dry-run]
+# fw runs the safety gates on the host first. Standard environment (set by fw): FW_PROJECT, FW_PORT,
+# FW_IMAGE (container path of the image, or the keyword `prebuilt`), FW_DRY_RUN (1 = print the plan,
+# open no port, flash nothing). The same values arrive as arguments: flash.sh [--dry-run] <port> <image>.
+#   <serial_port>  CLI/Application UART of the EVM, /dev/serial/by-id/...-if00
 #   image          Path to an .appimage (default: build/am273x_cascade.appimage in this project)
-#   prebuilt       Flash TI's prebuilt am273x_mmw_cascade_demo_DDM.appimage from the Radar Toolbox
+#   prebuilt       TI's prebuilt am273x_mmw_cascade_demo_DDM.appimage from the Radar Toolbox
 #
 # The board must be in UART boot mode (J6 jumper on the bottom two pins) and power-cycled first.
 # Afterwards move J6 to the top two pins (QSPI boot) and power-cycle to run the demo.
 #
-# Exit codes (projects/README.md): 0 flashed and confirmed, 1 failed, 2 bad arguments.
+# Exit codes (projects/README.md): 0 flashed and confirmed (or dry run ok), 1 failed, 2 bad arguments.
 # Also works natively with TI_ROOT pointing at a host install containing the MCU+ SDK and Radar Toolbox.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
 TI_ROOT="${TI_ROOT:-/opt/ti}"
 MCU_PLUS_SDK_PATH="${MCU_PLUS_SDK_PATH:-${TI_ROOT}/mcu_plus_sdk_am273x_08_05_00_24}"
@@ -23,15 +25,21 @@ TOOLBOX_APPIMAGE="${RADAR_TOOLBOX_INSTALL_PATH}/source/ti/examples/Automotive_AD
 UNIFLASH="${MCU_PLUS_SDK_PATH}/tools/boot/uart_uniflash.py"
 
 usage() {
-    sed -n '2,13p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+    sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
     exit 2
 }
 
-[[ $# -ge 1 && $# -le 2 ]] || usage
-[[ "$1" == "-h" || "$1" == "--help" ]] && usage
-
-PORT="$1"
-IMAGE_ARG="${2:-$PWD/build/am273x_cascade.appimage}"
+DRY="${FW_DRY_RUN:-0}"; POS=()
+for a in "$@"; do
+    case "$a" in
+        -h|--help) usage ;;
+        --dry-run) DRY=1 ;;
+        *) POS+=("$a") ;;
+    esac
+done
+PORT="${POS[0]:-${FW_PORT:-}}"
+IMAGE_ARG="${POS[1]:-${FW_IMAGE:-$PWD/build/am273x_cascade.appimage}}"
+[[ -n "$PORT" && ${#POS[@]} -le 2 ]] || usage
 
 if [[ "${IMAGE_ARG}" == "prebuilt" ]]; then
     APPIMAGE="${TOOLBOX_APPIMAGE}"
@@ -41,7 +49,7 @@ fi
 
 die() { echo "ERROR: $*" >&2; exit 1; }
 
-[[ -e "${PORT}" ]] || die "serial port ${PORT} not found (check 'ls -l /dev/serial/by-id/' and that the device is passed into the container)"
+[[ "$DRY" == 1 || -e "${PORT}" ]] || die "serial port ${PORT} not found (check 'ls -l /dev/serial/by-id/' and that the device is passed into the container)"
 [[ -f "${UNIFLASH}" ]] || die "uart_uniflash.py not found at ${UNIFLASH} (set TI_ROOT or MCU_PLUS_SDK_PATH)"
 [[ -f "${APPIMAGE}" ]] || die "appimage not found: ${APPIMAGE}"
 for f in sbl_uart_uniflash.release.tiimage sbl_qspi.release.tiimage; do
@@ -79,8 +87,17 @@ UNIFLASH="${WORK_DIR}/uart_uniflash.py"
 
 echo "Port:     ${PORT}"
 echo "Appimage: ${APPIMAGE} ($(stat -c %s "${APPIMAGE}") bytes)"
+echo "sha256:   $(sha256sum "${APPIMAGE}" | cut -d' ' -f1)"
 echo "Make sure J6 is on the bottom two pins (UART boot) and the board was power-cycled."
 echo
+
+if [[ "$DRY" == 1 ]]; then
+    echo "DRY RUN: the flush patch applied; would run (cwd = scratch dir with the two SBL images + app.appimage):"
+    echo "  python3 uart_uniflash.py -p ${PORT} --cfg=flash.cfg"
+    sed 's/^/  flash.cfg: /' "${WORK_DIR}/flash.cfg"
+    echo "Nothing flashed, port not opened."
+    exit 0
+fi
 
 # uart_uniflash.py calls sys.exit() (status 0) on most failures, so check its output instead.
 LOG="${WORK_DIR}/uniflash.log"

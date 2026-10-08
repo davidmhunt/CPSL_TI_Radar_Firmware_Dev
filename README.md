@@ -41,7 +41,7 @@ It provides a containerized, headless development environment (Docker/Compose) h
 │   ├── ti_stock_demos/         # Stock SDK 3.6 IWR1843/IWR6843 demos
 │   ├── iwr1843_sar_lvds/       # IWR1843 SAR/LVDS base (SDK 3.6)
 │   └── <project>/              # README.md, project.env, build.sh, flash.sh, src/, configs/, tools/, docs/, build/
-└── tools/                      # Shared scripts: cascade_serial_check.py, md_to_pdf.py
+└── tools/                      # Shared scripts: md_to_pdf.py (fwcli/ = the fw logic)
 ```
 
 ---
@@ -211,11 +211,11 @@ cascade user guide (rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
 
 ### Bring-up check (no visualizer needed)
 
-`tools/cascade_serial_check.py` sends a chirp cfg over the CLI port (115200) and checks that every command returns
+`projects/awr2243_cascade_ddm/tools/cascade_serial_check.py` sends a chirp cfg over the CLI port (115200) and checks that every command returns
 `Done`. It then reads TLV frames from the data port (3,125,000 baud) and reports frame rate, frame-number gaps, and
 framing errors:
 ```bash
-docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
+docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py \
     --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
     --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg
 ```

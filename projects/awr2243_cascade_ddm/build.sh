@@ -5,16 +5,20 @@
 # Headless CCS build from the CCS projectspecs in src/ (mmwave2chipCascade_{dss,mss}.projectspec),
 # matching how TI builds the Radar Toolbox lab. DSS is built first; the MSS post-build step
 # combines both cores into the flashable .appimage.
-# Contract (projects/README.md): source project.env, work from this folder, write only to ./build/.
-# Don't call git here: the submodule's .git is outside the container; `fw` passes FW_COMMIT.
+# Contract (projects/README.md): work from this folder, write only to ./build/. Standard environment set
+# by fw: FW_PROJECT, FW_VARIANT (unused here), FW_COMMIT. `fw build` writes build/build_info.json (sha256
+# of every artifact) afterwards. Don't call git here: the submodule's .git is outside the container.
 #
 # TI_ROOT defaults to the container install dir; set TI_ROOT=~/ti to build natively.
 # CCS_CONFIG selects the projectspec configuration (Release | Debug).
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
-PROJECT="$(basename "$PWD")"
+PROJECT="${FW_PROJECT:-$(basename "$PWD")}"
+# Provenance strings come from project.toml (single-line `key = "value"` entries only).
+toml_get() { sed -n "s/^$1 = \"\(.*\)\" *\(#.*\)\{0,1\}\$/\1/p" project.toml | head -n 1; }
+SDK="$(toml_get sdk)"; SDK_VERSION="$(toml_get sdk_version)"; TOOLCHAIN="$(toml_get toolchain)"
+BASELINE="$(toml_get baseline)"; BASELINE_COMMIT="$(toml_get baseline_commit)"
 TI_ROOT="${TI_ROOT:-/opt/ti}"
 CCS_CONFIG="${CCS_CONFIG:-Release}"
 
@@ -113,14 +117,14 @@ cp "${DSS_OUT}" "${OUT_DIR}/am273x_cascade_dss.xe66"
 # Provenance: what was built, from which commit, with which config.
 cat > "${OUT_DIR}/build_info.txt" <<INFO
 project=${PROJECT}
-board=${BOARD}
+board=AWR2243-2X-CAS-EVM
 sdk=${SDK} ${SDK_VERSION}
 toolchain=${TOOLCHAIN}
 baseline=${BASELINE} @ ${BASELINE_COMMIT}
 firmware_dev_commit=${FW_COMMIT:-unknown}
 ccs_config=${CCS_CONFIG}
 built_utc=$(date -u +%Y-%m-%dT%H:%M:%SZ)
-artifacts=${ARTIFACTS}
+artifacts=am273x_cascade.appimage am273x_cascade.elf am273x_cascade_dss.xe66
 INFO
 ls -l "${OUT_DIR}"/am273x_cascade* "${OUT_DIR}/build_info.txt"
 echo "=== Cascade DDM Build Succeeded ==="

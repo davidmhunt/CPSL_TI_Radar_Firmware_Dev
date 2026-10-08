@@ -1,0 +1,66 @@
+# project.toml: facts about this project, read by `./fw` (contract: docs/specs/fw_project_contract.md).
+
+[project]
+name = "awr2243_cascade_ddm"
+summary = "AM273x + 2x AWR2243 (AWR2243-2X-CAS-EVM) 2-chip cascade DDM demo: TLV point cloud over serial, flashed over the UART bootloader"
+status = "built"               # source -> built needs a build record (build/build_info.json); no [[bench]]: never flashed via fw
+
+[deps]
+sdk = "mmwave_mcuplus_sdk"
+sdk_version = "04.04.00.01"
+toolchain = "CCS 12.8.1 headless; ti-cgt-armllvm 2.1.1.LTS (R5F), ti-cgt-c6000 8.3.12 (C66x); SysConfig 1.22.0"
+download_items = [1, 3, 5, 6, 7, 8]
+
+[source]
+baseline = "radar_toolbox_4_00_00_05/source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/src/awr2243"
+# 704930d is the first commit tracking the source, and it already contains our edits:
+# there is no unmodified-baseline commit for this project.
+baseline_commit = "704930d"
+
+[build]
+script = "build.sh"
+variants = []                  # CCS_CONFIG=Debug selects the Debug configuration; it is not an fw variant
+est_minutes = 15
+
+[[artifact]]                   # the first [[artifact]] is the default image
+file = "am273x_cascade.appimage"
+board = "AWR2243_CASCADE"
+descriptor = "cascade_ddm"
+flashable = true
+
+[[artifact]]
+file = "am273x_cascade.elf"    # MSS (R5F) executable, debug symbols; not flashable
+board = "AWR2243_CASCADE"
+descriptor = ""
+flashable = false
+
+[[artifact]]
+file = "am273x_cascade_dss.xe66"   # DSS (C66x) executable, already inside the appimage; not flashable
+board = "AWR2243_CASCADE"
+descriptor = ""
+flashable = false
+
+[flash]
+method = "uart_uniflash"       # MCU+ SDK uart_uniflash.py through the SBL images in prebuilt_binaries/
+gate = "j6"
+port_glob = "/dev/serial/by-id/*-if00"
+mode_steps = [
+    "The board is in UART flash mode: J6 jumper on the bottom two pins, set with power off.",
+    "The board was power-cycled (12 V) after setting the jumper.",
+    "Nothing else is using the serial port (monitor, driver, ModemManager).",
+    "The port is the board's CLI/UART port (XDS110 ...-if00).",
+]
+after_steps = ["Move J6 to the top two pins (QSPI boot) and power-cycle (12 V) to run the demo."]
+success_marker = "All commands from config file are executed"
+# Named alternative image: `./fw flash awr2243_cascade_ddm <port> prebuilt` flashes TI's prebuilt
+# am273x_mmw_cascade_demo_DDM.appimage from the Radar Toolbox in the image (TTY/dry-run only).
+
+[verify]
+cli_port_glob = "*-if00"
+baud = 115200
+descriptor = "cascade_ddm"     # identify.AWR2243_CASCADE has once_safe false: verify only listens, probe skipped
+
+[test]
+commands = ["python3 -m unittest discover -s tests"]
+cfgs = ["configs/cascade_*.cfg"]
+bench_doc = "docs/bench_check.md"

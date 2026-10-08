@@ -11,14 +11,14 @@ pass --data-baud to match the demo (SDK 3.x demos use 921600).
 
 From firmware_dev/ (the `flash` service passes the host serial ports through):
 
-    docker compose run --rm flash python3 /build_context/tools/cascade_serial_check.py \
+    docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py \
         --cli /dev/ttyUSB0 --data /dev/ttyUSB1 \
         --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg
 
-or on the host (needs pyserial): tools/cascade_serial_check.py --cli ... --data ... --cfg ...
+or on the host (needs pyserial): projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli ... --data ... --cfg ...
 
 The demo cannot be reconfigured after sensorStart (TI known issue): power-cycle the EVM
-between runs. Use --skip-config to only listen on the data port of an already-running board.
+between runs. This is a manual bring-up check that SENDS a cfg; `./fw verify` never does. Use --skip-config to only listen on the data port of an already-running board.
 """
 import argparse
 import struct

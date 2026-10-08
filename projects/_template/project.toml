@@ -1,0 +1,56 @@
+# project.toml: facts about this project, read by `./fw` (contract: docs/specs/fw_project_contract.md).
+# Replace every TODO. `./fw test PROJECT_NAME` reports leftover TODOs as warnings, not errors.
+# Tables required by status: stub = [project] + [test]; source/built/bench also need [deps], [source],
+# [build], [[artifact]]; [flash] if any artifact is flashable; [verify] if a flashable artifact has a
+# descriptor; [[bench]] for status "bench".
+
+[project]
+name = "PROJECT_NAME"          # must equal the folder name
+summary = "TODO one sentence: what this firmware does and which board it runs on"
+status = "stub"                # stub | source | built | bench  (README quotes `./fw list`; no dates there)
+
+[deps]
+sdk = "TODO"                   # e.g. mmwave_sdk
+sdk_version = "TODO"           # e.g. 03.06.02.00-LTS
+toolchain = "TODO"             # e.g. ti-cgt-arm 16.9.6.LTS (SDK make)
+download_items = []            # numbers of the downloads/download.sh items this build needs, e.g. [2]
+
+[source]
+baseline = "TODO"              # TI source the project started from: path + version
+baseline_commit = "TODO"       # firmware_dev commit that added that source unmodified
+
+[build]
+script = "build.sh"
+variants = []                  # selected with `./fw build PROJECT_NAME --variant V`
+est_minutes = 10
+
+[[artifact]]                   # the first [[artifact]] is the default image
+file = "TODO"                  # file build.sh leaves in build/
+board = "TODO"                 # e.g. IWR1843
+descriptor = ""                # id in CPSL_TI_Radar_cpp/config/firmware/, or "" for none
+flashable = false
+
+[flash]
+method = "manual"              # dslite | uart_uniflash | manual
+gate = "sop"                   # sop | j6
+port_glob = "/dev/serial/by-id/*-if00"
+mode_steps = ["TODO put the board in flash mode (jumpers, with power off)", "Power-cycle the board"]
+after_steps = ["TODO return the board to functional mode and power-cycle"]
+success_marker = "TODO text the flasher prints on success"
+
+# [verify]                     # only when a flashable artifact has a descriptor with an `identify` block
+# cli_port_glob = "*-if00"
+# baud = 115200
+# descriptor = "TODO"
+
+[test]
+commands = ["python3 -m unittest discover -s tests"]   # host-side, hardware-free; run from this folder
+cfgs = []                      # tracked cfg globs relative to this folder, never build/
+bench_doc = "docs/bench_check.md"
+
+# [[bench]]                    # one record per on-board check; bench evidence lives only here
+# board = "TODO"
+# date = "YYYY-MM-DD"
+# sha256 = "TODO image sha256"
+# result = "pass"              # pass | partial | fail
+# doc = "docs/bench_check.md"

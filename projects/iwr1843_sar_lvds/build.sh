@@ -5,13 +5,18 @@
 # Nothing is written under /opt/ti: the SDK is overlaid in build/sdk/ (symlinks to the SDK,
 # except ti/demo/xwr18xx/mmw, which is a fresh copy of src/ that make builds in). Same technique
 # as projects/ti_stock_demos/build.sh (copied, not sourced: projects are self-contained).
-# Contract (projects/README.md): source project.env, work from this folder, write only to ./build/.
+# Contract (projects/README.md): work from this folder, write only to ./build/. Facts live in project.toml;
+# the few build_info.txt fields below mirror it (keep them in step).
 # Don't call git here: `fw` passes the firmware_dev commit in as FW_COMMIT.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
-PROJECT="$(basename "$PWD")"
+PROJECT="${FW_PROJECT:-$(basename "$PWD")}"
+BOARD="IWR1843BOOST"
+SDK="mmwave_sdk"; SDK_VERSION="03.06.02.00-LTS"
+TOOLCHAIN="ti-cgt-arm 16.9.6.LTS (SDK make, XDC 3.50.08.24, BIOS 6.73.01.01)"
+BASELINE="mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr18xx/mmw"; BASELINE_COMMIT="bb3a348"
+ARTIFACTS="iwr1843_sar_lvds.bin iwr1843_sar_lvds.elf"
 OUT_DIR="$PWD/build"
 OVL="${OUT_DIR}/sdk"
 SDK_ROOT="${MMWAVE_SDK_PATH:-/opt/ti/mmwave_sdk_03_06_02_00-LTS}"

@@ -1,0 +1,95 @@
+# project.toml: facts about this project, read by `./fw` (contract: docs/specs/fw_project_contract.md).
+# Migrated from project.env (fwstd-04). No firmware change: src/ and the shipped image are untouched.
+
+[project]
+name = "iwr1843_sar_lvds"
+summary = "IWR1843BOOST SAR / LVDS raw-ADC firmware from the SDK 3.6 xwr18xx mmw demo: MSS-only, CBUFF ADC per chirp over LVDS, per-chirp metadata (dataFmt 2), no TLV/data UART"
+status = "built"               # Set A + 10-min soak done on the bench, but Set B / tuning is pending firmware-18 (see [[bench]]); the sole pass record is for the stock-demo image, so `bench` does not apply
+
+[deps]
+sdk = "mmwave_sdk"
+sdk_version = "03.06.02.00-LTS"
+# Compilers come from the SDK's setenv.sh (not the image's 20.2.7.LTS). MSS-only image since firmware-07:
+# no DSP code is built, so the SDK's C6000 compiler is not used.
+toolchain = "ti-cgt-arm 16.9.6.LTS (SDK make, XDC 3.50.08.24, BIOS 6.73.01.01)"
+download_items = [2, 9]        # 2 = mmWave SDK 3.6, 9 = UniFlash 9.6.0 (DSLite)
+
+[source]
+# TI source copied unmodified into src/ (configs/ and tools/ hold the demo's profiles).
+baseline = "mmwave_sdk_03_06_02_00-LTS/packages/ti/demo/xwr18xx/mmw"
+baseline_commit = "bb3a348"    # firmware_dev commit that added that source unmodified
+
+[build]
+script = "build.sh"
+variants = []
+est_minutes = 10
+
+# The first [[artifact]] is the default image.
+[[artifact]]
+file = "iwr1843_sar_lvds.bin"
+board = "IWR1843"
+descriptor = "iwr1843_sar_lvds"
+flashable = true
+
+[[artifact]]
+file = "iwr1843_sar_lvds.elf"
+board = "IWR1843"
+descriptor = ""
+flashable = false
+
+[flash]
+method = "dslite"              # UniFlash 9.6.0 DSLite, configs/iwr1843_uniflash.ccxml
+gate = "sop"
+port_glob = "/dev/serial/by-id/*-if00"
+mode_steps = [
+    "The board is in FLASH mode: SOP0 + SOP2 closed (IWR1843BOOST, SOP 101), set with power off.",
+    "The board was power-cycled (USB + 5 V) after setting the jumpers; repeat before EVERY attempt, retries included.",
+    "Nothing else is using the serial port (monitor, driver, ModemManager).",
+    "The port is the board's CLI/UART port (XDS110 ...-if00).",
+]
+after_steps = ["Power off, set functional mode (SOP0 only), power on; then send a cfg at 115200 baud (accepted once per power-up)."]
+success_marker = "SUCCESS!! File type META_IMAGE1"
+
+# Probe set = the descriptor's `identify` block (version, sarStats) as it is today. firmware-17 will change the
+# CLI prompt and the sarStats reply; it updates the descriptor, not this table.
+[verify]
+cli_port_glob = "*-if00"
+baud = 115200
+descriptor = "iwr1843_sar_lvds"
+
+[test]
+# Host tests (tools/test_*.py, 7 files) and the SAR cfg checker over the project's example cfg and the
+# parent driver's SAR cfg. Run from this folder; pytest and rootdir come from firmware_dev's pyproject.
+commands = [
+    "uv run pytest tools -q",
+    "python3 tools/sar_cfg_check.py configs/sar_example_2ms.cfg",
+    "python3 tools/sar_cfg_check.py ../../../CPSL_TI_Radar_cpp/config/radar/IWR1843/iwr1843_sar_lvds/SAR_2ms_fmt1.cfg",
+]
+cfgs = [
+    "configs/sar_example_2ms.cfg",
+    "../../../CPSL_TI_Radar_cpp/config/radar/IWR1843/iwr1843_sar_lvds/SAR_2ms_fmt1.cfg",
+]
+bench_doc = "docs/bench_check.md"
+
+# Bench records. Sources: docs/RESULTS.md "IWR1843 SAR LVDS firmware ... Set A + 10-min no-reflector soak" and
+# docs/firmware.md "Bench status"; image sha256 as recorded there (equals build/iwr1843_sar_lvds.bin).
+# Partial: flash (rc=0, boots to `mmwDemo:/>`), Set A and the 10-min soak (299,880 chirps, 0 gaps, 0 missing)
+# passed on their gates; NOT evaluated and pending firmware-18 (reflector + GUI): phase continuity (G3), tuned
+# gain/HPF and ADC bits (G4), boundary Tb (G6), saturation-vs-gain, I/Q order. Set A was measured on this
+# pre-firmware-17 image; firmware-17 will change it and the record.
+[[bench]]
+board = "IWR1843"
+date = "2026-10-06"
+sha256 = "53948f4d20ca501490dd3d1dbe48229622af5346914dfe33daec33980864267a"
+result = "partial"
+doc = "docs/bench_bringup.md"
+
+# Stock-demo restore on the same board (firmware-19, closed directive log): `./fw flash ti_stock_demos`, DSLite
+# rc=0, SUCCESS line, `mmwDemo:/>` + `version` in SOP 001. The sha256 is the STOCK image (ti_stock_demos
+# iwr1843_demo.bin), not this project's artifact, so it never satisfies the `bench` status rule here.
+[[bench]]
+board = "IWR1843"
+date = "2026-10-07"
+sha256 = "cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559"
+result = "pass"
+doc = "docs/bench_bringup.md"

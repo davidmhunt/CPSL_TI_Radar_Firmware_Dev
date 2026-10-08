@@ -3,7 +3,7 @@
 Where the MSS-only firmware in `src/` streams raw ADC data over LVDS to the DCA1000, and where the per-chirp metadata
 record (dataFmt 2, firmware-08; format in `lvds_data_format.md`) is filled and streamed. Terms (CBUFF, HSI header, HW/SW session, MSS) as defined in `sar_feasibility.md`; EDMA moves the data. Paths are relative to `projects/iwr1843_sar_lvds/src/`; line numbers were
 re-checked after firmware-08 (firmware-07 removed the DSP chain, SW session and TLV output; the unmodified TI source is `BASELINE_COMMIT`
-in `project.env`). SDK paths are relative to `/opt/ti/mmwave_sdk_03_06_02_00-LTS/packages/ti` (build container).
+in `project.toml` `[source]`). SDK paths are relative to `/opt/ti/mmwave_sdk_03_06_02_00-LTS/packages/ti` (build container).
 
 ## `mss/mmw_lvds_stream.c`
 

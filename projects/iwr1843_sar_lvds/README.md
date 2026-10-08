@@ -4,9 +4,43 @@ IWR1843BOOST SAR / LVDS raw-ADC firmware, derived from the TI mmWave SDK 3.6.02.
 demo and built out of tree. It is an MSS-only image (MSS + BSS firmware, no DSS image) that configures the
 radar from the CLI and streams the ADC data of every chirp over LVDS to a DCA1000.
 
-## What changed vs TI
+Facts and bench records: `project.toml`; commands: `./fw list | build | test | flash | verify | publish iwr1843_sar_lvds`
+(from `firmware_dev/`). Sections below follow the contract headings (`projects/README.md`); the text under each pre-dates
+the layout and is regrouped in fwstd-08.
 
-Baseline: `project.env` (`BASELINE`, `BASELINE_COMMIT`). See every change since with
+## Purpose
+
+An IWR1843BOOST image for synthetic-aperture capture: raw per-chirp ADC over LVDS with a 32-byte metadata record per
+chirp, no on-chip processing, no TLV output. The driver side is the `IWR1843_SAR` board in the parent repo.
+
+## Build
+
+`./fw build iwr1843_sar_lvds`; see "How the build works" and "Build, flash, run" below.
+
+## Test
+
+`./fw test iwr1843_sar_lvds`: the 7 host test files in `tools/test_*.py` (synthetic captures, no hardware), the manifest
+and descriptor checks, and `tools/sar_cfg_check.py` over `configs/sar_example_2ms.cfg` and the parent's SAR cfg.
+
+## Flash
+
+`./fw flash iwr1843_sar_lvds <by-id -if00 port>` (DSLite; gates and observed behaviour under "Build, flash, run").
+
+## Verify
+
+`./fw verify iwr1843_sar_lvds --port <by-id -if00 port>` sends the descriptor's `version` and `sarStats` probes (no cfg).
+
+## Bench check
+
+[`docs/bench_check.md`](docs/bench_check.md) is the short gated sequence; [`docs/bench_bringup.md`](docs/bench_bringup.md) is the full procedure. Records: `project.toml` `[[bench]]`.
+
+## Layout
+
+`src/` (TI demo source, edited), `configs/` (example SAR cfg, TI reference profiles, DSLite ccxml), `tools/` (host tools and their tests), `docs/`, `build/` (outputs, gitignored).
+
+## Changes vs TI
+
+Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`). See every change since with
 `git diff <BASELINE_COMMIT> -- projects/iwr1843_sar_lvds/src`.
 
 **firmware-07: DSP chain removed, MSS-only, restartable, periodic calibration off.**
@@ -120,21 +154,28 @@ for a recording that fails any of them (`--force` writes it for debugging only).
 
 ```bash
 uv sync --group tools        # numpy + matplotlib, only for the report and sweep
-uv run python -m unittest discover -s projects/iwr1843_sar_lvds/tools -p 'test_*.py'
+./fw test iwr1843_sar_lvds                # host tests + cfg checks (run from firmware_dev/)
 ```
 
 Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only. `dca_capture.py` and the sweep default to the factory DCA1000 address 192.168.33.180 / host .30 and ports 4096 / 4098 (this repo's driver configs use others: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s` (default 30) is the CONFIG_FPGA_GEN timer byte: check its meaning before captures longer than 30 s.
 
+## Known limits
+
+Set B / tuning (phase continuity, gain/HPF point, boundary Tb, ADC full scale, I/Q order, saturation-vs-gain) is not yet
+bench-verified (firmware-18); see Status below and `project.toml`.
+
 ## Status
+
+`./fw list`: `iwr1843_sar_lvds`, bench record `partial` (see `project.toml`).
 
 **MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide, example cfg and
 checker: `docs/sar_cfg_guide.md`. See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
 
-- Build (firmware-08, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
+- Build (firmware-08): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
   151940 B; the map takes the CBUFF format table from the project's `cbuff_xwr18xx.oer4f` and places the record slots
   at L3 `0x51000000` (64 B).
 
-- Build (firmware-07, 2026-10-05): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker
+- Build (firmware-07): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker
   warnings (warnings are errors in the SDK flags); `.bin` 147844 B (TI baseline image 324804 B); the MSS
   map has no `objdet`/`DPM_`/`DPC_` symbol; the metaimage is generated with DSS `NULL` and no `.xe674`
   is built.
@@ -164,7 +205,7 @@ From `firmware_dev/` (see `projects/README.md` for prerequisites):
 ./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...>-if00             # real flash (bench-confirmed once; power-cycle first)
 ```
 
-**Bench-confirmed once** (firmware-10 Step 2.1, 2026-10-06, one IWR1843BOOST, SOP 101, after a full USB + 5 V
+**Bench-confirmed once** (firmware-10 Step 2.1, one IWR1843BOOST; date and image sha256 in `project.toml` `[[bench]]`, SOP 101, after a full USB + 5 V
 power-cycle): `./fw flash iwr1843_sar_lvds <by-id -if00 port>` printed `SUCCESS!! File type META_IMAGE1`, DSLite
 rc=0 (`Flashed (DSLite rc=0)`), and no trailing `Can't Run Target CPU` line. Still not observed: running the flashed
 image, the stock-demo restore, `DownloadFormat=false`.

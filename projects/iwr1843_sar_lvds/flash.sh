@@ -11,11 +11,10 @@
 # Power-cycle (USB + 5 V) before EVERY attempt: a retry without it fails with "Received unexpected data".
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
-source ./project.env
 
 usage() { sed -n '2,9p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; exit 2; }
 
-DRY=0; POS=()
+DRY="${FW_DRY_RUN:-0}"; POS=()
 for a in "$@"; do
     case "$a" in
         -h|--help) usage ;;
@@ -26,8 +25,7 @@ done
 [[ ${#POS[@]} -ge 1 && ${#POS[@]} -le 2 ]] || usage
 
 PORT="${POS[0]}"
-read -r FIRST_ARTIFACT _ <<<"${ARTIFACTS}"
-IMAGE="$(realpath -m "${POS[1]:-build/${FIRST_ARTIFACT}}")"
+IMAGE="$(realpath -m "${POS[1]:-${FW_IMAGE:-build/iwr1843_sar_lvds.bin}}")"   # default = first [[artifact]] of project.toml
 [[ -f "${IMAGE}" ]] || { echo "ERROR: image not found: ${IMAGE} (run ./fw build iwr1843_sar_lvds first?)" >&2; exit 1; }
 
 export HOME="${HOME:-/tmp/fwhome}"; mkdir -p "$HOME"

@@ -87,10 +87,10 @@ first commit that tracks the source, and it already includes the edits. To see w
 diff `src/` against the Radar Toolbox install (`/opt/ti/radar_toolbox_4_00_00_05/...` in the image).
 Also not from TI: `configs/`, `docs/cascade_demo_guide.md`, the build/flash scripts and `tools/`.
 
-## TI references (not stored here)
-
+TI references (not stored here):
 - Two Chip Cascade user guide and release notes: in the Radar Toolbox download that `downloads/download.sh` fetches (`source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/docs/`); toolbox page: https://www.ti.com/tool/download/RADAR-TOOLBOX
 - AWR2243-2X-CAS-EVM user's guide (SWRU639): https://www.ti.com/lit/pdf/SWRU639
+- mmWave Demo Visualizer (cloud): https://dev.ti.com/gallery/view/mmwave/mmWave_Demo_Visualizer; DCA1000EVM: https://www.ti.com/tool/DCA1000EVM
 
 ## Known limits
 

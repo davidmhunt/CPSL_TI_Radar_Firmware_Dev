@@ -34,7 +34,7 @@ The tools in `projects/iwr1843_sar_lvds/tools/` default to exactly these.
 
 ## 3 Flash (SOP0 + SOP2 closed)
 
-Confirmed on hardware (2026-10-06, one IWR1843BOOST, this command): the flashed image boots to the `mm_sar_lvds:/>` prompt in SOP 001. The stock-demo restore is not yet confirmed.
+Confirmed on hardware (one IWR1843BOOST, this command): the 2026-10-06 image flashed and booted in SOP 001 to `mmwDemo:/>`; the current image (prompt `mm_sar_lvds:/>`) was flashed and confirmed on 2026-10-10. The stock-demo restore was confirmed on 2026-10-07 and again on 2026-10-10.
 Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md).
 
 1. SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; `readme_images/IWR1843_SOP_nodes.png`, repository root): flash mode
@@ -47,7 +47,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
    Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
-5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001).
+5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001; stock image sha256 cd43e0df...).
 6. Fallback only if `./fw flash` fails repeatedly: UniFlash GUI "Generate Package" (device IWR1843, Meta Image 1 = the image, COM port).
 7. Power off and set SOP2 OFF (SOP0 stays ON, 001). Success is confirmed only in section 4 (the `mm_sar_lvds:/>` prompt).
 

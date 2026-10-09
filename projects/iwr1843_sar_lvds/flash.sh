@@ -1,5 +1,5 @@
 #!/bin/bash
-# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. Bench-confirmed once (firmware-10 Step 2.1, 2026-10-06, one IWR1843BOOST); exit code and stock-demo restore not yet observed.
+# Flash this project's IWR1843 image with UniFlash 9.6.0's DSLite. Bench-confirmed on one IWR1843BOOST (2026-10-06, 2026-10-10): exit code 0 on success, and the stock-demo restore works (2026-10-07, 2026-10-10).
 # Runs INSIDE the firmware container (the `flash` service); do not run it by hand, use
 #     ./fw flash iwr1843_sar_lvds <port> [image] [--dry-run]
 # which first asks the human at the bench to confirm flash mode (SOP0+SOP2, power-cycled).

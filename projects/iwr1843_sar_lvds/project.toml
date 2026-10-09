@@ -84,16 +84,6 @@ sha256 = "53948f4d20ca501490dd3d1dbe48229622af5346914dfe33daec33980864267a"
 result = "partial"
 doc = "docs/bench_bringup.md"
 
-# Stock-demo restore on the same board (firmware-19, closed directive log): `./fw flash ti_stock_demos`, DSLite
-# rc=0, SUCCESS line, `mmwDemo:/>` + `version` in SOP 001. The sha256 is the STOCK image (ti_stock_demos
-# iwr1843_demo.bin), not this project's artifact, so it never satisfies the `bench` status rule here.
-[[bench]]
-board = "IWR1843"
-date = "2026-10-07"
-sha256 = "cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559"
-result = "pass"
-doc = "docs/bench_bringup.md"
-
 # firmware-17 image (prompt `mm_sar_lvds:/>`), IWR1843, 2026-10-10: user flashed from a TTY (SUCCESS), `fw verify` passed
 # incl. the `mm_sar_lvds:/>` require, bench_check capture ACCEPTED (chirpAvail 2550, 2549/2550 valid, one tolerated 448 B
 # tail hole). Set B (reflector, G3/G4/G6) remains pending firmware-18.

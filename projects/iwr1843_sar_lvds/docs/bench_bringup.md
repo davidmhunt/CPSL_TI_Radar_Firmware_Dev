@@ -9,7 +9,7 @@ Bring: the IWR1843BOOST, its 5 V supply, a micro-USB cable, the DCA1000EVM with 
 mounting that joins the two boards (per the DCA1000 guide), and an Ethernet cable from the DCA1000 to the host.
 
 - Image: `projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`, 152132 bytes, sha256
-  `a06ee615b56b12282f2fe9b4a02bb556ceaa81a1b72176e2060cd9209a070924` (firmware-17 image, `firmware_dev` commit 119de4f; the earlier 53948f4d image was built from 946f48d).
+  `a06ee615b56b12282f2fe9b4a02bb556ceaa81a1b72176e2060cd9209a070924` (current image, `firmware_dev` commit 119de4f; the earlier 53948f4d image was built from 946f48d).
   Check: `sha256sum projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`. A different hash means a different build: stop and ask.
 - Host: your user must be in the `dialout` group (`id -nG | grep dialout`; if missing, add it and log in again).
 - Host tools: `picocom` (`sudo apt install picocom`; verify `command -v picocom`). No-install fallback (pyserial is in the uv env;
@@ -47,7 +47,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
    Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
-5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07, firmware-19: rc=0, `mmwDemo:/>` in SOP 001).
+5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001).
 6. Fallback only if `./fw flash` fails repeatedly: UniFlash GUI "Generate Package" (device IWR1843, Meta Image 1 = the image, COM port).
 7. Power off and set SOP2 OFF (SOP0 stays ON, 001). Success is confirmed only in section 4 (the `mm_sar_lvds:/>` prompt).
 
@@ -81,7 +81,7 @@ BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
    --data-port`) default to the factory addresses.
 5. The tool ends the run with `sensorStop`; `sarStats` counters reset at every `sensorStart`, so they are from the capture run.
 
-## 5b Bench runs (firmware-10 Step 2.2 and 2.6)
+## 5b Bench runs (Set A and Set B)
 
 After section 5 passed, from `firmware_dev/` with the board in run mode (no power cycle needed between these; each ends with
 `RESULT: PASS|FAIL` and a short block to paste back; captures and cfgs go to `/tmp/bench_run/`). Source: `tools/bench_run.py`.
@@ -95,7 +95,7 @@ After section 5 passed, from `firmware_dev/` with the board in run mode (no powe
 | `./bench start0` | `sensorStart 0` restart with no new cfg, capture + parse |
 | `./bench adc` | gain 48 capture (reflector close, clipping): peak I and Q counts and the `--adc-bits` it implies (12 or 16); `--capture FILE` re-analyses an old capture |
 
-Set A (no reflector needed; firmware-10 Steps 2.2 and 2.6; `tools/bench_a.py`, analysis in `tools/bench_stream.py`):
+Set A (no reflector needed; `tools/bench_a.py`, analysis in `tools/bench_stream.py`):
 
 | Command | What it checks | min |
 |---|---|---|
@@ -121,16 +121,16 @@ Stop and report if one FAILs. Power-cycle only if a command left the CLI dead (`
 ```
 Paste each block back. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with `--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
 
-Set B (a corner reflector at a MEASURED range; `tools/bench_b.py`; each prints one `RESULT` line per goal G1-G7 where it applies, then `RESULT: PASS|FAIL`):
+Set B (a corner reflector at a MEASURED range; pending bench work for phase continuity, tuning and boundary Tb; `tools/bench_b.py`; each prints one `RESULT` line per goal G1-G7 where it applies, then `RESULT: PASS|FAIL`):
 
 | Command | What it does | min |
 |---|---|---|
 | `./bench adc` | (before the others) writes `/tmp/bench_run/adc_bits.txt` once it decides 12 or 16 bit; Set B reads it, or take `--adc-bits N` | 1 |
-| `./bench tune --range M` | Step 2.3: gain 24/30/36/42 x HPF 175:350 and 350:700, 5 s each (`--gains`, `--hpf`, `--duration` change it); table of ADC-clipped chirps, firmware saturation flags, noise, reflector SNR; prints the candidates (0 clipped) and the chosen point with the next command | 3 |
+| `./bench tune --range M` | Gain 24/30/36/42 x HPF 175:350 and 350:700, 5 s each (`--gains`, `--hpf`, `--duration` change it); table of ADC-clipped chirps, firmware saturation flags, noise, reflector SNR; prints the candidates (0 clipped) and the chosen point with the next command | 3 |
 | `./bench sat --range M --gain G --hpf A:B` | 2.6.6: >= 5 gains from the tuned G up (steps of 4) to clipping, 30 s each; firmware `saturatedChirps` vs parser vs ADC-clipped, non-decreasing, 0 at G, > 0 at the top, lag alignment vs no lag | 5 |
-| `./bench endurance --range M --gain G --hpf A:B` | Step 2.4: 30 s cross-check through `sar_parse` + `sar_tune_report`, then 600 s with `sarStats` each minute, `sensorStop`, 2 more reads and one before the next start; streaming analysis (the 4 GB capture does not fit `sar_parse`'s in-memory design). G1, G2, G3, G4, G6 (Step 2.5), G7: 2.6.1, .2, .4, .5, .8 | 15 |
-| `./bench soak` | NO reflector, no `--range/--gain/--hpf`: the 30 s pre-check, then 600 s of the example cfg as shipped (default gain/HPF, `analogMonitor`/`CQRxSatMonitor` on), `sarStats` each minute, post-stop reads. Needs >= 8 GB free in `/tmp/bench_run/` (else `RESULT: ABORTED`, nothing sent). Evaluates only G1, G2 (incl. p99.9), 2.6.1/.2/.4/.5/.8; saturation counters recorded, not judged; G3, G4, G6 and reflector rows print `NOT EVALUATED (no reflector) -> firmware-18`. Writes `/tmp/bench_run/soak_summary.json` + `soak_summary.txt` (<= 40-line paste block). ~13 min, ~4 GB: delete with `rm -f /tmp/bench_run/soak.cap /tmp/bench_run/soak.cap.sarstats.json /tmp/bench_run/endurance_pre*` | 13 |
-| `./bench tb --add-us N --range M --gain G --hpf A:B` | Step 2.5 follow-up (only if endurance reports a step): 60 s with Tb = 300 + N us (N 100..500), same step statistics | 2 |
+| `./bench endurance --range M --gain G --hpf A:B` | 30 s cross-check through `sar_parse` + `sar_tune_report`, then 600 s with `sarStats` each minute, `sensorStop`, 2 more reads and one before the next start; streaming analysis (the 4 GB capture does not fit `sar_parse`'s in-memory design). G1, G2, G3, G4, G6 (Step 2.5), G7: 2.6.1, .2, .4, .5, .8 | 15 |
+| `./bench soak` | NO reflector, no `--range/--gain/--hpf`: the 30 s pre-check, then 600 s of the example cfg as shipped (default gain/HPF, `analogMonitor`/`CQRxSatMonitor` on), `sarStats` each minute, post-stop reads. Needs >= 8 GB free in `/tmp/bench_run/` (else `RESULT: ABORTED`, nothing sent). Evaluates only G1, G2 (incl. p99.9), 2.6.1/.2/.4/.5/.8; saturation counters recorded, not judged; G3, G4, G6 and reflector rows print `NOT EVALUATED (no reflector) -> Set B`. Writes `/tmp/bench_run/soak_summary.json` + `soak_summary.txt` (<= 40-line paste block). ~13 min, ~4 GB: delete with `rm -f /tmp/bench_run/soak.cap /tmp/bench_run/soak.cap.sarstats.json /tmp/bench_run/endurance_pre*` | 13 |
+| `./bench tb --add-us N --range M --gain G --hpf A:B` | Follow-up (only if endurance reports a step): 60 s with Tb = 300 + N us (N 100..500), same step statistics | 2 |
 
 ### 5d Order for Set B (reflector needed)
 

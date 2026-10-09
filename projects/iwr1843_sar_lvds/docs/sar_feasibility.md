@@ -70,7 +70,7 @@ SAR design's along-track limit `d_max` (an input, not computed here):
 
 Periodic runtime calibration must be off during capture (`calibPeriodicity` 0 = disabled, default 0, valid 0 or 4-100:
 `rl_sensor.h:2721-2725`). The stock demo enables it every 10 frames (`src/mss/mss_main.c:3164-3166` at `bb3a348`); this firmware
-disables it since firmware-07 (`src/mss/mss_main.c:1201`).
+disables it since the DSP chain was removed (`src/mss/mss_main.c:1201`).
 
 ## (d) Per-chirp metadata
 
@@ -78,8 +78,8 @@ The HSI header cannot carry per-chirp counters: its application extension is sta
 (`utils/hsiheader/hsiprotocol.h:567-572`). Use the HW session's `CBUFF_DataFmt_ADC_USER` (`drivers/cbuff/cbuff.h:349`): a user
 record after each chirp's ADC data, updated by the MSS from the chirp interrupts (CHIRP_START 99, CHIRP_AVAIL 123, FRAME_START 98:
 `ti/common/sys_common_xwr18xx_mss.h:352-374`; `MSS_SYS_VCLK` 200 MHz, `:464`, is the candidate timestamp clock). Its bytes add to `Bchirp`.
-Implemented in firmware-08 as dataFmt 2 (64 B per chirp, RTI 100 MHz timestamp): see `lvds_data_format.md`.
-Fallback: a frame-level record in a per-frame SW session like the TI demo's (`src/mss/mss_main.c:2618-2642` at `bb3a348`; removed in firmware-07).
+Implemented as dataFmt 2 (64 B per chirp, RTI 100 MHz timestamp): see `lvds_data_format.md`.
+Fallback: a frame-level record in a per-frame SW session like the TI demo's (`src/mss/mss_main.c:2618-2642` at `bb3a348`; removed with the DSP chain).
 
 ## (e) Worked example (self-contained)
 
@@ -109,4 +109,4 @@ Go when all hold:
 5. Per-chirp saturation stays below the agreed threshold at the chosen HPF corners and RX gain.
 
 The 10x margin (1), the 10-minute capture (4) and the saturation threshold (5; default 0 clipped chirps at the tuned point)
-are confirmed by the user (2026-10-05, firmware-10 'User decisions'). No-go: any of 1-3 fails (change the cfg), or 4 fails within limits (revisit (d)).
+are confirmed by the user (2026-10-05). No-go: any of 1-3 fails (change the cfg), or 4 fails within limits (revisit (d)).

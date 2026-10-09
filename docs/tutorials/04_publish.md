@@ -1,6 +1,7 @@
 # 4. Publish to shipped_firmware/
 
-Publishing copies a verified build's flashable images into the parent repo's `shipped_firmware/`, with
+Publishing copies a verified build's flashable images into the parent repo's
+[`shipped_firmware/`](../../../shipped_firmware/README.md) (parent repo), with
 provenance, so users who never build can flash them. Run from `firmware_dev/`.
 
 ```bash
@@ -16,11 +17,15 @@ committing your changes and rebuilding; check with `./fw list`.
 
 ## What it writes
 
-For each flashable artifact: the image under `shipped_firmware/<BOARD>/<descriptor>/` (the descriptor is
-the id from `CPSL_TI_Radar_cpp/config/firmware/`), plus `<image>.provenance.json`: project, firmware_dev
+For each flashable artifact: the image under `shipped_firmware/<BOARD>/<descriptor>/`, plus `<image>.provenance.json`: project, firmware_dev
 commit, variant, toolchain, build time, image sha256, and the path and sha256 of every tracked chirp cfg
 of the project. Commit the image and its provenance together in the parent repo. `--dest D` publishes
 somewhere else (for testing).
+
+`<BOARD>` is the artifact's `board` field in `project.toml` (for example `IWR1843`). The *descriptor* is
+the artifact's `descriptor` field: the id of a firmware description file the host driver reads,
+`<descriptor>.json` in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/)
+(parent repo). It also supplies the probes `fw verify` sends.
 
 ## After publishing
 
@@ -28,8 +33,8 @@ somewhere else (for testing).
 2. Confirm the descriptor's name matches a `CPSL_TI_Radar_cpp/config/firmware/<descriptor>.json`.
 3. Commit in the parent repo. Pushing is up to you.
 
-TI-derived binaries may need a licensing decision before a public release; see `docs/firmware.md` in the
-parent repo ("Open v2.0 items").
+TI-derived binaries may need a licensing decision before a public release; see
+[`docs/firmware.md`](../../../docs/firmware.md) (parent repo), "Open v2.0 items".
 
 ## Next
 

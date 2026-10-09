@@ -6,19 +6,21 @@ below is one `./fw` verb, run from this folder (`firmware_dev/`). `./fw help` li
 
 ## The path
 
+Prerequisites (the one place they are listed): Linux; Docker with `docker compose`, and your user in the
+`docker` group (or rootless Docker); about 25 GB of disk; Python 3.11+ (the `fw` logic is stdlib only);
+membership of the `dialout` group for serial ports; `git lfs` for the PDF docs.
+
 | # | Step | Command | Tutorial |
 |---|------|---------|----------|
-| 1 | Set up the build environment (once) | `./downloads/download.sh && docker compose build` then `./fw deps` | [01](docs/tutorials/01_build_env.md) |
-| 2 | Build a project | `./fw build <project>` | [02](docs/tutorials/02_build.md) |
-| 3 | Flash and verify it (a human at the bench) | `./fw flash <project> <port>` then `./fw verify <project> --port <port>` | [03](docs/tutorials/03_flash_verify.md) |
-| 4 | Publish it to `shipped_firmware/` | `./fw publish <project>` | [04](docs/tutorials/04_publish.md) |
-| 5 | Add your own project | `./fw new <project>` | [05](docs/tutorials/05_new_project.md) |
+| 1 | Fetch this folder and its LFS files (once) | from the parent repo root: `git submodule update --init --checkout firmware_dev`, then in `firmware_dev/`: `git lfs install && git lfs pull` | - |
+| 2 | Set up the build environment (once) | `./downloads/download.sh && docker compose build` then `./fw deps` | [01](docs/tutorials/01_build_env.md) |
+| 3 | Build a project | `./fw build <project>` | [02](docs/tutorials/02_build.md) |
+| 4 | Flash it (a human at the bench) | `./fw flash <project> <port>` | [03](docs/tutorials/03_flash_verify.md) |
+| 5 | Verify it | `./fw verify <project> --port <port>` | [03](docs/tutorials/03_flash_verify.md) |
 
-Prerequisites: Linux, Docker with `docker compose`, about 25 GB of disk, Python 3.11+ (the `fw` logic is
-stdlib only), membership of the `dialout` group for serial ports, and `git lfs` for the PDF docs
-(`git lfs install` once, `git lfs pull` after cloning). This folder is an opt-in submodule of
-`CPSL_TI_Radar`; on a fresh clone fetch it with
-`git submodule update --init --checkout firmware_dev` from the parent root.
+Then, as follow-ons: publish a verified build to `shipped_firmware/` with `./fw publish <project>`
+([04](docs/tutorials/04_publish.md)), or add your own project with `./fw new <project>`
+([05](docs/tutorials/05_new_project.md)).
 
 ## Projects
 
@@ -33,15 +35,17 @@ projects, from `./fw list` (the live status and build state are in that command,
 
 ## Rules you will meet
 
-- **Flashing is gated.** `fw flash` refuses unless the port is a by-id `-if00` port, no process holds it,
-  and a human types the confirmation phrase at a terminal. Scripts use `--plan`, then `--confirm <token>`.
-  Boards are single-user and need a person for jumpers and power.
+- **Flashing is gated.** `fw flash` refuses unless the port exists, no process holds it, and a human types
+  `FLASH MODE CONFIRMED` at a terminal. A by-id `-if00` port (`/dev/serial/by-id/...-if00`) is expected; at a
+  terminal any other port is allowed only after you also type `USE THIS PORT`. Scripts use
+  `--plan` then `--confirm <token>` and by-id ports only. Boards are single-user and need a person for
+  jumpers and power. Details: [tutorial 3](docs/tutorials/03_flash_verify.md).
 - **A cfg is accepted once per power-up** on the cascade (and the IWR demos): power-cycle before every run
   that sends one.
 
 ## Where to go next
 
 - Verb, manifest and exit-code reference: [`projects/README.md`](projects/README.md).
-- Full machine contract: `docs/specs/fw_project_contract.md` in the parent repo.
-- Facts for the whole stack (toolchain versions, boards, quirks): `docs/firmware.md` in the parent repo.
+- Full machine contract: [`docs/specs/fw_project_contract.md`](../docs/specs/fw_project_contract.md) (parent repo).
+- Facts for the whole stack (toolchain versions, boards, quirks): [`docs/firmware.md`](../docs/firmware.md) (parent repo).
 - Each project README: build options, flash mode, bench check, and what it changes versus TI.

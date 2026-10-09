@@ -1,7 +1,8 @@
 # 1. Set up the build environment
 
 Goal: a Docker image that holds every TI compiler and SDK, so no TI software is installed on your machine.
-Do this once per machine. Run everything from `firmware_dev/`.
+Do this once per machine. Run everything from `firmware_dev/`. Prerequisites (Docker, the `docker` and
+`dialout` groups, disk) are listed in the [top README](../../README.md#the-path).
 
 ## Fetch the TI installers
 
@@ -11,7 +12,7 @@ Do this once per machine. Run everything from `firmware_dev/`.
 
 The script downloads: mmWave MCU+ SDK, mmWave SDK, SysConfig, TI Arm Clang, C6000 and ARM CGT compilers,
 the Radar Toolbox, Code Composer Studio (headless) and UniFlash 9.6.0. Exact versions are pinned in the
-script and listed in `docs/firmware.md` in the parent repo. If TI's server refuses a download, fetch the
+script and listed in [`docs/firmware.md`](../../../docs/firmware.md) (parent repo). If TI's server refuses a download, fetch the
 file by hand from the TI download page, keep the exact filename the script uses, and put it in
 `downloads/`.
 
@@ -34,10 +35,21 @@ It fails early with a missing `COPY` source when an installer is absent: re-run 
 `fw build` runs the same check before every build, so a missing installer stops it with exit 4 and the
 item number to fetch.
 
-## Interactive shell (optional)
+## The two compose services
+
+`docker-compose.yaml` defines two services from the one image. `fw` picks the right one; you rarely type them.
+
+| Service | Used for | Difference |
+|---------|----------|------------|
+| `firmware-env` | builds, `fw test`, dry runs, browsing the SDK | no serial devices |
+| `flash` | real flashes and the cascade serial check | same image plus `/dev` and the `dialout`/`plugdev` groups, so serial ports (including ones that re-enumerate after a power-cycle) are visible |
+
+Both bind-mount `firmware_dev/` at `/build_context` inside the container, so
+`/build_context/projects/<p>/...` is the same file as `projects/<p>/...` on the host.
 
 ```bash
 docker compose run --rm firmware-env       # a bash shell inside the image, TI tools under /opt/ti
+docker compose run --rm flash <command>    # a command with serial access (see the project READMEs)
 ```
 
 Browse the SDK sources under `/opt/ti/`. The container does not see git metadata; `fw` passes the commit in as `FW_COMMIT`.

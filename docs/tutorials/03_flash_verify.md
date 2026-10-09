@@ -6,10 +6,13 @@ a board that only one user can hold. Run from `firmware_dev/`.
 ## Before you start
 
 - The board is yours alone: no other terminal, viewer or script may hold its serial ports.
-- Know your project's flash mode: the project README's Flash section and `docs/bench_check.md` give the exact
-  jumpers. IWR boards use the SOP switches (flash mode SOP 101, functional mode SOP 001). The cascade EVM
-  uses jumper J6 (bottom two pins = UART flash mode, top two = QSPI run mode); 12 V is needed for USB to
-  enumerate. Change jumpers only with power off.
+- Know your project's flash mode: the project README's Flash section and
+  `projects/<project>/docs/bench_check.md` give the exact jumpers. Change jumpers only with power off.
+  - IWR boards use the SOP switches, read as three bits in the order SOP2 SOP1 SOP0, 1 = closed. Flash mode
+    is "SOP 101" (SOP0 and SOP2 closed, SOP1 open); functional mode is "SOP 001" (SOP0 only).
+  - The cascade EVM uses jumper J6 (bottom two pins = UART flash mode, top two = QSPI run mode).
+  - Power: IWR boards run from USB plus a 5 V supply; the cascade EVM needs its 12 V supply, and its USB
+    only enumerates with 12 V on.
 - Find the CLI port: `./fw ports` lists the by-id serial ports and whether a process holds them. Use the
   `-if00` port.
 
@@ -23,14 +26,19 @@ a board that only one user can hold. Run from `firmware_dev/`.
 1. Put the board in flash mode and **power-cycle fully (USB and supply) before every attempt, retries
    included**. A retry without a power-cycle fails (`unexpected data`).
 2. `fw flash` prints the checklist and asks you to type `FLASH MODE CONFIRMED` at a terminal. A wrong phrase,
-   or no terminal, exits 5. A non-by-id port also needs the typed phrase `USE THIS PORT`.
+   or no terminal, exits 5. Use a by-id `-if00` port. At a terminal any other port (such as `/dev/ttyACM0`)
+   is accepted only after you also type `USE THIS PORT`; under `--json`, `--plan` and `--confirm` it is refused.
 3. Success is the flasher's own marker (`SUCCESS!! File type META_IMAGE1` for IWR1843; `All commands from
    config file are executed !!!` for the cascade). Exit 3 means no headless flasher: the manual steps are
    printed instead (the IWR6843 image).
 4. Return to functional mode (SOP 001, or J6 top two pins) and power-cycle.
 
 Scripts and agents cannot type the phrase: they run `./fw flash <project> <port> --plan`, show the checklist
-to a human, and run `--confirm <token>` only after the human has done the bench steps.
+to a human, and run `./fw flash <project> <port> --confirm <token>` only after the human has done the bench
+steps. The token is a random string that `--plan` prints (and returns as `token` in its JSON result). It
+lasts 300 s, is bound to that project, port and image sha256 (`--confirm` refuses if any differ), and is
+single use, even when the confirm then fails. A new `--plan` for the same port invalidates the earlier
+token. `--confirm` still re-checks that the port exists, is free and is by-id.
 
 ## Verify
 
@@ -39,17 +47,33 @@ to a human, and run `--confirm <token>` only after the human has done the bench 
 ```
 
 `verify` sends the descriptor's identify probes (for example `version`) and never a chirp cfg, and reports
-the firmware found. Cascade firmware cannot be probed (a probe would use its one cfg), so `verify` only
-listens there and says `skipped`.
+the firmware found (`outcome` `pass` or `fail`). **On the cascade it reports `skipped` and sends nothing**:
+a probe would use up the board's one cfg. To check cascade firmware, run the project's manual check (its
+`docs/bench_check.md`); that check sends a cfg, so it uses up the allowance and you **power-cycle (12 V)
+afterwards**.
 
 ## A cfg is accepted once per power-up
 
 Any step that sends a chirp cfg (the bench checks, the host driver) needs a fresh power-cycle first.
 
-## Bench check
+## Bench check and the `[[bench]]` record
 
-The full user-run check is in each project's `docs/bench_check.md`. A passing run is recorded as a
-`[[bench]]` entry in `project.toml` (board, date, image sha256, result, doc).
+The full user-run check is in each project's `docs/bench_check.md`. After you run it on a real board, add
+one `[[bench]]` table to the project's `project.toml`:
+
+```toml
+[[bench]]
+board = "IWR1843"
+date = "2026-10-07"
+sha256 = "<sha256 of the image you flashed, from ./fw flash --dry-run or build_info.json>"
+result = "pass"            # pass | partial | fail
+doc = "docs/bench_check.md"
+```
+
+Add it only for a check a person ran; the sha256 ties the result to that exact image. `status = "bench"` in
+`[project]` needs a `pass` record whose sha256 equals the current build's default artifact; otherwise
+`./fw list` reports `built`. Editing `[[bench]]` tables or the `status` line does not make the build `dirty`
+or `stale`; any other text change in the project does (see [tutorial 2](02_build.md)).
 
 ## Next
 

@@ -3,7 +3,9 @@
 Reference for the `projects/` folder, the `project.toml` manifest and the `./fw` verbs. The newcomer path
 (setup, build, flash, publish, add a project) is in the [top-level README](../README.md) and
 [`docs/tutorials/`](../docs/tutorials/01_build_env.md); the full contract is
-`docs/specs/fw_project_contract.md` in the parent repo. Run everything from `firmware_dev/`.
+[`docs/specs/fw_project_contract.md`](../../docs/specs/fw_project_contract.md) (parent repo). Prerequisites
+(Docker and the `docker` and `dialout` groups, disk, `git lfs`) are in the [top README](../README.md#the-path).
+Run everything from `firmware_dev/`.
 
 ## Layout
 

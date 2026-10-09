@@ -1,7 +1,8 @@
 # 5. Add a new project
 
 This creates `zz_demo`; use your own name (lowercase, digits, `_`). To only try it out, skip the `git`
-lines and delete the folder at the end. Run from `firmware_dev/`.
+lines and delete the folder at the end. Run from `firmware_dev/`. Git commands here act on the `firmware_dev`
+repository itself (it is its own repo, a submodule of the parent), not on the parent.
 
 ## 1. Create it
 
@@ -29,8 +30,12 @@ git commit -m "Firmware: add zz_demo TI baseline, unmodified source (xwr18xx/mmw
 git rev-parse --short HEAD  # this is baseline_commit
 ```
 
-Only source goes in git; never commit TI binaries. Record in the README what you deleted. (The `rm` list is
-for this mmw example.)
+The commit message starts with `Firmware:` (the repo's convention, then what changed). Only source goes in
+git; never commit TI binaries. The `rm` list is for this mmw example: for another source, delete the same
+kinds of thing (generated docs, built binaries, maps and other build products; `git status` shows what a
+TI folder carries) and keep everything the makefile needs. Record in the README what you deleted. The
+container sees the folder as `/build_context` (see [tutorial 1](01_build_env.md)), so the copy lands in
+your host `projects/zz_demo/src/`.
 
 ## 3. Fill in `project.toml`
 
@@ -72,7 +77,9 @@ Pass/fail, Results log). Then:
 
 ## 6. Document and commit
 
-Fill in the project `README.md`; keep exactly the template's `##` headings. Status is one line quoting
+Fill in the project `README.md`; keep exactly the template's `##` headings (Purpose, Status, Build, Test,
+Flash, Verify, Bench check, Layout, Changes vs TI, Known limits; see
+[`_template/README.md`](../../projects/_template/README.md)). Status is one line quoting
 `./fw list`, with no dates (bench evidence lives in `project.toml`).
 
 ```bash

@@ -150,5 +150,5 @@ SDK paths are relative to `mmwave_sdk_03_06_02_00-LTS/packages/ti`; firmware pat
    primaries and are not counted). CLI: `CQRxSatMonitor <profile> <satMonSel> <primarySliceDuration> <numSlices>
    <rxChanMask>`; enable with `analogMonitor 1 <sigImgBand>`.
 7. `CPSL_TI_Radar_cpp/src/DCA1000/FrameAssembler.cpp:54-63` (sequence number, byte count).
-8. Unlike the stock TI demo, which adds a per-frame point-cloud packet (SW session). The existing C++ driver parses only
-   dataFmt 1 framing, so dataFmt 2 needs new host tools.
+8. Unlike the stock TI demo, which adds a per-frame point-cloud packet (SW session). The C++ driver decodes both dataFmt 1 and
+   dataFmt 2 (`adc_sar_meta`, bench-verified 2026-10-09; `docs/firmware.md`).

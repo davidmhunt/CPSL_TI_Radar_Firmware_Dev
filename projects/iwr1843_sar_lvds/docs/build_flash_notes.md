@@ -10,11 +10,11 @@ current `src/`, so local edits are always picked up. After sourcing TI's `setenv
 metaimage).
 
 Outputs in `build/`: `iwr1843_sar_lvds.bin` (flash image), `iwr1843_sar_lvds.elf` (MSS `.xer4f`),
-`iwr1843_sar_lvds_mss.map`, `build_info.txt`, `compilers.txt`. Sizes and map facts: [`changes_vs_ti.md`](changes_vs_ti.md).
+`iwr1843_sar_lvds_mss.map`, `build_info.txt`, `build_info.json` (written by `fw`), `compilers.txt`. Sizes and map facts: [`changes_vs_ti.md`](changes_vs_ti.md).
 
 ## Flash
 
-`./fw flash iwr1843_sar_lvds <by-id -if00 port> --dry-run` prints the DSLite command and image sha256 and touches no
+`./fw flash iwr1843_sar_lvds <by-id -if00 port> --dry-run` prints the checklist, the DSLite command and image sha256 and touches no
 port. `flash.sh` calls UniFlash 9.6.0's `DSLite` (in the Docker image) with `configs/iwr1843_uniflash.ccxml` and
 `-f <image>,1`. A real flash runs only from your own interactive terminal: `fw` prints the checklist (SOP0+SOP2 closed
 = flashing mode, nothing else on the port) and you must type `FLASH MODE CONFIRMED`; there is no bypass. It refuses
@@ -24,7 +24,7 @@ port is the bootloader port) is allowed only at a TTY after you also type `USE T
 Afterwards set functional mode (SOP0 only), power-cycle, and send a cfg over the CLI port at 115200 baud. Fallback:
 the UniFlash GUI ([`bench_bringup.md`](bench_bringup.md) section 3).
 
-Restore the stock demo with `./fw flash ti_stock_demos <port>` (image `projects/ti_stock_demos/build/iwr1843_demo.bin`).
+Restore the stock demo with `./fw flash ti_stock_demos <port>` (build it first with `./fw build ti_stock_demos`; image `projects/ti_stock_demos/build/iwr1843_demo.bin`, sha256 `cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559`; `./fw list` shows its status).
 
 ## Troubleshooting
 

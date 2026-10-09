@@ -14,11 +14,11 @@ outcome as a `[[bench]]` entry in `project.toml`. All commands run from `firmwar
 ## Board state
 
 - Flash: SOP 101 (SOP2 and SOP0 ON, SOP1 OFF), set with power off, then a full USB + 5 V power-cycle. Repeat the power-cycle before EVERY flash attempt, retries included.
-- Run: SOP 001 (SOP0 only), power-cycled. A cfg is accepted once per power-up for the cascade only; this firmware reconfigures after `sensorStop` + `flushCfg` without a power cycle, except `channelCfg`/`adcCfg`/`lowPower` changes.
+- Run: SOP 001 (SOP0 only), power-cycled. This firmware accepts a cfg re-send (`sensorStop` + `flushCfg` + cfg) without a power cycle; the once-per-power-up rule is the cascade's. Only `channelCfg`/`adcCfg`/`lowPower` changes need one.
 
 ## Steps
 
-1. `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run`: prints the checklist, the DSLite command and the image sha256; compare it with the build.
+1. `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run`: prints the checklist, the DSLite command and the image sha256 (no port touched); compare it with the build.
 2. Flash for real in your own terminal (type `FLASH MODE CONFIRMED` at the prompt), or script it with `--plan` then `--confirm <token>`.
 3. Power off, SOP 001, power on. `./fw verify iwr1843_sar_lvds --port /dev/serial/by-id/<...-if00>` (the probe set is the descriptor's `identify` block; it sends no chirp cfg).
 4. One short capture ([`bench_bringup.md`](bench_bringup.md) section 5): `uv run python projects/iwr1843_sar_lvds/tools/bench_check.py capture --duration 5`. Add `--cli-port /dev/serial/by-id/<...XDS110...-if00>` when two XDS110 boards are attached (required then; the default needs exactly one).

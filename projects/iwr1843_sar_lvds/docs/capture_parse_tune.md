@@ -13,12 +13,12 @@ refuses to write aligned output for a recording that fails any of them (`--force
 | `tools/sar_synth.py` | synthetic captures (clean, late, mid-packet, lost datagram, ...) for the tests and for trying the tools | none |
 
 ```bash
-uv sync --group tools                     # numpy + matplotlib, only for the report and sweep (uv: see ../../README.md prerequisites)
+uv sync --group tools                     # numpy + matplotlib, only for the report and sweep (uv: see ../../../README.md prerequisites)
 ./fw test iwr1843_sar_lvds                # host tests + cfg checks (run from firmware_dev/)
 ```
 
-Capture and parse have run on the bench (the bench check in [`bench_check.md`](bench_check.md) ends with one capture
+Capture commands: [`tuning_guide.md`](tuning_guide.md) section 3. Capture and parse have run on the bench (the bench check in [`bench_check.md`](bench_check.md) ends with one capture
 that `sar_parse.py` accepts).
 `dca_capture.py` and the sweep default to the factory DCA1000 address 192.168.33.180 / host .30 and ports 4096 /
-4098 (this repo's driver configs use others: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s`
-(default 30) is the CONFIG_FPGA_GEN timer byte: check its meaning before captures longer than 30 s.
+4098 (other addresses: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s`
+(default 30) is the CONFIG_FPGA_GEN timer byte; captures of 60 s and 600 s ran with the default (`bench_bringup.md` section 5b).

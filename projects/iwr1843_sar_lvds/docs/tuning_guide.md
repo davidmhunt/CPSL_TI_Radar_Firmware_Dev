@@ -29,15 +29,15 @@ sends the cfg, then captures, parses and reports. `dca_capture.py` alone needs a
 
 ```bash
 T=projects/iwr1843_sar_lvds/tools
-uv run python $T/dca_capture.py run1.cap --cli-port /dev/ttyACM0 --duration 5   # HW
+uv run python $T/dca_capture.py run1.cap --cli-port /dev/serial/by-id/<...XDS110...-if00> --duration 5   # HW
 uv run python $T/sar_parse.py run1.cap --cfg CFG      # checks 1-4, run1_adc.bin, run1_meta.csv
 uv run --group tools python $T/sar_tune_report.py run1 --cfg CFG --reflector-range 1.5
-uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/ttyACM0 \
+uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/serial/by-id/<...XDS110...-if00> \
     --gains 30 --hpf 175:350 --reflector-range 1.5                               # HW: one point
 ```
 
 `dca_capture.py` arms the DCA1000, sends `sensorStart`, waits, sends `sensorStop`, reads `sarStats`, then stops recording; without
-`--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. DCA1000 address, port and `--timer-s` options: README. The report also writes `run1_tune.png`. A sweep needs no power cycle (several points: comma lists; `--dry-run` only cfg-checks).
+`--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. DCA1000 address, port and `--timer-s` options: [`capture_parse_tune.md`](capture_parse_tune.md). The report also writes `run1_tune.png`. A sweep needs no power cycle (several points: comma lists; `--dry-run` only cfg-checks).
 
 ## 4 `sarStats`: the number that proves the run's length
 
@@ -64,8 +64,8 @@ failing checks. A rejected capture writes no output files (`--force` does, with 
 | 3 | In the last packet (`chirpAvail` − 1) the *other* slot does not hold the run's next chirp | began one packet late (check 2 cannot see it) |
 | 4 | Bytes recorded = `chirpAvail` × B (B = packet size, printed); a lost final datagram is a tolerated tail hole (check 4 then decides check 3) | short at the start or end, or a second run appended; **no `sarStats` reading: fails** |
 
-*Not evaluable* counts as a failure, except check 3 when a lost final datagram held the last record slots: then check 4 decides. Checks 3 and 4 await
-hardware confirmation (measured on the bench; see README Status).
+*Not evaluable* counts as a failure, except check 3 when a lost final datagram held the last record slots: then check 4 decides. Checks 3 and 4 are bench-measured
+([`lvds_data_format.md`](lvds_data_format.md) section 1).
 
 ## 6 Bench procedure
 
@@ -97,3 +97,5 @@ Sweep table: one row per point, same quantities; `REJECTED` = a check failed (se
 ## 8 Pitfalls
 
 - **DC and near-range leakage.** A peak in the first bins that ignores the reflector is leakage: raise the HPF.
+- **A clipped count that is not a clean count.** "Firmware result unknown" (the run's last chirp, or a lost record) is not clean; the saturation result lags by one chirp (section 7), and the tools already correct for it.
+- **No cfg on the radar.** `dca_capture.py` alone does not send a cfg: use the one-point sweep (section 3) or `bench_check.py cfg` first.

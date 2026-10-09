@@ -1,5 +1,7 @@
 # SAR feasibility memo: IWR1843, SDK 3.6, 1TX/1RX continuous chirp
 
+> Historical design reasoning; the current cfg rules are in [`sar_cfg_guide.md`](sar_cfg_guide.md), which wins on any difference.
+
 Limits, LVDS/DCA1000 data-rate math and go/no-go criteria for a 1TX/1RX continuous-chirp SAR configuration on the
 IWR1843 with mmWave SDK 3.6.02.00-LTS. Generic: any cfg within the limits qualifies; (e) works one example. Line numbers
 were checked in the build container: `rl_sensor.h` is
@@ -37,7 +39,7 @@ Nc = loops x (chirp indices used), so more than 255 chirps per frame needs sever
 
 Bytes per chirp (HW session, ADC format, HSI header on). TI's demo note says `roundup256(Ns * R * 4 + 52)`, but the HW
 session's header pads only to 16 B (`HSIHeader_createHeader(…, false, …)`; exact layout and the dataFmt 2 size in
-`lvds_data_format.md` §1). The 256-B form, used below, is an upper bound:
+`lvds_data_format.md` §1). The 256-B form, used below, is an estimate (the actual dataFmt 2 packet can be 16 B larger):
 
     Bchirp <= roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
 
@@ -91,7 +93,7 @@ frequency at 100 m: `2 * slope * R / c = 1.557 MHz`.
   ramp rate, not the chirp-interval average (1.557 x 1500/2000 = 1.17 Msps).
 - Chosen: slope code 48 (2.317 MHz/us, sweep 3.476 GHz, inside 77-81 GHz); ADC 2.2 Msps (usable IF 1.76 MHz covers
   1.55 MHz); Ns = 2.2 Msps x 1.5 ms = 3300 (13,200 B, inside the 16 KB half).
-- Data: `Bchirp <= roundup256(13,200 + 52) = 13,312 B` (dataFmt 2 with header: 13,328 B); 13,312 B / 2 ms = 6.66 MB/s, 4.4 % of 150 MB/s; about 4550 packets/s.
+- Data: `Bchirp <= roundup256(13,200 + 52) = 13,312 B` (estimate; the actual dataFmt 2 packet with header is 13,328 B); 13,312 B / 2 ms = 6.66 MB/s, 4.4 % of 150 MB/s; about 4550 packets/s.
 - Frame: the 1.342 s cap gives Nc <= (1.342 s - Tb) / Tc = 670. For example 3 identical chirp indices x 223 loops = 669 chirps,
   framePeriodicity 1.3383 s (Tb = 300 us); a single index would give only 255.
 - Boundary: Tc + Tb = 2.3 ms, v x 2.3 ms = 1.725 mm <= 7.11 mm (margin 4.1x).

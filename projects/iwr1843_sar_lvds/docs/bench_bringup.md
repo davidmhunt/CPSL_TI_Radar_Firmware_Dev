@@ -47,9 +47,9 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
    Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
-5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001; stock image sha256 cd43e0df...).
+5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (build it first: `./fw build ti_stock_demos`; default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001; stock image sha256 cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559).
 6. Fallback only if `./fw flash` fails repeatedly: UniFlash GUI "Generate Package" (device IWR1843, Meta Image 1 = the image, COM port).
-7. Power off and set SOP2 OFF (SOP0 stays ON, 001). Success is confirmed only in section 4 (the `mm_sar_lvds:/>` prompt).
+7. Power off and set SOP2 OFF (SOP0 stays ON, 001), then power-cycle (always, even when DSLite reports success). Success is confirmed only in section 4 (the `mm_sar_lvds:/>` prompt).
 
 ## 4 Run mode (SOP0 only)
 
@@ -59,7 +59,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 
 ## 5 First bring-up check
 
-A cfg is accepted once per power-up: power-cycle the board before this step if it has already been configured since power-on.
+This firmware accepts a cfg re-send without a power cycle (`sensorStop`, `flushCfg`, cfg; observed 2026-10-10); only `channelCfg`/`adcCfg`/`lowPower` changes need one.
 Run from `firmware_dev/`; `bench_check.py` finds the CLI port itself (the single `*XDS110*-if00`; `--cli-port` overrides) and
 prints each reply in full plus a PASS/FAIL line:
 ```bash

@@ -144,6 +144,6 @@ Each row changes one thing in the §1 cfg; message hints omitted. Exit 0 = no ER
 SDK 3.6.02 `control/mmwavelink/include/` (`rl_*.h`), `utils/cli/src/` (`cli*.c`); others `src/mss/`.
 [1] `mmw_cli.c:144`. [2] `rl_sensor.h` idle `:653`, adcStart `:659`, rampEnd `:665`, sweep `:666-667`, slope `:710`, fs `:742-750`, HPF `:773-791`,
 gain `:832`; datasheet SWRS228B 7.7. [3] `rl_sensor.h` indices `:949-953`, loops `:958`, period and blank `:983-987`, `:4468`, `:4549-4558`, `:4611-4616`.
-[4] `mmw_cli.c:420`. [5] `mmw_cli.c:622,631`; `mss_main.c` `MmwDemo_configSensor`. [6] `rl_monitoring.h:1913-1937`. [7] `README.md` "What changed vs TI".
+[4] `mmw_cli.c:420`. [5] `mmw_cli.c:622,631`; `mss_main.c` `MmwDemo_configSensor`. [6] `rl_monitoring.h:1913-1937`. [7] `README.md` "Changes vs TI".
 [8] `mss_main.c`. [9] `cli_mmwave.c:613` (profile), `:807` (frame). [10] `cli.c:157`. [11] `mmw_cli.c:160-168`; `mss_main.c`.
 [12] `mmw_cli.c:250-270`; README. [13] `mmw_sar_meta.c`; `sar_feasibility.md` (c).

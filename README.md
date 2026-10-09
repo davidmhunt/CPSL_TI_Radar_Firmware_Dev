@@ -7,7 +7,7 @@ below is one `./fw` verb, run from this folder (`firmware_dev/`). `./fw help` li
 ## The path
 
 Prerequisites (the one place they are listed): Linux; Docker with `docker compose`, and your user in the
-`docker` group (or rootless Docker); about 25 GB of disk; Python 3.11+ (the `fw` logic is stdlib only);
+`docker` group (or rootless Docker); about 25 GB of disk; Python 3.11+ (the `fw` logic is stdlib only); [`uv`](https://docs.astral.sh/uv/) (install from there; runs the host tests and the SAR `tools` group: `uv sync --group tools`);
 membership of the `dialout` group for serial ports; `git lfs` for the PDF docs.
 
 | # | Step | Command | Tutorial |

@@ -1,226 +1,97 @@
 # iwr1843_sar_lvds
 
-IWR1843BOOST SAR / LVDS raw-ADC firmware, derived from the TI mmWave SDK 3.6.02.00-LTS `xwr18xx/mmw`
-demo and built out of tree. It is an MSS-only image (MSS + BSS firmware, no DSS image) that configures the
-radar from the CLI and streams the ADC data of every chirp over LVDS to a DCA1000.
-
-Facts and bench records: `project.toml`; commands: `./fw list | build | test | flash | verify | publish iwr1843_sar_lvds`
-(from `firmware_dev/`). Sections below follow the contract headings (`projects/README.md`); the text under each pre-dates
-the layout and is regrouped in fwstd-08.
-
 ## Purpose
 
-An IWR1843BOOST image for synthetic-aperture capture: raw per-chirp ADC over LVDS with a 32-byte metadata record per
-chirp, no on-chip processing, no TLV output. The driver side is the `IWR1843_SAR` board in the parent repo.
-
-## Build
-
-`./fw build iwr1843_sar_lvds`; see "How the build works" and "Build, flash, run" below.
-
-## Test
-
-`./fw test iwr1843_sar_lvds`: the 7 host test files in `tools/test_*.py` (synthetic captures, no hardware), the manifest
-and descriptor checks, and `tools/sar_cfg_check.py` over `configs/sar_example_2ms.cfg` and the parent's SAR cfg.
-
-## Flash
-
-`./fw flash iwr1843_sar_lvds <by-id -if00 port>` (DSLite; gates and observed behaviour under "Build, flash, run").
-
-## Verify
-
-`./fw verify iwr1843_sar_lvds --port <by-id -if00 port>` sends the descriptor's `version` and `sarStats` probes (no cfg).
-
-## Bench check
-
-[`docs/bench_check.md`](docs/bench_check.md) is the short gated sequence; [`docs/bench_bringup.md`](docs/bench_bringup.md) is the full procedure. Records: `project.toml` `[[bench]]`.
-
-## Layout
-
-`src/` (TI demo source, edited), `configs/` (example SAR cfg, DSLite ccxml), `tools/` (host tools and their tests), `docs/`, `build/` (outputs, gitignored).
-
-## Changes vs TI
-
-Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`). See every change since with
-`git diff <BASELINE_COMMIT> -- projects/iwr1843_sar_lvds/src`.
-
-**firmware-07: DSP chain removed, MSS-only, restartable, periodic calibration off.**
-
-- **Removed** (TI's object-detection chain and everything that only served it):
-  - `src/dss/` (DSS image sources) and `src/include/mmw_output.h` (UART TLV format);
-  - from `mss/mss_main.c`: DPM/DPC objdet init, ioctls, report handler and DPM task; per-frame result
-    handling and its waits on DSS results and on the LVDS frame-done semaphores; UART TLV output and the
-    data-UART open; the per-frame LVDS SW session (point cloud); HSRAM shared-memory buffer; per-sub-frame
-    reconfiguration (advanced frame);
-  - from `mss/mmw_lvds_stream.{c,h}`: the SW session (EDMA table, config, delete, callback, user header) and
-    the frame-done semaphores; `mmw_res.h`: the DPC/HWA EDMA partitioning and SW-session channels;
-    `include/mmw_config.h` / `mss/mmw_mss.h`: GUI-monitor and DPC config types, DPM handles;
-  - CLI commands that only fed the DPC or the TLV output: `guiMonitor`, `cfarCfg`, `multiObjBeamForming`,
-    `calibDcRangeSig`, `clutterRemoval`, `compRangeBiasAndRxChanPhase`, `measureRangeBiasAndRxChanPhase`,
-    `aoaFovCfg`, `cfarFovCfg`, `extendedMaxVelocity`, `configDataPort`. A stock TI cfg (such as
-    the profiles in `ti_stock_demos/configs/xwr18xx/`) now fails on the first of these.
-  - build: `makefile` builds `mmwDemo` = `mssDemo` + `generateMetaImage.sh <bin> $(SHMEM_ALLOC) <mss> <radarss> NULL`
-    (`SHMEM_ALLOC` = SDK default `0x00000008`); DSS, AOP and secure (HS) targets dropped; `mmw_mss.mak` no
-    longer links `libdpm`; the linker cmd no longer places `.demoSharedMem` in HS_RAM.
-- **Kept**: the SDK mmWave CLI extension (channel/adc/profile/chirp/frame cfg, `flushCfg`), `adcbufCfg`
-  (complex, chirpThreshold 1), `lvdsStreamCfg` (HW session, dataFmt 0/1/4, header on/off, dataFmt 2 since firmware-08; `enableSW 1`
-  rejected), `analogMonitor`, `CQRxSatMonitor`, `CQSigImgMonitor`, `calibData`, `queryDemoStatus`,
-  `sensorStart`, `sensorStop`; calibration save/restore to flash; HSI clock 600 Mbps DDR; CLI prompt
-  `mm_sar_lvds:/>` (banner now names this firmware).
-- **Changed**:
-  - DSP left halted (`SOC_DSSCfg_HALT`, as in TI's MSS-only xwr64xx demo); mmWave runs in isolation mode.
-  - Only `dfeDataOutputMode 1` (frame) is accepted; advanced frame and continuous mode are rejected at
-    `sensorStart`.
-  - ADCBUF is opened and configured from the MSS at every sensor start (`MmwDemo_dataPathStart`), the RF
-    parser runs on every reconfig (`MmwDemo_configSensor`), and the CBUFF HW session (ADC format, works
-    with `numFrames 0`) is created and activated before the first chirp. It stays active across frame
-    boundaries; nothing waits on a frame event, so a frame boundary never blocks the next frame.
-  - **Restart without a power cycle.** `sensorStop` stops the RF, waits (bounded, 3 s) for the BSS
-    frame-end event, then deactivates and deletes the HW session (its EDMA channels and HSI header are
-    returned; a leak is reported as an error) and closes ADCBUF. Then `flushCfg`, a full cfg and
-    `sensorStart` re-run `MMWave_config` and the RF parser and re-create ADCBUF and the HW session, so
-    every profile/chirp/frame/adcbuf/lvds parameter may change, including `rxGain`, the HPF corners, the
-    sample count and the sample rate. `sensorStart 0` restarts with the previous cfg. A run with a finite `numFrames` that has finished
-    still needs `sensorStop` before the next `sensorStart` (otherwise "Ignored: Sensor is already started"). `channelCfg`,
-    `adcCfg` and `lowPower` are applied by `MMWave_open` on the first start only (stock behaviour); a
-    later start with different values is rejected with a CLI error (the TI demo halted the MSS instead).
-    Changing them needs a power cycle. After `flushCfg` they must be re-sent with the original values.
-    A full cfg means the mmWave commands plus `adcbufCfg`, `lvdsStreamCfg`, `analogMonitor` and
-    `calibData` (stock rule: all four must be re-sent after a stop for `sensorStart` to reconfigure).
-  - **Periodic runtime calibration off**: `MMWave_start` gets `enablePeriodicity = false` (TI: every 10
-    frames). Boot calibration (first `MMWave_open`) and TI's one-time runtime calibration at each
-    `sensorStart` stay on.
-  - Errors in the start path are reported on the CLI and undo the partial setup instead of asserting.
-
-**firmware-08: per-chirp SAR metadata over LVDS (`lvdsStreamCfg` dataFmt 2) and `sarStats`.** Format and host
-parsing: [`docs/lvds_data_format.md`](docs/lvds_data_format.md).
-
-- **Added** `mss/mmw_sar_meta.{c,h}`: the 32-byte record (magic, version, flags, frame index, chirp in frame, chirps
-  per frame, global chirp index, run index, saturation of an earlier chirp with its lag, 64-bit timestamp from the
-  BIOS RTI counter at 100 MHz); two record slots in L3 (`.cbuffL3Memory`, placed by `mss/mmw_mss_linker.cmd`); three
-  interrupt handlers: chirp start (VIM 99, own Hwi) fills chirp k's record into slot k mod 2, chirp available (VIM 123,
-  SOC listener) counts the saturated CQ2 primary slices, frame start (VIM 98, SOC listener) cross-checks the counters.
-  A 1 s BIOS clock function keeps the 64-bit timestamp extension current.
-- **Changed**: `lvdsStreamCfg` accepts dataFmt 2 = CBUFF `ADC_USER` with the slots as its user buffer
-  (`mss/mmw_lvds_stream.c`); `sensorStart` rejects dataFmt 2 unless the ADC output is complex, ChanInterleave is 1 and
-  numAdcSamples × RX is even. `mss/mmw_mss.mak` compiles the SDK's `drivers/cbuff/platform/cbuff_xwr18xx.c` with
-  `ENABLE_ALL_NON_INTERLEAVED`, because TI's prebuilt CBUFF library leaves `ADC_USER` out. dataFmt 1 and 4 stream as
-  in firmware-07; the interrupt handlers run in every format (they feed `sarStats`).
-- **New CLI** `sarStats` (no arguments, works while running, reset at every `sensorStart`): chirps, frames, chirp-start
-  and chirp-available interrupts, saturated chirps, late and missed chirp interrupts, counter resyncs, CBUFF error
-  interrupts, the sticky CBUFF chirp/frame-start error bits, LVDS frames done, current timestamp.
-
-The baseline was copied verbatim from `packages/ti/demo/xwr18xx/mmw/` of the SDK: `mss/ dss/ include/ makefile
-mmw_res.h` into `src/`, `profiles/*.cfg` and `profiles/mmwDemo_xwr18xx_update_config.pl`
-into `configs/` and `tools/` (both removed in fwstd-07 as byte-identical duplicates of `ti_stock_demos/configs/xwr18xx/`). Left out (not source): `docs/` (generated doxygen) and TI's prebuilt outputs
-(`*.bin *.map *.xer4f *.xe674 *.rov.xs`, including the AOP variants).
-
-## LICENSE
-
-The TI sources in `src/`, `configs/` and `tools/` are tracked under TI's own terms. The C sources and
-headers carry TI's BSD-3-clause header ("Redistribution and use in source and binary forms ...").
-Files without that header fall into two groups:
-
-- **No header at all:** `makefile`, `*.mak`, `*_linker.cmd`, the TI `*.cfg` chirp profiles and the `.pl` helper (now only in `ti_stock_demos`).
-- **Old header:** the XDC/BIOS config `mss/mmw_mss.cfg` (and `dss/mmw_dss.cfg` until firmware-07 removed it) carries an older
-  "Copyright 2011 ... Restricted rights" boilerplate instead of the BSD text.
-
-Both groups are covered by the SDK software manifest (`docs/mmwave_sdk_software_manifest.html`:
-"mmwave drivers, control, datapath, utils & demo", `packages\ti\demo`, BSD-3-Clause). Keep these
-headers when editing. No TI binaries are tracked; the
-open release-gate item on shipping TI binaries publicly is unchanged by this project.
-
-## Docs
-
-- [`docs/lvds_code_map.md`](docs/lvds_code_map.md): where the demo streams ADC data over LVDS and where a custom payload hooks in.
-- [`docs/lvds_data_format.md`](docs/lvds_data_format.md): dataFmt 2 packet and metadata record, timestamp, how to align
-  the lagged saturation field, host parsing.
-- [`docs/sar_cfg_guide.md`](docs/sar_cfg_guide.md): how to build a valid SAR cfg: command reference, requirements to values, timing, HPF/gain, worked example, common mistakes. Example `configs/sar_example_2ms.cfg`; checker `tools/sar_cfg_check.py` (tests: `tools/test_sar_cfg_check.py`).
-- [`docs/sar_feasibility.md`](docs/sar_feasibility.md): IWR1843 / SDK 3.6 limits for 1TX/1RX continuous-chirp SAR, data-rate math, frame-boundary rule, go/no-go criteria.
-- [`docs/tuning_guide.md`](docs/tuning_guide.md): the capture requirement, `sarStats`, the four capture checks, the bench procedure for gain and HPF corners, how to read the tuning report and sweep table.
-- [`docs/bench_bringup.md`](docs/bench_bringup.md): bench steps for flashing the IWR1843BOOST, DCA1000 network setup and the first bring-up check.
-
-## Capture, parse, tune
-
-Host tools in `tools/` (Python; run from `firmware_dev/`; guide: [`docs/tuning_guide.md`](docs/tuning_guide.md)). `sar_parse.py` enforces the guide's capture requirement with checks 1-4 ([`docs/lvds_data_format.md`](docs/lvds_data_format.md) §1) and refuses to write aligned output
-for a recording that fails any of them (`--force` writes it for debugging only).
-
-| Tool | Does | Hardware |
-|---|---|---|
-| `tools/dca_capture.py` | configure and arm the DCA1000, drive `sensorStart` / `sensorStop` / `sarStats` on the CLI port, record datagrams with their UDP headers, store `chirpAvail` beside the recording | DCA1000, radar CLI port |
-| `tools/sar_parse.py` | place packets by DCA1000 byte count, run checks 1-4, write `_adc.bin` (int16 I/Q, chirp-major) and `_meta.csv` (saturation lag applied) | none |
-| `tools/sar_tune_report.py` | peak dBFS, clipped chirps, noise floor, range profile with the HPF response, reflector SNR; needs the `tools` uv group | none |
-| `tools/sar_tune_sweep.py` | per gain / HPF point: cfg check, send cfg, capture, parse, report, one table; no power cycle | DCA1000, radar CLI port |
-| `tools/sar_synth.py` | synthetic captures (clean, late, mid-packet, lost datagram, ...) for the tests and for trying the tools | none |
-
-```bash
-uv sync --group tools        # numpy + matplotlib, only for the report and sweep
-./fw test iwr1843_sar_lvds                # host tests + cfg checks (run from firmware_dev/)
-```
-
-Hardware use of these tools is untested until the bench validation (Status below): the tests use synthetic captures only. `dca_capture.py` and the sweep default to the factory DCA1000 address 192.168.33.180 / host .30 and ports 4096 / 4098 (this repo's driver configs use others: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s` (default 30) is the CONFIG_FPGA_GEN timer byte: check its meaning before captures longer than 30 s.
-
-## Known limits
-
-Set B / tuning (phase continuity, gain/HPF point, boundary Tb, ADC full scale, I/Q order, saturation-vs-gain) is not yet
-bench-verified (firmware-18); see Status below and `project.toml`.
+IWR1843BOOST image for synthetic-aperture capture, derived from the TI mmWave SDK 3.6.02.00-LTS `xwr18xx/mmw` demo and
+built out of tree: MSS-only (no DSS image), configured over the CLI, streaming the raw ADC data of every chirp over
+LVDS to a DCA1000 with a 32-byte metadata record per chirp; no on-chip processing, no TLV output. The driver side is the
+`IWR1843_SAR` board in the parent repo.
 
 ## Status
 
-`./fw list`: `iwr1843_sar_lvds`, bench record `partial` (see `project.toml`).
+`./fw list`: `iwr1843_sar_lvds  bench  IWR1843  mmwave_sdk 03.06.02.00-LTS`. Bench records: `project.toml` `[[bench]]`.
 
-**MSS-only raw-ADC streaming (firmware-07) with per-chirp metadata and saturation (firmware-08).** SAR cfg guide, example cfg and
-checker: `docs/sar_cfg_guide.md`. See `docs/sar_feasibility.md` and `docs/lvds_data_format.md`.
+## Build
 
-- Build (firmware-08): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker warnings; `.bin`
-  151940 B; the map takes the CBUFF format table from the project's `cbuff_xwr18xx.oer4f` and places the record slots
-  at L3 `0x51000000` (64 B).
+From `firmware_dev/` (prerequisites: top-level [`../../README.md`](../../README.md)): `./fw build iwr1843_sar_lvds`
+writes `projects/iwr1843_sar_lvds/build/` (`iwr1843_sar_lvds.bin` flash image, `.elf`, map, `build_info.txt`). No
+`--variant`. Every build is a clean build of the current `src/`; how the SDK overlay works and the size facts are in
+[`docs/build_flash_notes.md`](docs/build_flash_notes.md) and [`docs/changes_vs_ti.md`](docs/changes_vs_ti.md).
 
-- Build (firmware-07): `./fw build iwr1843_sar_lvds` exits 0 with no compiler or linker
-  warnings (warnings are errors in the SDK flags); `.bin` 147844 B (TI baseline image 324804 B); the MSS
-  map has no `objdet`/`DPM_`/`DPC_` symbol; the metaimage is generated with DSS `NULL` and no `.xe674`
-  is built.
-- Baseline equivalence (firmware-04): the unmodified `src/` built to the same 324804 B `.bin` as
-  `ti_stock_demos`, byte-identical at a path of the same length.
-- On-board: Set A verified + 10-min lossless soak; phase, tuning, boundary and saturation pending firmware-18 (numbers: `docs/RESULTS.md` in the parent repo).
+## Test
 
-## How the build works
+`./fw test iwr1843_sar_lvds`: the 7 host test files in `tools/test_*.py` (synthetic captures, no hardware: parser,
+checks 1-4, cfg checker, tuning report and sweep), the manifest and descriptor checks, and `tools/sar_cfg_check.py`
+over `configs/sar_example_2ms.cfg` and the parent's SAR cfg. The report and sweep tests need `uv sync --group tools`.
 
-Same out-of-tree technique as `projects/ti_stock_demos` (see its README). `build.sh` deletes
-`build/` and recreates an SDK overlay in `build/sdk/`: `packages/` is a symlink farm onto the SDK,
-except `ti/demo/xwr18xx/mmw`, which is a fresh copy of this project's `src/` (TI prebuilt outputs
-and `docs/` excluded). Every build is a clean build of the current `src/`, so local edits are
-always picked up. After sourcing TI's `setenv.sh` it sets `MMWAVE_SDK_DEVICE=iwr18xx` and
-`MMWAVE_SDK_INSTALL_PATH=build/sdk/packages`, then runs `make mmwDemo` (the MSS-only metaimage).
+## Flash
 
-Outputs in `build/`: `iwr1843_sar_lvds.bin` (flash image), `iwr1843_sar_lvds.elf` (MSS `.xer4f`),
-`iwr1843_sar_lvds_mss.map`, `build_info.txt`, `compilers.txt`.
+`./fw flash iwr1843_sar_lvds <by-id -if00 port>` (UniFlash DSLite; `--dry-run` prints the command and image sha256).
+Put the board in flash mode (SOP0 + SOP2 closed, set with power off), power-cycle (USB + 5 V) before every attempt,
+retries included, and type `FLASH MODE CONFIRMED` at a TTY. A port that is not a by-id `-if00` path is allowed only
+at a TTY after typing `USE THIS PORT`; `--plan`, `--confirm` and `--json` refuse it. Return to run mode: SOP0 only,
+power-cycle, then send a cfg at 115200 baud. Details, the stock-demo restore and failure messages:
+[`docs/build_flash_notes.md`](docs/build_flash_notes.md).
 
-## Build, flash, run
+## Verify
 
-From `firmware_dev/` (see `projects/README.md` for prerequisites):
+`./fw verify iwr1843_sar_lvds --port <by-id -if00 port>` sends the descriptor's `version` and `sarStats` probes (no
+cfg, safe to probe) and expects the prompt `mm_sar_lvds:/>`.
 
-```bash
-./fw build iwr1843_sar_lvds                 # outputs in projects/iwr1843_sar_lvds/build/
-./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...>-if00 --dry-run   # prints the DSLite command + image sha256, no port touched
-./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...>-if00             # real flash (bench-confirmed once; power-cycle first)
-```
+## Bench check
 
-**Bench-confirmed once** (firmware-10 Step 2.1, one IWR1843BOOST; date and image sha256 in `project.toml` `[[bench]]`, SOP 101, after a full USB + 5 V
-power-cycle): `./fw flash iwr1843_sar_lvds <by-id -if00 port>` printed `SUCCESS!! File type META_IMAGE1`, DSLite
-rc=0 (`Flashed (DSLite rc=0)`), and no trailing `Can't Run Target CPU` line. Still not observed: running the flashed
-image, the stock-demo restore, `DownloadFormat=false`.
-`flash.sh` calls UniFlash 9.6.0's `DSLite` (in the Docker image) with `configs/iwr1843_uniflash.ccxml` and
-`-f <image>,1`. A real flash runs only from your own interactive terminal: `fw` prints the checklist (SOP0+SOP2
-closed = flashing mode, nothing else on the port) and you must type `FLASH MODE CONFIRMED`; there is no bypass, and
-it refuses without a TTY, if any process holds the port, or (extra warning) if the port is not a
-`/dev/serial/by-id/...-if00` path (that XDS110 port is the bootloader port). **Power-cycle (USB + 5 V) before every
-attempt, including retries**: a retry after a failed attempt without one gave `Received unexpected data` / `Not able
-to connect to serial port`. Earlier failure, fixed: a bare image gave `File Order number value 0 not in valid range
-(1-4)` (hence `,1`). Logs go to `build/`; `-e` is DSLite `--verbose`, not erase, and is not passed (it grew the log
-to 52 MB). Restore the stock demo (path untested) with the same command and
-`projects/ti_stock_demos/build/iwr1843_demo.bin`. Afterwards set functional mode (SOP0 only), power-cycle, and send a
-cfg over the CLI port at 115200 baud. Fallback: the UniFlash GUI (`docs/bench_bringup.md` section 3).
+[`docs/bench_check.md`](docs/bench_check.md) is the short gated sequence (flash, verify, one capture);
+[`docs/bench_bringup.md`](docs/bench_bringup.md) is the full procedure, including the runs without a reflector (Set A)
+and with a corner reflector at a measured range (Set B). Results: `project.toml` `[[bench]]`.
 
-The TI profiles in `configs/` are references only: they contain object-detection commands
-this firmware rejects. To reconfigure, send `sensorStop`, `flushCfg`, the full cfg and `sensorStart`;
-no power cycle is needed unless `channelCfg`, `adcCfg` or `lowPower` change.
+## Layout
+
+| Path | What |
+|------|------|
+| `project.toml`, `build.sh`, `flash.sh` | the manifest; scripts run in the container |
+| `src/` | the TI demo source, edited |
+| `configs/` | `sar_example_2ms.cfg`, the DSLite ccxml |
+| `tools/` | host tools and their tests: capture, parse, tune ([`docs/capture_parse_tune.md`](docs/capture_parse_tune.md)) |
+| `docs/` | notes, indexed below |
+| `build/` | outputs, gitignored |
+
+Docs index:
+
+- Design a cfg: [`docs/sar_cfg_guide.md`](docs/sar_cfg_guide.md) (command reference, requirements to values, timing,
+  HPF/gain, worked example, common mistakes); example `configs/sar_example_2ms.cfg`, checker `tools/sar_cfg_check.py`.
+  Limits and go/no-go criteria: [`docs/sar_feasibility.md`](docs/sar_feasibility.md).
+- Capture and parse: [`docs/capture_parse_tune.md`](docs/capture_parse_tune.md), packet and metadata format in
+  [`docs/lvds_data_format.md`](docs/lvds_data_format.md).
+- Tune: [`docs/tuning_guide.md`](docs/tuning_guide.md) (the capture requirement, `sarStats`, the four checks, gain and
+  HPF procedure, sweep table).
+- Source map: [`docs/lvds_code_map.md`](docs/lvds_code_map.md).
+- Troubleshooting: [`docs/build_flash_notes.md`](docs/build_flash_notes.md).
+- Bench: [`docs/bench_check.md`](docs/bench_check.md), [`docs/bench_bringup.md`](docs/bench_bringup.md).
+
+## Changes vs TI
+
+Baseline: `project.toml` `[source]`; every change since: `git diff <baseline_commit> -- projects/iwr1843_sar_lvds/src`.
+Detail, with the license notes for the TI sources: [`docs/changes_vs_ti.md`](docs/changes_vs_ti.md). In short:
+
+- DSP chain removed: MSS-only image, no DSS, no TLV or data UART; the CLI commands that only fed the object-detection
+  chain (`guiMonitor`, `cfarCfg`, ...) are gone, so a stock TI cfg fails on the first of them.
+- Frame mode only (`dfeDataOutputMode 1`); the CBUFF hardware session is created before the first chirp and stays
+  active across frame boundaries.
+- Restart without a power cycle: `sensorStop`, `flushCfg`, a full cfg, `sensorStart`. `channelCfg`, `adcCfg` and
+  `lowPower` apply on the first start only (a later different value is rejected).
+- Periodic runtime calibration off.
+- `lvdsStreamCfg` dataFmt 2: a 32-byte metadata record per chirp (frame and chirp index, timestamp at 100 MHz,
+  saturation of an earlier chirp with its lag), and the `sarStats` CLI command.
+
+## Known limits
+
+- The reflector tuning checks (Set B: phase continuity, gain/HPF point, boundary Tb, ADC full scale, I/Q order,
+  saturation vs gain) are not yet bench-verified; they are pending firmware-18. The tuning tools are tested on
+  synthetic captures only.
+- Only `dfeDataOutputMode 1` (frame) is supported; dataFmt 2 needs complex ADC output, ChanInterleave 1 and an even
+  `numAdcSamples` x RX.
+- TI profiles with object-detection commands are rejected; `channelCfg`, `adcCfg` and `lowPower` need a power cycle
+  to change.
+- `dca_capture.py` defaults to the factory DCA1000 address; this repo's driver configs use others (see
+  [`docs/capture_parse_tune.md`](docs/capture_parse_tune.md)).
+- Open release-gate item on shipping TI binaries publicly: unchanged by this project.

@@ -9,7 +9,7 @@ Bring: the IWR1843BOOST, its 5 V supply, a micro-USB cable, the DCA1000EVM with 
 mounting that joins the two boards (per the DCA1000 guide), and an Ethernet cable from the DCA1000 to the host.
 
 - Image: `projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`, 152132 bytes, sha256
-  `53948f4d20ca501490dd3d1dbe48229622af5346914dfe33daec33980864267a` (built 2026-10-05T23:51Z from `firmware_dev` commit 946f48d).
+  `a06ee615b56b12282f2fe9b4a02bb556ceaa81a1b72176e2060cd9209a070924` (firmware-17 image, `firmware_dev` commit 119de4f; the earlier 53948f4d image was built from 946f48d).
   Check: `sha256sum projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`. A different hash means a different build: stop and ask.
 - Host: your user must be in the `dialout` group (`id -nG | grep dialout`; if missing, add it and log in again).
 - Host tools: `picocom` (`sudo apt install picocom`; verify `command -v picocom`). No-install fallback (pyserial is in the uv env;

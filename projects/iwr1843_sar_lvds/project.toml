@@ -4,7 +4,7 @@
 [project]
 name = "iwr1843_sar_lvds"
 summary = "IWR1843BOOST SAR / LVDS raw-ADC firmware from the SDK 3.6 xwr18xx mmw demo: MSS-only, CBUFF ADC per chirp over LVDS, per-chirp metadata (dataFmt 2), no TLV/data UART"
-status = "built"               # Set A + 10-min soak done on the bench, but Set B / tuning is pending firmware-18 (see [[bench]]); the sole pass record is for the stock-demo image, so `bench` does not apply
+status = "bench"               # firmware-17 image bench-passed 2026-10-10 (see [[bench]]); Set B / tuning is still pending firmware-18
 
 [deps]
 sdk = "mmwave_sdk"
@@ -93,3 +93,13 @@ date = "2026-10-07"
 sha256 = "cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559"
 result = "pass"
 doc = "docs/bench_bringup.md"
+
+# firmware-17 image (prompt `mm_sar_lvds:/>`), IWR1843, 2026-10-10: user flashed from a TTY (SUCCESS), `fw verify` passed
+# incl. the `mm_sar_lvds:/>` require, bench_check capture ACCEPTED (chirpAvail 2550, 2549/2550 valid, one tolerated 448 B
+# tail hole). Set B (reflector, G3/G4/G6) remains pending firmware-18.
+[[bench]]
+board = "IWR1843"
+date = "2026-10-10"
+sha256 = "a06ee615b56b12282f2fe9b4a02bb556ceaa81a1b72176e2060cd9209a070924"
+result = "pass"
+doc = "docs/bench_check.md"

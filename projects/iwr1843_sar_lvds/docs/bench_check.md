@@ -21,7 +21,7 @@ outcome as a `[[bench]]` entry in `project.toml`. All commands run from `firmwar
 1. `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run`: prints the checklist, the DSLite command and the image sha256; compare it with the build.
 2. Flash for real in your own terminal (type `FLASH MODE CONFIRMED` at the prompt), or script it with `--plan` then `--confirm <token>`.
 3. Power off, SOP 001, power on. `./fw verify iwr1843_sar_lvds --port /dev/serial/by-id/<...-if00>` (the probe set is the descriptor's `identify` block; it sends no chirp cfg).
-4. One short capture ([`bench_bringup.md`](bench_bringup.md) section 5): `uv run python projects/iwr1843_sar_lvds/tools/bench_check.py capture --duration 5`.
+4. One short capture ([`bench_bringup.md`](bench_bringup.md) section 5): `uv run python projects/iwr1843_sar_lvds/tools/bench_check.py capture --duration 5`. Add `--cli-port /dev/serial/by-id/<...XDS110...-if00>` when two XDS110 boards are attached (required then; the default needs exactly one).
 5. Optional longer runs (`./bench long`, Set A, the 10-minute soak) are in [`bench_bringup.md`](bench_bringup.md) section 5b and 5c; Set B (reflector) is section 5d.
 
 ## Expected output

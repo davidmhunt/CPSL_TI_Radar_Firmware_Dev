@@ -8,7 +8,7 @@ built out of tree: nothing is written into `/opt/ti`.
 ## Status
 
 Quote `./fw list ti_stock_demos` (status `bench`: the IWR1843 image has a passing `[[bench]]` record in `project.toml`;
-the IWR6843 image has none). Numbers, hashes and dates live in `project.toml` and `docs/RESULTS.md`, not here.
+the IWR6843 image has none). Numbers, hashes and dates live in `project.toml` and [`docs/RESULTS.md`](../../../docs/RESULTS.md) (parent repo), not here.
 
 ## Build
 
@@ -31,7 +31,7 @@ images in their own folder, so the demo has to sit at that path under an SDK roo
 - Compilers: `setenv.sh` pins ARM CGT 16.9.6.LTS and C6000 8.3.3 (plus XDC 3.50.08.24, BIOS 6.73.01.01); the image's
   `ti-cgt-arm_20.2.7.LTS` is unused by SDK 3.6. `build.sh` records both compiler banners in `build/build_info.txt`.
 - The `.bin` size depends on the build path (path strings land in `.text`), so a rebuild matches TI's prebuilt in section layout
-  but not byte for byte; two builds at the same path are byte-identical (`docs/firmware.md` Quirks).
+  but not byte for byte; two builds at the same path are byte-identical ([`docs/firmware.md`](../../../docs/firmware.md) Quirks, parent repo).
 
 ## Test
 

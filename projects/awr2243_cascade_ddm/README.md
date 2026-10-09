@@ -9,7 +9,7 @@ TLV point cloud over the data UART; the host driver configures it over the CLI U
 ## Status
 
 Quote of `./fw list`: status `built` (a `build/build_info.json` exists); no `[[bench]]` record,
-because this build has never been flashed through `fw` (bench check: fwstd-09).
+because this build has never been flashed through `fw` (a bench check is still to do).
 
 - Prebuilt libraries (`.aer5f`/`.ae66`) are not in git here: `build.sh` takes them from the Radar
   Toolbox in the image. The ignore rules still allow committing rebuilt copies under `src/ti/**/lib/`.
@@ -19,7 +19,7 @@ because this build has never been flashed through `fw` (bench check: fwstd-09).
 
 ## Build
 
-From `firmware_dev/` (prerequisites: `projects/README.md`):
+From `firmware_dev/` (prerequisites: the [top README](../../README.md#the-path)):
 
 ```bash
 ./fw build awr2243_cascade_ddm            # CCS headless, ~15 min; CCS_CONFIG=Debug for a debug build
@@ -59,7 +59,8 @@ is `skipped`. For a real bring-up check, `tools/cascade_serial_check.py` (manual
 ## Bench check
 
 [docs/bench_check.md](docs/bench_check.md) (J6 flash, power-cycle, verify, one configured run). The
-manual cfg + TLV check:
+manual cfg + TLV check (the `flash` compose service has serial access; see
+[tutorial 1](../../docs/tutorials/01_build_env.md)):
 `docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli <CLI> --data <DATA> --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg`
 (`--skip-config` to only listen).
 

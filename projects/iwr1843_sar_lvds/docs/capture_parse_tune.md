@@ -18,8 +18,7 @@ uv sync --group tools                     # numpy + matplotlib, only for the rep
 ```
 
 Capture and parse have run on the bench (the bench check in [`bench_check.md`](bench_check.md) ends with one capture
-that `sar_parse.py` accepts). The tuning tools (report, sweep) are tested on synthetic captures only: tuning on a
-real reflector scene is the pending Set B work (see README "Known limits").
+that `sar_parse.py` accepts).
 `dca_capture.py` and the sweep default to the factory DCA1000 address 192.168.33.180 / host .30 and ports 4096 /
 4098 (this repo's driver configs use others: pass `--fpga-ip --host-ip --cmd-port --data-port`), and `--timer-s`
 (default 30) is the CONFIG_FPGA_GEN timer byte: check its meaning before captures longer than 30 s.

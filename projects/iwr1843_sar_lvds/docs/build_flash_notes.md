@@ -26,10 +26,6 @@ the UniFlash GUI ([`bench_bringup.md`](bench_bringup.md) section 3).
 
 Restore the stock demo with `./fw flash ti_stock_demos <port>` (image `projects/ti_stock_demos/build/iwr1843_demo.bin`).
 
-The TI profiles in `configs/` of other projects are references only: they contain object-detection commands this
-firmware rejects. To reconfigure, send `sensorStop`, `flushCfg`, the full cfg and `sensorStart`; no power cycle is
-needed unless `channelCfg`, `adcCfg` or `lowPower` change.
-
 ## Troubleshooting
 
 | Symptom | Cause / fix |

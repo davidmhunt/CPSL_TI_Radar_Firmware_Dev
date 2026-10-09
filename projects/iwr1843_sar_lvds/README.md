@@ -28,8 +28,7 @@ over `configs/sar_example_2ms.cfg` and the parent's SAR cfg. The report and swee
 
 `./fw flash iwr1843_sar_lvds <by-id -if00 port>` (UniFlash DSLite; `--dry-run` prints the command and image sha256).
 Put the board in flash mode (SOP0 + SOP2 closed, set with power off), power-cycle (USB + 5 V) before every attempt,
-retries included, and type `FLASH MODE CONFIRMED` at a TTY. A port that is not a by-id `-if00` path is allowed only
-at a TTY after typing `USE THIS PORT`; `--plan`, `--confirm` and `--json` refuse it. Return to run mode: SOP0 only,
+retries included, and type `FLASH MODE CONFIRMED` at a TTY. Return to run mode: SOP0 only,
 power-cycle, then send a cfg at 115200 baud. Details, the stock-demo restore and failure messages:
 [`docs/build_flash_notes.md`](docs/build_flash_notes.md).
 
@@ -42,7 +41,7 @@ cfg, safe to probe) and expects the prompt `mm_sar_lvds:/>`.
 
 [`docs/bench_check.md`](docs/bench_check.md) is the short gated sequence (flash, verify, one capture);
 [`docs/bench_bringup.md`](docs/bench_bringup.md) is the full procedure, including the runs without a reflector (Set A)
-and with a corner reflector at a measured range (Set B). Results: `project.toml` `[[bench]]`.
+and with a corner reflector at a measured range (Set B).
 
 ## Layout
 
@@ -66,7 +65,6 @@ Docs index:
   HPF procedure, sweep table).
 - Source map: [`docs/lvds_code_map.md`](docs/lvds_code_map.md).
 - Troubleshooting: [`docs/build_flash_notes.md`](docs/build_flash_notes.md).
-- Bench: [`docs/bench_check.md`](docs/bench_check.md), [`docs/bench_bringup.md`](docs/bench_bringup.md).
 
 ## Changes vs TI
 
@@ -88,10 +86,5 @@ Detail, with the license notes for the TI sources: [`docs/changes_vs_ti.md`](doc
 - The reflector tuning checks (Set B: phase continuity, gain/HPF point, boundary Tb, ADC full scale, I/Q order,
   saturation vs gain) are not yet bench-verified; they are pending firmware-18. The tuning tools are tested on
   synthetic captures only.
-- Only `dfeDataOutputMode 1` (frame) is supported; dataFmt 2 needs complex ADC output, ChanInterleave 1 and an even
-  `numAdcSamples` x RX.
-- TI profiles with object-detection commands are rejected; `channelCfg`, `adcCfg` and `lowPower` need a power cycle
-  to change.
 - `dca_capture.py` defaults to the factory DCA1000 address; this repo's driver configs use others (see
   [`docs/capture_parse_tune.md`](docs/capture_parse_tune.md)).
-- Open release-gate item on shipping TI binaries publicly: unchanged by this project.

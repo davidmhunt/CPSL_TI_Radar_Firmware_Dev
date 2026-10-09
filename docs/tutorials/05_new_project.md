@@ -39,14 +39,19 @@ your host `projects/zz_demo/src/`.
 
 ## 3. Fill in `project.toml`
 
-Replace every `TODO`: `[project]` summary and status, `[deps]` (sdk, sdk_version, toolchain,
+Replace every `TODO` (`fw test` only warns about leftovers, but they are placeholders): `[project]` summary and status, `[deps]` (sdk, sdk_version, toolchain,
 `download_items`), `[source]` (`baseline` = the path copied in step 2, `baseline_commit` = the hash above),
 `[build]`, one `[[artifact]]` per output (`file`, `board`, `descriptor`, `flashable`) and `[flash]`.
+`descriptor` is the id of a file in `CPSL_TI_Radar_cpp/config/firmware/` (an empty one disables publish and verify
+for that artifact); the descriptor format, including its `identify` block, is described in the parent's
+[`docs/ARCHITECTURE.md`](../../../docs/ARCHITECTURE.md) and `CPSL_TI_Radar_cpp/Readme.md` (key `firmware`);
+there is no step-by-step guide for writing a new one, so copy an existing file.
 `status` rises as evidence appears: `stub`, `source`, `built`, `bench`.
 
 ## 4. Write `build.sh`
 
-Replace the `TODO` block. It reads the `FW_*` environment, works from its own folder, and writes only to
+Replace the `TODO` block. It reads the environment `fw` sets (`FW_PROJECT`, `FW_VARIANT` only when a variant is
+selected, `FW_COMMIT`; plus `MMWAVE_SDK_PATH` from the image), works from its own folder, and writes only to
 `build/`. TI makefiles write objects next to sources, so copy `src/` into `build/` and build there; do not
 call `git` (the container cannot see it). For an SDK 3.x demo:
 

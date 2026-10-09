@@ -9,7 +9,7 @@ Prerequisite: [the build environment](01_build_env.md). Run from `firmware_dev/`
 ```
 
 `fw build` checks `./fw deps`, runs the project's `build.sh` in the container as your user, and writes
-`projects/<project>/build/`. A build wipes `build/` first.
+`projects/<project>/build/`. Every build starts from fresh staging; there are no incremental builds.
 
 ## What you get
 
@@ -26,7 +26,7 @@ Prerequisite: [the build environment](01_build_env.md). Run from `firmware_dev/`
 |--------|--------|
 | `--variant V` | Build one variant, for projects that declare `variants` (`ti_stock_demos`: `18xx`, `68xx`) |
 | `CCS_CONFIG=Debug ./fw build ...` | Debug build (cascade). `CCS_CONFIG` and any `FW_*` variable pass into the container |
-| `./fw build <project> clean` | Extra arguments go to `build.sh` |
+| `./fw build <project> <arg>` | Extra arguments go to `build.sh` after the variant. No current project acts on one (there is no `clean`: every build is already from scratch) |
 
 ## Long builds
 

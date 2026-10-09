@@ -5,10 +5,11 @@ a board that only one user can hold. Run from `firmware_dev/`.
 
 ## Before you start
 
-- The board is yours alone: no other terminal, viewer or script may hold its serial ports.
+- The board is yours alone: no other terminal, viewer or script may hold its serial ports, and
+  nobody else in the lab may be using the board (agree this before flashing).
 - Know your project's flash mode: the project README's Flash section and
-  `projects/<project>/docs/bench_check.md` give the exact jumpers. Change jumpers only with power off.
-  - IWR boards use the SOP switches, read as three bits in the order SOP2 SOP1 SOP0, 1 = closed. Flash mode
+  `projects/<project>/docs/bench_check.md` give the exact switch and jumper settings. Change jumpers only with power off.
+  - IWR boards use the SOP switches (S1), read as three bits in the order SOP2 SOP1 SOP0, 1 = closed. Flash mode
     is "SOP 101" (SOP0 and SOP2 closed, SOP1 open); functional mode is "SOP 001" (SOP0 only).
   - The cascade EVM uses jumper J6 (bottom two pins = UART flash mode, top two = QSPI run mode).
   - Power: IWR boards run from USB plus a 5 V supply; the cascade EVM needs its 12 V supply, and its USB
@@ -52,9 +53,11 @@ a probe would use up the board's one cfg. To check cascade firmware, run the pro
 `docs/bench_check.md`); that check sends a cfg, so it uses up the allowance and you **power-cycle (12 V)
 afterwards**.
 
-## A cfg is accepted once per power-up
+## A cfg is accepted once per power-up (cascade only)
 
-Any step that sends a chirp cfg (the bench checks, the host driver) needs a fresh power-cycle first.
+On the cascade, any step that sends a chirp cfg (the bench check, the host driver) needs a fresh power-cycle
+first. IWR boards (including the SAR image) accept a cfg again without one; they still need one power-cycle
+after flashing.
 
 ## Bench check and the `[[bench]]` record
 
@@ -70,7 +73,10 @@ result = "pass"            # pass | partial | fail
 doc = "docs/bench_check.md"
 ```
 
-Add it only for a check a person ran; the sha256 ties the result to that exact image. `status = "bench"` in
+Add it only for a check a person ran, and commit it in `firmware_dev` (it does not make the build dirty or stale);
+the sha256 ties the result to that exact image. Longer notes go in the project's `docs/`; measured numbers in
+the parent repo's `docs/RESULTS.md`. A rebuild that changes the image's sha256 drops `bench` back to `built`
+until a new `pass` record matches. `status = "bench"` in
 `[project]` needs a `pass` record whose sha256 equals the current build's default artifact; otherwise
 `./fw list` reports `built`. Editing `[[bench]]` tables or the `status` line does not make the build `dirty`
 or `stale`; any other text change in the project does (see [tutorial 2](02_build.md)).

@@ -4,7 +4,7 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 
 ## Preconditions
 
-- Board, cables and serial ports free (claim them in `status.md`); image built with `./fw build PROJECT_NAME`.
+- Board, cables and serial ports free (nobody else in the lab is using the board); image built with `./fw build PROJECT_NAME`.
 
 ## Board state
 
@@ -25,4 +25,4 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 
 ## Results log
 
-Results are recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc).
+This file keeps no results. Add a `[[bench]]` entry to `project.toml` (board, date, image sha256, result, this doc) and commit it in `firmware_dev`.

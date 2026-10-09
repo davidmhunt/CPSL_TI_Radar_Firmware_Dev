@@ -46,8 +46,8 @@ satisfies the descriptor's `cfg_rules` for its board (`calibData` for the IWR184
 `--plan` then `--confirm <token>`. IWR1843 images use UniFlash 9.6.0's DSLite with `configs/iwr1843_uniflash.ccxml`, exactly as
 `iwr1843_sar_lvds` does. Put the board in SOP 101 (SOP0 + SOP2) and power-cycle (USB + 5 V) before every attempt; add
 `--dry-run` to see the command and image sha256 with no board. Success = `SUCCESS!! File type META_IMAGE1`. After flashing, set
-functional mode (SOP0 only), power-cycle, and send a `configs/xwr*/profile_*.cfg` over the CLI port (115200 baud); a cfg is
-accepted once per power-up. `flash.sh` has no headless flasher for `iwr6843_demo.bin`: it prints the UniFlash GUI steps and
+functional mode (SOP0 only), power-cycle, and send a `configs/xwr*/profile_*.cfg` over the CLI port (115200 baud); a cfg can be re-sent without a
+power-cycle (only the cascade is once per power-up). `flash.sh` has no headless flasher for `iwr6843_demo.bin`: it prints the UniFlash GUI steps and
 exits 3 (flashing mode SOP0 + SOP2, Format = "bin", then functional mode).
 
 ## Verify

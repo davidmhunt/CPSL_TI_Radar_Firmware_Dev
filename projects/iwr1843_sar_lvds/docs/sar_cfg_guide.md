@@ -108,8 +108,7 @@ Two independent first-order high-pass filters sit before the ADC [2]. A target a
 1 / 2 / 5 / 10 / 20 / 50 / 100 m (the checker prints both for your cfg). Below the corners the filters roll off at 40 dB/decade, close to the
 R^4 echo fall-off. **Criterion:** the farthest range of interest should lie above the higher corner's Rc, or its attenuation (0-5 dB past
 20 m for 175 + 350 kHz) must be accepted; the checker does not enforce it. Gain is 24-48 dB in 2 dB steps; the instantaneous dynamic range of
-the 12-bit ADC is about 76 / 70 / 64 / 52 dB at 24 / 30 / 36 / 48 dB (datasheet Fig. 7-1, approximate). Start at 30 dB with 175 + 350 kHz and
-tune with the saturation count (`sarStats`; `satSlices`, `lvds_data_format.md` §3) to zero clipped chirps.
+the 12-bit ADC is about 76 / 70 / 64 / 52 dB at 24 / 30 / 36 / 48 dB (datasheet Fig. 7-1, approximate).
 
 ## 6 Worked example
 
@@ -132,8 +131,6 @@ Each row changes one thing in the §1 cfg. Exit 0 = no ERROR. Options: `--max-ra
 | Ns x 4 B x Nrx over 16 KB (Ns 4100); ADC window past rampEnd (1100); sweep outside 77-81 GHz (start 79.5); beat above 0.8 fs (`--max-range 150`) | `[ADCBUF] numAdcSamples 4100 x 4 B x 1 RX = 16400 B exceeds the 16384 B ADC buffer half`; `[ADCWIN] ADC window ends at ... us, after rampEnd 1100.00 us`; `[SWEEP] sweep 79.5000-83.0225 GHz ... is not inside 77-81 or 76-78 GHz`; `[IF] beat frequency at 150.0 m is 2.319 MHz, above 0.80 x fs = 1.760 MHz` |
 | Period under Nc x Tc + 300 us (510.1) | `[TB] inter-frame blank Tb = ... = 100.00 us is below the 300 us minimum; framePeriodicity must be at least 510.3000 ms` |
 | Frame over 1.342 s (period 1400); boundary step over d_max (`--dmax 0.0015`) | `[PERIOD] framePeriodicity 1400.000 ms exceeds the 1342.177 ms maximum`; `[SPACING] boundary step v x (Tc + Tb) = ... = 1.725 mm exceeds d_max 1.500 mm` |
-| dataFmt 2 with odd Ns x Nrx, real or interleaved ADC data; LVDS load over 10% | `[LVDSCFG] ... needs numAdcSamples x RX channels even (3301 x 1)` / `... complex ADC output` / `... non-interleaved`; `[LVDS] 2128 B per chirp uses 20.3% of the LVDS link, above 1/10 of capacity` |
-| Stock demo command; `numLoops` 256, `chirpThreshold` 2, `enableSW` 1, `dfeDataOutputMode` 3 | `[CMD] line 47 guiMonitor: stock-demo command removed ...`; `[LOOPS]`, `[ADCBUF]`, `[LVDSCFG]`, `[MODE]` |
 
 ## Sources
 

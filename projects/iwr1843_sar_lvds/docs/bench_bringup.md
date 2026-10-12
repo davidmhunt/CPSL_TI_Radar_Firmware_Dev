@@ -1,7 +1,6 @@
 # Bench bring-up: flash the IWR1843BOOST and run the first check
 
-The full procedure for the person at the bench; the short version is [`bench_check.md`](bench_check.md). Sections 3 to 5 are
-confirmed on one board. Paths are relative to `firmware_dev/`.
+The full procedure for the person at the bench; the short version is [`bench_check.md`](bench_check.md). Paths are relative to `firmware_dev/`.
 
 ## 1 Before you start
 
@@ -19,8 +18,7 @@ that joins the two boards, and an Ethernet cable from the DCA1000 to the host.
 
 ## 2 Host network (DCA1000)
 
-The DCA1000 uses its factory addresses: FPGA `192.168.33.180`, host NIC `192.168.33.30/24`, command port 4096, data port 4098.
-The tools in `tools/` default to exactly these.
+The DCA1000 uses its factory addresses: FPGA `192.168.33.180`, host NIC `192.168.33.30/24`, command port 4096, data port 4098 (the tools default to these).
 
 1. Connect the DCA1000 to the host Ethernet port and power it (5 V). The FPGA/power LEDs light.
 2. `ip addr` should list `192.168.33.30/24` on the wired interface cabled to the DCA1000. If not, add it (NetworkManager profile or
@@ -110,8 +108,7 @@ re-sends its own cfg. Stop and report if one FAILs. Power-cycle only if a comman
 | `./bench fmt4` | dataFmt 4 with CQ monitors on (`analogMonitor 1 1`, `CQSigImgMonitor 0 111 4`), then off, then back to dataFmt 2; sizes, 0 gaps, no frame-end warning, LVDS frame count. dataFmt 4's block contents are NOT parsed (no parser path) | 2 |
 | `./bench soak` | NO reflector: the 30 s pre-check, then 600 s of the example cfg as shipped (default gain/HPF, `analogMonitor`/`CQRxSatMonitor` on), `sarStats` each minute, post-stop reads. Needs >= 8 GB free in `/tmp/bench_run/` (else `RESULT: ABORTED`, nothing sent). Saturation counters are recorded, not judged; reflector rows print `NOT EVALUATED (no reflector)`. Writes `/tmp/bench_run/soak_summary.json` + `soak_summary.txt` (<= 40-line paste block). ~4 GB: delete with `rm -f /tmp/bench_run/soak.cap /tmp/bench_run/soak.cap.sarstats.json /tmp/bench_run/endurance_pre*` | 13 |
 
-Order: `./bench bytes --capture /tmp/bench_run/long.cap` (offline: the 60 s capture from `./bench long`), then the table top to bottom
-as `bytes`, `irq`, `bsize`, `late`, `fmt1`, `fmt4`, `soak`. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with
+Order: `./bench bytes --capture /tmp/bench_run/long.cap` (offline: the 60 s capture from `./bench long`), then the table top to bottom. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with
 `--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
 
 ## 8 Reflector runs (a corner reflector at a measured range)
@@ -133,7 +130,6 @@ Order: (1) reflector at 1-2 m, close enough to clip at the default 48 dB (`./ben
 --gain G --hpf A:B` (the top gain must clip: move the reflector closer if it does not). (2) Move the reflector to a measured 3-10 m and
 leave it for 20 minutes: `./bench endurance --range M --gain G --hpf A:B`. (3) Only if the output says "G6 follow-up" (steps at
 Tb = 300 us): `./bench tb --add-us 100 ...`, then 200 up to 500 until clean. Add `--adc-bits N` to each if `./bench adc` was not run.
-Paste the whole output of each command.
 
 ## 9 Hand-off: what to record
 

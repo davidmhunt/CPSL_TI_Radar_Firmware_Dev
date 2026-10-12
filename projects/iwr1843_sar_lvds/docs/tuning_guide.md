@@ -18,8 +18,7 @@ Byte formats: [`lvds_data_format.md`](lvds_data_format.md).
 `rxGain` (24-48 dB, even) amplifies the IF before the 12-bit ADC: more gain lifts weak far returns above the noise but clips strong
 near ones. Two first-order high-pass filters (HPF1 175/235/350/700 kHz, HPF2 350/700/1400/2800 kHz) also sit before it. A target at
 range R has beat frequency 2SR/c, so a corner fc maps to Rc = fc·c/(2S): 11.3 m (175 kHz) and 22.6 m (350 kHz) at slope 2.317 MHz/us.
-Below its corner each filter rolls off at 20 dB/decade, so the pair gives 40 dB/decade, countering the R⁴ excess of near echoes:
-175 + 350 kHz attenuates 48 / 36 / 21 / 11 / 5 / 1 dB at 1 / 2 / 5 / 10 / 20 / 50 m ([`sar_cfg_guide.md`](sar_cfg_guide.md) §5).
+Below its corner each filter rolls off at 20 dB/decade, so the pair gives 40 dB/decade, countering the R⁴ excess of near echoes ([`sar_cfg_guide.md`](sar_cfg_guide.md) §5).
 
 ## 3 The tools and the commands
 
@@ -33,7 +32,6 @@ Once: `uv sync --group tools` (numpy and matplotlib, for the report and sweep). 
 | `sar_tune_report.py` | peak dBFS, clipped chirps, noise floor, range profile with the HPF response, reflector SNR | none |
 | `sar_tune_sweep.py` | per gain/HPF point: cfg check, send cfg, capture, parse, report, one table; no power cycle | DCA1000, CLI port |
 | `sar_synth.py` | synthetic captures (clean, late, mid-packet, lost datagram, ...) for the tests and for trying the tools | none |
-
 
 ```bash
 T=projects/iwr1843_sar_lvds/tools
@@ -111,6 +109,3 @@ Sweep table: one row per point, same quantities; `REJECTED` = a check failed (se
 ## 8 Pitfalls
 
 - **DC and near-range leakage.** A peak in the first bins that ignores the reflector is leakage: raise the HPF.
-- **A clipped count that is not a clean count.** "Firmware result unknown" is not clean (section 7).
-
-- **No cfg on the radar.** `dca_capture.py` alone does not send a cfg: use the one-point sweep (section 3) or `bench_check.py cfg` first.

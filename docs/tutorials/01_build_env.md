@@ -31,14 +31,7 @@ This takes a long time. If it stops with a missing `COPY` source, an installer i
 `./fw deps` prints `deps: all download items present` when nothing is missing. `./fw list` prints the
 projects. To check one project's installers, run `./fw deps ti_stock_demos`.
 
-## Optional: look inside
-
-```bash
-docker compose run --rm firmware-env
-```
-
-This opens a shell in the image. The TI tools are under `/opt/ti`. How the containers work:
-[build environment reference](../reference/build_environment.md).
+How the containers work: [build environment reference](../reference/build_environment.md).
 
 ## Next
 

@@ -1,7 +1,6 @@
 # 3. Flash and verify
 
-You need a [build](02_build.md) and a person at the bench. Flashing changes jumpers and power on a
-board that only one person can use at a time. Run all commands from `firmware_dev/`.
+You need a [build](02_build.md) and a person at the bench. Run all commands from `firmware_dev/`.
 
 ## Before you start
 

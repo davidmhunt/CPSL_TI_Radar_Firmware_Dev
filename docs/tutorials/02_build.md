@@ -10,9 +10,8 @@ You need the [build environment](01_build_env.md). Run all commands from `firmwa
 ./fw build ti_stock_demos
 ```
 
-1. `./fw list` shows the projects.
-2. `--dry-run` checks your setup and prints the command. It builds nothing.
-3. The last command is the real build. It always starts from scratch.
+`--dry-run` checks your setup and prints the command; it builds nothing. The last command is the real
+build and always starts from scratch.
 
 ## 2. See what you got
 

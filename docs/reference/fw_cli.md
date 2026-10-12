@@ -1,7 +1,7 @@
 # `fw` CLI reference
 
 For developers and scripts. Run `./fw` from `firmware_dev/`; logic: `tools/fwcli/`. `./fw help` is the summary,
-`./fw <verb> --help` the arguments. Walk-throughs: [`../tutorials/`](../tutorials/01_build_env.md).
+`./fw <verb> --help` the arguments.
 
 ## Verbs
 
@@ -17,8 +17,7 @@ For developers and scripts. Run `./fw` from `firmware_dev/`; logic: `tools/fwcli
 | `verify <project> [--port P] [--dry-run]` | Descriptor identify probes; never a chirp cfg |
 | `publish <project> [--dest D] [--dry-run]` | Copy flashable images and provenance to `shipped_firmware/` |
 
-Without a project, `deps` and `test` cover every project and `ports` lists every by-id port. Build states
-(`none`, `clean`, `dirty`, `stale`): [projects.md](projects.md#build-state).
+Without a project, `deps` and `test` cover every project and `ports` lists every by-id port.
 
 `deps` items are `downloads/` globs: 1 `mmwave_mcuplus_sdk_*`, 2 `mmwave_sdk_*`, 3 `sysconfig-*`, 4 `ti_cgt_tms470_*`,
 5 `ti_cgt_armllvm_*`, 6 `ti_cgt_c6000_*`, 7 `radar_toolbox_*`, 8 `CCS*`, 9 `uniflash_*`.

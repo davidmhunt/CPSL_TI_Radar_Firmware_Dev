@@ -26,7 +26,7 @@ on the host). Git metadata is not usable inside, hence `FW_COMMIT`.
 
 ## Toolchain paths in the image
 
-`ENV` lines in the `Dockerfile` (mirrored in `docker-compose.yaml`) set `MMWAVE_SDK_PATH`, `MMWAVE_MCUPLUS_SDK_PATH`,
+`ENV` lines in the `Dockerfile` (and `docker-compose.yaml`) set `MMWAVE_SDK_PATH`, `MMWAVE_MCUPLUS_SDK_PATH`,
 `CGT_TI_{ARM_CLANG,C6000,ARM}_PATH`, `SYSCONFIG_PATH`, `RADAR_TOOLBOX_INSTALL_PATH`, `UNIFLASH_PATH` and
 `CCS_INSTALL_PATH`, all under `/opt/ti`. Versions: [`docs/firmware.md`](../../../docs/firmware.md) (parent repo).
 

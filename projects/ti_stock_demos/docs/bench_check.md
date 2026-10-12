@@ -59,5 +59,5 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
 
 ## Results log
 
-Results are recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc). Current record: IWR1843
-flash plus `version`, pass (firmware-19 Step 2).
+Recorded in `project.toml` `[[bench]]` (board, date, image sha256, result). Current record: IWR1843
+flash plus `version`, pass.

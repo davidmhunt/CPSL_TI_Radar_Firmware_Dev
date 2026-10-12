@@ -19,7 +19,7 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 1. J6 bottom, power-cycle. `./fw flash awr2243_cascade_ddm <by-id -if00 port> --dry-run`, check checklist and sha256, then `./fw flash awr2243_cascade_ddm <by-id -if00 port>` and type `FLASH MODE CONFIRMED`.
 2. Power off, J6 top, power-cycle.
 3. `./fw verify awr2243_cascade_ddm --port <by-id -if00 port>`: listen-only; reports `skipped` (the descriptor's `once_safe` is false) and sends nothing.
-4. One configured run (uses the one cfg of this power-up): `docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli <CLI> --data <DATA> --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg` (or the driver with a cascade config). Power-cycle afterwards.
+4. One configured run (uses the one cfg of this power-up): `docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli <CLI> --data <DATA> --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg` (or the driver with a cascade config). `--skip-config` only listens on the data port of a board that is already configured. The check reads the CLI at 115200 baud and the data port at 3,125,000. Power-cycle afterwards.
 
 ## Expected output
 
@@ -33,4 +33,4 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 
 ## Results log
 
-Results are recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc). No record yet.
+Results are recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc). The current record is a pass for our build: flashed with `fw flash`, `fw verify` skipped (exit 0), then one configured run reached `sensorStart` DONE and received 163 frames with 0 missed. TI's prebuilt image stays the fallback (`./fw flash awr2243_cascade_ddm <port> prebuilt`). The shipped cfgs send compact points (type 12), tracker (10) and RANSAC mask (11) TLVs; see `cascade_demo_guide.md` section 6.

@@ -2,103 +2,69 @@
 
 ## Purpose
 
-AM273x + 2x AWR2243 (AWR2243-2X-CAS-EVM) 2-chip cascade radar demo with DDM (Doppler-division
-multiplexing) processing, built headlessly with CCS from the TI Radar Toolbox lab source. Streams a
-TLV point cloud over the data UART; the host driver configures it over the CLI UART.
+Firmware for the AWR2243-2X-CAS-EVM, the 2-chip cascade radar (AM273x + two AWR2243). It uses DDM
+(Doppler-division multiplexing) processing and is built with CCS from the TI Radar Toolbox lab source.
+It sends a point cloud over the data UART; the host driver configures it over the CLI UART.
 
 ## Status
 
-Quote of `./fw list`: status `bench`. Bench record (`project.toml` `[[bench]]`):
-
-| Date | Board | Image sha256 | Result |
-|------|-------|--------------|--------|
-| 2026-10-12 | AWR2243 cascade | `9bf7f418...c30c770` | pass: flashed by the user ("Cascade finished successfully"), `fw verify` skipped (exit 0), one configured run: `sensorStart` DONE, 163 frames, 0 missed |
-
-TI's prebuilt image (`./fw flash awr2243_cascade_ddm <port> prebuilt`) remains the fallback.
-
-- Prebuilt libraries (`.aer5f`/`.ae66`) are not in git here: `build.sh` takes them from the Radar
-  Toolbox in the image. The ignore rules still allow committing rebuilt copies under `src/ti/**/lib/`.
-- **Open item: drop TI binaries.** `prebuilt_binaries/` holds TI's SBL images (`sbl_qspi`,
-  `sbl_uart_uniflash`, needed by `flash.sh`); whether TI binaries may be shipped
-  publicly is an open licensing question (user decision).
+`bench`: our build is flashed and passes one configured run (bench record in `project.toml`; see `./fw list`).
 
 ## Build
 
-From `firmware_dev/` (prerequisites: the [top README](../../README.md#before-you-start)):
-
-```bash
-./fw build awr2243_cascade_ddm            # CCS headless, ~15 min; CCS_CONFIG=Debug for a debug build
-```
-
-Outputs in `build/`: `am273x_cascade.appimage` (flashable, both cores), `am273x_cascade.elf` (MSS),
-`am273x_cascade_dss.xe66` (DSS), `build_info.json` (sha256 of each), `build_info.txt`; the CCS
-workspace and its logs stay in `build/ccs_workspace/`.
+`./fw build awr2243_cascade_ddm` (run from `firmware_dev/`; about 15 minutes; `CCS_CONFIG=Debug` for a debug build).
+Outputs in `build/`: `am273x_cascade.appimage` (the flash image), `am273x_cascade.elf`, `am273x_cascade_dss.xe66`,
+`build_info.json`. How the build works: [`docs/cascade_demo_guide.md`](docs/cascade_demo_guide.md).
 
 ## Test
 
-`./fw test awr2243_cascade_ddm` (no hardware, no Docker): manifest and descriptor consistency, the
-`configs/cascade_*.cfg` against the descriptor limits, and the `uart_uniflash.py` flush-patch anchor
-check (runs only when the `firmware-env` image is present, otherwise skipped and said so).
+`./fw test awr2243_cascade_ddm` (no hardware): manifest and descriptor checks, every `configs/cascade_*.cfg`
+against the descriptor limits, and the `uart_uniflash.py` patch check (only when the `firmware-env` image exists).
 
 ## Flash
 
-Method `uart_uniflash` (MCU+ SDK `uart_uniflash.py` through the SBL images), gate J6. From `firmware_dev/`:
-
-```bash
-./fw flash awr2243_cascade_ddm /dev/serial/by-id/<...>-if00 --dry-run   # checklist, command, sha256; flashes nothing
-./fw flash awr2243_cascade_ddm /dev/serial/by-id/<...>-if00             # our build (TTY: J6 checklist + typed phrase)
-./fw flash awr2243_cascade_ddm /dev/serial/by-id/<...>-if00 prebuilt    # TI's prebuilt appimage (TTY / dry run only)
-```
-
-Board setup: J6 on the bottom two pins = UART flash mode, top two pins = QSPI run mode; change only
-with power off, and power-cycle (12 V) before flashing. After flashing, move J6 to the top two pins
-and power-cycle. Success only on `All commands from config file are executed`. A chirp cfg is
-accepted once per power-up.
+`./fw flash awr2243_cascade_ddm /dev/serial/by-id/<...>-if00` (add `--dry-run` to flash nothing; add `prebuilt`
+after the port for TI's own image, from a terminal only).
+- Jumper J6: bottom two pins = UART flash mode, top two pins = QSPI run mode. Change it only with power off.
+- Power-cycle (12 V off, on) before flashing. Success is `All commands from config file are executed`.
+- After flashing, move J6 to the top two pins and power-cycle.
+- The radar accepts one chirp cfg per power-up: power-cycle before every configured run.
 
 ## Verify
 
-`./fw verify awr2243_cascade_ddm --port <by-id -if00 port>` is listen-only: the descriptor
-(`cascade_ddm`, `identify.AWR2243_CASCADE`) has `once_safe` false, so no probe is sent and the outcome
-is `skipped`. For a real bring-up check, `tools/cascade_serial_check.py` (manual, sends a cfg; see Bench check).
+`./fw verify awr2243_cascade_ddm --port <by-id -if00 port>` only listens and reports `skipped`: the cascade
+takes one cfg per power-up, so `fw` sends nothing. To check the firmware, run the configured check in
+[`docs/bench_check.md`](docs/bench_check.md).
 
 ## Bench check
 
-[docs/bench_check.md](docs/bench_check.md) (J6 flash, power-cycle, verify, one configured run). The
-manual cfg + TLV check (the `flash` compose service has serial access; see
-[tutorial 1](../../docs/tutorials/01_build_env.md)):
-`docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli <CLI> --data <DATA> --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg`
-(`--skip-config` to only listen).
+The checks to run on a real board are in [`docs/bench_check.md`](docs/bench_check.md).
 
 ## Layout
 
-| Path | What |
-|------|------|
-| `project.toml` | Manifest read by `./fw` |
-| `build.sh`, `flash.sh` | Container build and UART flash scripts (standard `FW_*` env) |
-| `src/` | CCS projectspecs + demo and library sources (Radar Toolbox baseline plus our edits) |
-| `configs/` | Chirp cfgs `cascade_*.cfg` |
-| `prebuilt_binaries/` | TI SBL images for `flash.sh` |
-| `tools/` | `cascade_serial_check.py` (manual bring-up check) |
-| `tests/` | Hardware-free host tests |
-| `docs/` | `cascade_demo_guide.md` (architecture, build, packet formats), `bench_check.md` |
-| `build/` | Outputs (gitignored) |
+- `project.toml`: the manifest `./fw` reads
+- `build.sh`, `flash.sh`: run in the container
+- `src/`: CCS projectspecs and demo/library sources (Radar Toolbox baseline plus our edits)
+- `configs/`: chirp cfgs `cascade_*.cfg`
+- `prebuilt_binaries/`: TI's two SBL images that `flash.sh` needs
+- `tools/`: `cascade_serial_check.py` (manual bring-up check)
+- `docs/`: [`cascade_demo_guide.md`](docs/cascade_demo_guide.md) (build, source tree, UART packet format), `bench_check.md`, `archive/`
 
 ## Changes vs TI
 
 Baseline: Radar Toolbox 4.00.00.05, `source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/src/awr2243`
-(see `project.toml` `[source]`). `src/` is that tree plus our edits to the demo and library sources.
-There is no unmodified-baseline commit: `704930d` ("track modified awr2243 firmware sources") is the
-first commit that tracks the source, and it already includes the edits. To see what we changed,
-diff `src/` against the Radar Toolbox install (`/opt/ti/radar_toolbox_4_00_00_05/...` in the image).
-Also not from TI: `configs/`, `docs/cascade_demo_guide.md`, the build/flash scripts and `tools/`.
+(`project.toml` `[source]`). `src/` is that tree plus our edits; the first commit that tracks it (`704930d`)
+already includes them, so there is no unmodified baseline in git. To see the edits, diff `src/` against the
+Radar Toolbox in the image (`/opt/ti/radar_toolbox_4_00_00_05/...`). `configs/`, `docs/`, `tools/` and the
+build/flash scripts are not from TI.
 
-TI references (not stored here):
-- Two Chip Cascade user guide and release notes: in the Radar Toolbox download that `downloads/download.sh` fetches (`source/ti/examples/Automotive_ADAS_and_Parking/mmwave_2_chip_cascade/docs/`); toolbox page: https://www.ti.com/tool/download/RADAR-TOOLBOX
-- AWR2243-2X-CAS-EVM user's guide (SWRU639): https://www.ti.com/lit/pdf/SWRU639
-- mmWave Demo Visualizer (cloud): https://dev.ti.com/gallery/view/mmwave/mmWave_Demo_Visualizer; DCA1000EVM: https://www.ti.com/tool/DCA1000EVM
+TI references (not stored): the Two Chip Cascade user guide (in the Radar Toolbox) and the EVM user's guide, SWRU639.
 
 ## Known limits
 
-- One cfg per power-up (TI known issue): power-cycle before every configured run.
-- New boards may need the QSPI Quad Enable bit set (see "Possible Flashing Issues" in the cascade
-  user guide; rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
+- One cfg per power-up (TI known issue).
+- A new board may fail to flash if the QSPI Quad Enable bit is unset ("Possible Flashing Issues" in TI's cascade user
+  guide: rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
+- The prebuilt libraries (`.aer5f`, `.ae66`) are not in git; `build.sh` takes them from the Radar Toolbox.
+- Open licensing item (user decision): may the TI SBL images in `prebuilt_binaries/` be shipped publicly?
+- The image has no raw-ADC (LVDS) stream; see the guide, section 7.

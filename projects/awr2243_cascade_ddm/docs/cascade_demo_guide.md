@@ -1,410 +1,181 @@
-# AM273x + AWR2243 2-Chip Cascade Radar Demo Developer Guide
+# Cascade DDM demo: developer guide
 
-This guide provides a detailed explanation of the architecture, file structure, build configurations, and operation of the **AM273x + AWR2243 2-Chip Cascade Radar Demo** (TDM and DDM processing modes) sourced from the TI Radar Toolbox.
+For firmware and host-driver developers. It covers how the image is built, what is in `src/`, and
+the UART packet format in enough detail to write a parser. Paths below are relative to
+`projects/awr2243_cascade_ddm/` unless they start with `mmw/`, which stands for
+`src/ti/demo/am273x/mmw/`. A cite `file:N` is a line in this tree; everything was read from source,
+not from TI documentation. The `.projectspec` files are in `src/`; the older manual `make` build
+and the raw-ADC notes are in [`archive/`](archive/) and are not verified.
 
----
+## 1. What runs where
 
-## 1. System Architecture
+| Part | Runs on | Source |
+|------|---------|--------|
+| MSS | AM273x Cortex-R5F, little-endian (`src/mmwave2chipCascade_mss.projectspec:45`) | `mmw/mss/`: `mss_main.c` (control, UART output), `mmw_cli.c` (CLI), `mss_tracker.c` (GTrack) |
+| DSS | AM273x C66x DSP | `mmw/dss/`: `dss_main.c`, `data_path.c` (range/Doppler/CFAR datapath) |
+| BSS | each AWR2243 | not in this tree; the MSS configures both chips over mmWaveLink (`src/ti/control/mmwavelink/`) |
 
-The Cascade radar environment splits operations across three logical layers: the **Master Subsystem (MSS)** running on the Cortex-R5F core, the **DSP Subsystem (DSS)** running on the C66x DSP, and the **Radar Subsystem (BSS)** running directly on the AWR2243 transceiver chips.
+The host sends ASCII CLI lines on the command UART and reads frames from the data UART. The command UART is
+`CONFIG_UART0` at 115200 baud (`mmw/mss/mss_main.c:4249`, `:4469`). The data UART is `CONFIG_UART1`
+(`mss_main.c:4477`) at 3,125,000 baud (`mmw/mss/mss.syscfg:138`; `configDataPort <baud>` changes it at
+run time, max 3,125,000, `mmw_cli.c:156`, `:1689`). `queryDemoStatus` prints a different default
+(892857, `mss_main.c:4248`); that field is only printed, not applied.
 
-```mermaid
-flowchart TD
-    subgraph Host ["Host PC"]
-        CLI[CLI Control over UART]
-        Stream[UDP Streamer DCA1000]
-    end
+## 2. Build
 
-    subgraph AM273x ["AM273x Radar SoC"]
-        subgraph MSS ["Cortex-R5F (MSS)"]
-            MMain[mss_main.c] -->|CLI Parser| MCli[mmw_cli.c]
-            MMain -->|SPI / mmWaveLink API| MasterAWR
-            MMain -->|SPI / mmWaveLink API| SlaveAWR
-            MMain -->|GTrack Engine| MTracker[mss_tracker.c]
-            MTracker -->|UART Serial Outputs| CLI
-        end
+`./fw build awr2243_cascade_ddm` (from `firmware_dev/`, about 15 minutes) runs `build.sh` in the
+container. It does not use the SDK's `make` flow. In order:
 
-        subgraph DSS ["C66x DSP (DSS)"]
-            DMain[dss_main.c] -->|Coordinate HWA & EDMA| DPath[data_path.c]
-            DPath -->|FFT 1D/2D/3D & CFAR| Obj[Object List / TLV Generation]
-            Obj -->|Inter-processor Mailbox| MMain
-            DMain -->|High-speed Raw Stream| DLvds[mmw_lvds_stream.c]
-        end
-    end
+1. Copies `src/` to `build/stage/` and removes `build/ccs_workspace/` (`build.sh:60-64`).
+2. Adds the seven prebuilt TI libraries (DPM x2, mmWave, mmWaveLink, DDMA range and Doppler, CLI; list
+   in `build.sh:41-49`) to the stage from the Radar Toolbox (`radar_toolbox_4_00_00_05`) unless a copy
+   exists under `src/ti/**/lib/` (`build.sh:66-78`). They are not tracked here.
+3. Patches the staged `.projectspec` files for Linux: CCS's cygwin `rm` becomes `rm`, `node.exe`
+   becomes `node` (`build.sh:82-85`). `src/` is not changed.
+4. Registers the TI install dirs with CCS and imports both projectspecs headlessly
+   (`build.sh:87-95`).
+5. Builds `am273x_mmw_cascade_demo_dss` (C66x, `.xe66`), then `am273x_mmw_cascade_demo_mss` (R5F,
+   `.xer5f`) in configuration `Release`, or `Debug` with `CCS_CONFIG=Debug` (`build.sh:97-110`). It
+   fails if either output is missing, because CCS does not always return non-zero on compile errors.
+6. The MSS post-build step strips each ELF, converts it to `.rprc` and joins them with
+   `multicoreImageGen.js --devID 55`: MSS at core slot 0, DSS at 2, into
+   `am273x_mmw_cascade_demo_DDM.appimage` (`src/mmwave2chipCascade_mss.projectspec:88-90`). The image
+   holds the two AM273x cores only; no AWR2243 BSS patch is in it.
+7. Copies the outputs to `build/` as `am273x_cascade.appimage` (flashed), `am273x_cascade.elf` (MSS),
+   `am273x_cascade_dss.xe66`, and writes `build_info.txt`; `fw build` adds `build_info.json`
+   (`build.sh:112-129`).
 
-    subgraph Transceivers ["AWR2243 Transceivers"]
-        MasterAWR[Master AWR2243]
-        SlaveAWR[Slave AWR2243]
-        MasterAWR -->|DIG_SYNC_OUT / 20GHz LO Sync| SlaveAWR
-    end
+Compiler options come from the projectspecs: `-DMMWDEMO_DDM -DCASCADE_EVM` (MSS, `:54-55`) and
+`--define=MMWDEMO_DDM --define=CASCADE_EVM` (DSS, `src/mmwave2chipCascade_dss.projectspec:62-63`).
 
-    MasterAWR -->|CSI-2 Lanes| DPath
-    SlaveAWR -->|CSI-2 Lanes| DPath
-    DLvds -->|LVDS Data Lanes| Stream
-```
-
-### 1.1 Cortex-R5F Master Subsystem (MSS)
-The **MSS** acts as the controller of the radar system:
-* **System Control & Boot:** Initializes the AM273x SoC (pinmux, clock tree, drivers, and mailboxes) and spawns the FreeRTOS multitasking runtime.
-* **Transceiver Configuration:** Communicates with the two AWR2243 transceivers over dedicated SPI buses using the **mmWaveLink API**. During boot, it downloads the BSS firmware patch (`xwr2x4xp_radarss_metarprc.bin`) into the transceivers.
-* **CLI Parser (`mmw_cli.c`):** Sinks ASCII chirp configurations from the host over the `UART` serial control port, processes them into profile structures, and programs them into the transceivers.
-* **Target Tracker (`mss_tracker.c`):** Receives the processed point cloud list from the DSP, runs the TI **GTrack target tracking algorithm** (an extended Kalman-filter-based cluster tracker), and formats point-cloud and tracker outputs into TLV (Type-Length-Value) packet frames.
-* **Serial Output:** Streams the formatted TLV frames to the host PC over the `UART` data port.
-
-### 1.2 C66x DSP Subsystem (DSS)
-The **DSS** handles the high-throughput, real-time signal processing datapath:
-* **Datapath Coordination (`dss_main.c` / `data_path.c`):** Sets up and coordinates the **Hardware Accelerator (HWA)** and **EDMA** controllers to process incoming ADC data blocks.
-* **1D Range Processing:** Processes raw ADC samples via Range FFTs.
-* **2D Doppler Processing:** Resolves relative target velocities via Doppler FFTs.
-* **3D Angle/Aperture Processing:** Computes Angle FFTs across the virtual receiver array to resolve azimuth and elevation angles.
-* **CFAR & Target Detection:** Runs Constant False Alarm Rate (CFAR) algorithms to identify target reflections, creating a 3D/4D point cloud.
-* **Raw Data Streaming (`mmw_lvds_stream.c`):** Configures the CSI-2 wrapper on the AM273x to package and stream raw ADC data frames over the LVDS lanes directly to the DCA1000 capture card.
-
-### 1.3 BSS (Radar Subsystem / AWR2243 Firmware)
-The AWR2243 front-end chips contain their own internal micro-controller core running BSS code:
-* Manages the analog hardware, synthesizer frequency ramps (chirps), PLLs, local oscillators, and high-speed ADCs.
-* **Synchronization:** In the 2-chip Cascade system, the Master AWR2243 distributes its 20 GHz Local Oscillator (LO) clock and hardware `DIG_SYNC_OUT` pulse to the Slave AWR2243 to maintain tight phase synchronization across all 8 Rx lanes.
-
----
-
-## 2. MIMO Processing Modes: TDM vs DDM
-
-The codebase supports two distinct Multiple-Input Multiple-Output (MIMO) processing targets:
-
-| Feature | Time Division Multiple Access (TDM) | Doppler Division Multiple Access (DDM) |
-|---|---|---|
-| **Transmission Scheme** | Transmitters (TX) pulse sequentially in time. | Transmitters (TX) transmit simultaneously. |
-| **TX separation** | Separated by time slot. | Separated in the Doppler domain by phase codes. |
-| **Max Unambiguous Velocity** | Limited, as TX multiplexing reduces the effective pulse repetition frequency (PRF). | Maximized (unaffected by multiplexing since all transmitters fire concurrently). |
-| **Signal-to-Noise Ratio (SNR)** | Standard. | Increased due to higher cumulative transmit power. |
-| **Application** | Standard automotive ranging and parking. | High-speed ADAS, highway driving, and long-range tracking. |
-
----
-
-## 3. Directory and File Structure
-
-Below is the directory map of the Cascade project under `projects/awr2243_cascade_ddm/`:
+## 3. Source tree (`ls src/`)
 
 ```text
-projects/awr2243_cascade_ddm/
-├── configs/                        # Reference chirp configurations (.cfg files)
-├── docs/                           # Documentation (this guide, bench_check.md)
-├── prebuilt_binaries/              # TI SBL images (.tiimage) that flash.sh needs
-│
-└── src/                            # Source code root (the Radar Toolbox awr2243/ folder)
-    ├── mmwave2chipCascade_mss.projectspec  # CCS MSS Project definition (Cortex-R5F)
-    ├── mmwave2chipCascade_dss.projectspec  # CCS DSS Project definition (C66x DSP)
-    │
-    └── ti/                         # Sourced SDK Components
-        ├── alg/                    # Sourced algorithm implementations (e.g., GTrack)
-        ├── board/                  # Board-specific configurations (e.g., antenna geometries)
-        ├── common/                 # Common/shared macros and configurations
-        ├── control/                # Control plane and transceiver interface libraries (mmWaveLink, DPM)
-        ├── datapath/               # Signal processing DPUs and execution chain (DPC)
-        ├── utils/                  # Utility functions (CLI parser, LVDS packet framing)
-        │
-        └── demo/am273x/mmw/         # Core application source
-            ├── mmw_resDDM.h            # DDM processing resource mappings
-            ├── mmw_resTDM.h            # TDM processing resource mappings
-            │
-            ├── mss/                    # Master Subsystem (Cortex-R5F) source
-            │   ├── mss_main.c          # Control loop, initialization, SPI mmWaveLink setup
-            │   ├── mmw_cli.c           # CLI serial commands interface
-            │   ├── mss_tracker.c       # GTrack clustering and tracking algorithms
-            │   ├── mss.syscfg          # AM273x pins, clocks, and peripheral configurations
-            │   ├── mss_enet.syscfg     # SysConfig with Ethernet configurations enabled
-            │   ├── mmw_mss_linker.cmd  # Linker script mapping R5F memory segments
-            │   └── mssgenerated/       # Autogenerated SysConfig output sources
-            │
-            └── dss/                    # DSP Subsystem (C66x DSP) source
-                ├── dss_main.c          # C66x DSP task loop, HWA / EDMA setup
-                ├── data_path.c         # Radar signal processing datapath (Range/Doppler/Angle)
-                ├── mmw_lvds_stream.c   # Manages high-speed raw LVDS data streaming
-                ├── dss.syscfg          # DSP peripheral and HWA configurations
-                ├── mmw_dss_linker.cmd  # Linker script mapping C66x memory segments
-                └── dssgenerated/       # Autogenerated SysConfig output sources
+src/
+  mmwave2chipCascade_{mss,dss}.projectspec   CCS projects (read by build.sh)
+  ti/
+    alg/gtrack/            GTrack tracker (3D build)
+    board/antenna_geometry.h
+    common/syscommon.h
+    control/mmwave/, control/mmwavelink/   mmWave control and SPI link to the AWR2243s
+    datapath/dpc/objectdetection/{common,objdethwa,objdethwaDDMA}/   detection chains (TDM and DDMA)
+    datapath/dpu/{rangeprocDDMA,dopplerprocDDMA}/
+    demo/am273x/mmw/       mss/, dss/, include/ (mmw_config.h, mmw_output.h), mmw_resDDM.h, mmw_resTDM.h
+    demo/io_interface/, demo/utils/   shared demo helpers (RF parser, ADC config, flash, Ethernet)
+    utils/hsiheader/
 ```
 
-### 3.1 Overview of Sourced SDK Folders
-The files in the `src/awr2243/ti/` directory are structured to match the layout of the TI mmWave MCU+ SDK (`/opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/`). They contain custom, optimized components required for the 2-chip Cascade Demo that are not present or differ from the standard single-chip SDK examples.
+The DPM and CLI libraries have no source here; they come as the prebuilt libraries in step 2.
 
-*   **`ti/alg/` (Algorithms):** Contains target clustering and tracking source files under `alg/gtrack/`. This implements the GTrack algorithm (Extended Kalman filter tracking) running on the MSS.
-*   **`ti/board/` (Board Configurations):** Contains `board/antenna_geometry.h` which specifies virtual channel spacing and coordinates based on the physical EVM antenna layout.
-*   **`ti/common/` (Common Headers):** Holds `common/syscommon.h` which contains shared constants, data types, and macro definitions used across both the DSS and MSS cores.
-*   **`ti/control/` (Control Layer):** Contains components responsible for managing the transceivers and inter-processor communication:
-    *   `control/mmwavelink/` & `control/mmwave/`: Low-level drivers implementing the SPI control protocol used to configure, initialize, and monitor the two AWR2243 chips.
-    *   `control/dpm/`: Data Path Manager (DPM) library that manages synchronization, command dispatching, and core-to-core signaling between R5F (MSS) and C66x (DSS) mailboxes.
-*   **`ti/datapath/` (Datapath Components):** Integrates the signal processing algorithms:
-    *   `ti/datapath/dpc/`: Data Path Chains (such as `objectdetection`), which orchestrate the hardware accelerators (HWA) and EDMA transfers.
-    *   `ti/datapath/dpu/`: Individual Data Path Processing Units. Specifically, this folder contains custom units like `rangeprocDDMA` and `dopplerprocDDMA` tailored to process Doppler Division Multiple Access signals.
-*   **`ti/utils/` (Utilities):** Includes parser scripts for CLI command processing (`utils/cli/`) and data header formatting configurations for the raw high-speed data stream (`utils/hsiheader/`).
+## 4. DDM, not TDM
 
-### 3.2 Compilation/Sync Mechanism
-At build time, these files are overlaid onto the official container-internal SDK path (`/opt/ti/.../ti/`). This ensures that local host edits in the project's `src/` directory are compiled, while maintaining a clean, isolated build environment in Docker.
+The tree carries both TI chains, but this project builds only DDM: both projectspecs define
+`MMWDEMO_DDM` and none defines `MMWDEMO_TDM` (lines in section 2). `mmw_output.h:47-51` then includes the
+`objdethwaDDMA` chain and `mmw_resDDM.h` supplies the resources. In DDM all enabled transmitters fire in
+every chirp and are separated in the Doppler FFT, which is divided into `numTxAnt + numEmptySubBands`
+sub-bins (`mmw/mss/mss_main.c:1614`, `:3823`); TDM fires them in turn. The shipped cfgs enable TX mask 7 on every chirp (`chirpCfg 0 7 0 0 0 0 0 7`, `configs/cascade_shortrange.cfg:18`). The TDM objects stay in the tree as part of TI's baseline and are not compiled.
 
----
+## 5. CLI and the shipped cfgs
 
-## 4. Compilation and Build Instructions
+`configs/cascade_*.cfg` are CLI scripts: one command per line, `%` starts a comment. Each line answers
+`Done` or an error. The demo-specific commands are the table at `mmw_cli.c:2153-2403` (for example
+`sensorStart`, `sensorStop`, `guiMonitor`, `cfarCfg`, `aoaFovCfg`, `gtrack`, `ransac`,
+`configDataPort`, `queryDemoStatus`); the chirp commands (`profileCfg`, `chirpCfg`, `frameCfg` and so
+on) are are not in this table. A cfg is accepted once per power-up.
 
-The Cascade projects are compiled headlessly inside the Docker environment. There are no Code Composer Studio (CCS) GUI dependencies.
+`guiMonitor <subFrame> <detectedObjects> <logMagRange> <noiseProfile> <rangeAzimuthHeatMap>
+<rangeDopplerHeatMap> <statsInfo> <ransacFilterMask> <trackers>` (`mmw_cli.c:2246-2250`, parsed at
+`:490-498`) selects the TLVs (flags in `mmw/include/mmw_config.h:67-95`). `detectedObjects`: 1 = points +
+side info, 2 = points only, 3 = compact points, 0 = none. Three shipped cfgs use `guiMonitor -1 3 0 0 0 0 0 1 1` (line 20);
+`cascade_shortrange_calib.cfg` uses `-1 3 1 1 0 0 0 0 0`, so the shipped frames carry compact points (type 12), the
+tracker list (type 10) and the RANSAC mask (type 11), but no type 1, 7 or 6.
 
-### 4.1 Automated Build Commands
-From `firmware_dev/`, execute the following commands on the host machine:
+## 6. UART frame format (data port)
 
-* **Compile DDM/TDM Demos:**
-  ```bash
-  ./fw build awr2243_cascade_ddm          # CCS_CONFIG=Debug for a debug build
-  ```
-  This runs the compilation scripts within the container and creates the following host outputs:
-  * `projects/awr2243_cascade_ddm/build/am273x_cascade.elf` (Cortex-R5F MSS ELF debug executable)
-  * `projects/awr2243_cascade_ddm/build/am273x_cascade.appimage` (Signed multi-core flash image containing MSS, DSS, and the AWR2243 BSS patches)
+All fields are little-endian. One frame is `header`, then `numTLVs` TLVs, then zero padding up to a
+multiple of 32 bytes (`MMWDEMO_OUTPUT_MSG_SEGMENT_LEN`, `mmw/include/mmw_output.h:57`). Frames follow
+each other with no gap. To resync, search for the magic word.
 
-### 4.2 How the Makefile Works
-The makefile located at `/opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/demo/am273x/mmw/makefile` compiles the binaries. It utilizes:
-1. **SysConfig Generation:** Generates pinmux and peripheral initializers from the `mss.syscfg` and `dss.syscfg` files.
-2. **MSS Compilation:** Invokes the TI Arm Clang Compiler (`tiarmclang`) to build R5F object files and link them using `mmw_mss_linker.cmd`.
-3. **DSS Compilation:** Invokes the C6000 Compiler (`cl6x`) to build DSP object files and link them using `mmw_dss_linker.cmd`.
-4. **Binary Packaging:** Runs the Node-based `elf2rprc.js` script to parse the compiled ELF executables, then packages them into a single multicore bootable image using `multicoreImageGen.js`.
+### 6.1 Header, 40 bytes (`MmwDemo_output_message_header`, `mmw_output.h:119-149`)
 
-### 4.3 Manual Build in Interactive Terminal
+| Offset | Field | Type | Value, source |
+|--------|-------|------|---------------|
+| 0 | `magicWord[4]` | uint16 x4 | `0x0102,0x0304,0x0506,0x0708`, so the bytes are `02 01 04 03 06 05 08 07` (`mss_main.c:1651-1654`) |
+| 8 | `version` | uint32 | `major<<24 \| minor<<16 \| bugfix<<8 \| build` of the mmWave SDK (`mss_main.c:1656-1659`) |
+| 12 | `totalPacketLen` | uint32 | header + TLVs + padding, rounded up to 32 (`mss_main.c:1747-1748`) |
+| 16 | `platform` | uint32 | always `0x2243` (`mss_main.c:1650`) |
+| 20 | `frameNumber` | uint32 | `frameStartIntCounter` from the DSS stats (`mss_main.c:1750`) |
+| 24 | `timeCpuCycles` | uint32 | always 0 (`mss_main.c:1749`, the counter read is commented out) |
+| 28 | `numDetectedObj` | uint32 | points in this frame, `gNumObjOut` (`mss_main.c:1655`) |
+| 32 | `numTLVs` | uint32 | TLVs that follow (`mss_main.c:1745`) |
+| 36 | `subFrameNumber` | uint32 | sub-frame index; 0 without advanced frame config (`mss_main.c:1751`) |
 
-If you want to perform manual compiling, debugging, or build only a specific subsystem (MSS or DSS), you can start an interactive bash session in the container and invoke the TI compiler tools directly.
+### 6.2 TLV header, 8 bytes (`MmwDemo_output_message_tl`, `mmw_output.h:210-218`)
 
-1. **Launch the Container Terminal:**
-   ```bash
-   docker compose run --rm firmware-env
-   ```
+`uint32 type` then `uint32 length`; `length` is the payload size in bytes and does not include these 8
+bytes. The payload follows at once. TLVs are not padded between each other; only the frame end is.
 
-2. **Configure the SDK Environment Variables:**
-   Run the following commands inside the container shell to source paths and tool configs:
-   ```bash
-   export MMWAVE_SDK_DEVICE=am273x
-   export DOWNLOAD_FROM_CCS=yes
-   export M4_RELEASE_OPT=1
-   export MSS_AOA_ENABLED=1
-   export ECO_MSS_AOA_ENABLED=1
+### 6.3 TLV types
 
-   export MMWAVE_SDK_TOOLS_INSTALL_PATH=/opt/ti
-   export CCS_INSTALL_PATH=/opt/ti
-   export MMWAVE_SDK_INSTALL_PATH=/opt/ti/mmwave_mcuplus_sdk_04_04_00_01
-   export R5F_CLANG_INSTALL_PATH=/opt/ti/ti-cgt-armllvm_2.1.1.LTS
-   export CCS_BIN_PATH=/usr/bin
-   export CCS_CYGWIN_PATH=/usr/bin
-   export SYSCONFIG_INSTALL_PATH=/opt/ti/sysconfig_1.22.0
-   export XDC_INSTALL_PATH=/opt/ti/xdctools_3_50_08_24_core
-   export MCU_PLUS_AM273X_INSTALL_PATH=/opt/ti/mcu_plus_sdk_am273x_08_05_00_24
-   export MMWAVE_XWR2XXX_DFP_INSTALL_PATH=/opt/ti/mmwave_dfp_02_04_08_01
-   export C66X_CODEGEN_INSTALL_PATH=/opt/ti/ti-cgt-c6000_8.3.12
-   export C66x_DSPLIB_INSTALL_PATH=/opt/ti/dsplib_c66x_3_4_0_0
-   export C66x_MATHLIB_INSTALL_PATH=/opt/ti/mathlib_c66x_3_1_2_1
-   ```
+Type numbers are the enum at `mmw_output.h:67-110`, counted from 1. A TLV is sent only if its `guiMonitor`
+flag is set and, for point lists, `numDetectedObj > 0`. Building the lengths: `mss_main.c:1661-1743`;
+sending order (this is the order in the stream): `mss_main.c:1760-1950`.
 
-3. **Verify the Environment Settings:**
-   Run the SDK check script to verify the compiler and paths:
-   ```bash
-   cd /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/scripts/unix
-   source ./checkenv.sh
-   ```
+| Order | Type | Name | Payload length | Sent when |
+|-------|------|------|----------------|-----------|
+| 1 | 1 | `DETECTED_POINTS` | 16 x N | `detectedObjects` 1 or 2 |
+| 2 | 12 | `DETECTED_POINTS_COMPACT` | 8 x N | `detectedObjects` 3 |
+| 3 | 7 | `DETECTED_POINTS_SIDE_INFO` | 4 x N | `detectedObjects` 1 |
+| 4 | 2 | `RANGE_PROFILE` | 2 x `numRangeBins` | `logMagRange` |
+| 5 | 3 | `NOISE_PROFILE` | 2 x `numRangeBins` | `noiseProfile` |
+| 6 | 5 | `RANGE_DOPPLER_HEAT_MAP` | 2 x `numRangeBins` x `numDopFFTSubBins` (DDM) | `rangeDopplerHeatMap` |
+| 7 | 6 | `STATS` | 24 | `statsInfo` (also sends type 9) |
+| 8 | 9 | `TEMPERATURE_STATS` | 28 | `statsInfo` |
+| 9 | 10 | `TRACKER` | 40 x T | `trackers` and T > 0 |
+| 10 | 11 | `RANSAC_FILTER_MASK` | 1 x N | `ransacFilterMask` and `ransac` enabled |
 
-4. **Sync Local Source to SDK Path:**
-   Copy the modified source code from the host workspace mount (`/build_context`) to the container SDK folders:
-   ```bash
-   cp -rf /build_context/projects/awr2243_cascade_ddm/src/ti/* /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/
-   ```
+N = `numDetectedObj`, T = tracked targets. Types 4 and 8 (TDM heat map, unused) and 13 (`OUTPUT_SNR`) are
+never sent by this build. Types 2, 3 and 5 are listed from the build code only (`mss_main.c:1685-1716`);
+their contents were not checked on the bench and are not described here.
 
-5. **Navigate to the Compile Directory:**
-   ```bash
-   cd /opt/ti/mmwave_mcuplus_sdk_04_04_00_01/ti/demo/am273x/mmw
-   ```
+### 6.4 Payload layouts
 
-6. **Execute Targeted Compilation Commands:**
-   * **Clean all outputs:**
-     ```bash
-     make clean
-     ```
-   * **Build both cores and package into the multi-core flash image (.appimage):**
-     * *DDM Mode:*
-       ```bash
-       make mmwDemoDDM
-       ```
-     * *TDM Mode:*
-       ```bash
-       make mmwDemoTDM
-       ```
-   * **Build Master Subsystem (MSS) Core Only:**
-     ```bash
-     make PROC_CHAIN=DDM syscfg mssDemo
-     ```
-     *(Outputs executable at `./mss/am273x_mmw_demo_mssDDM.xer5f`)*
-   * **Build DSP Subsystem (DSS) Core Only:**
-     ```bash
-     make PROC_CHAIN=DDM syscfg dssDemo
-     ```
-     *(Outputs executable at `./dss/am273x_mmw_demo_dssDDM.xe66`)*
+Point (type 1), 16 bytes, repeated N times: `float x, y, z, velocity` (metres; m/s). +x is to the right of the
+sensor, +y away from it, +z up; positive velocity is moving away. Source: SDK
+`ti/datapath/dpif/dpif_pointcloud.h:58-79` (`DPIF_PointCloudCartesian`; this file is in the TI SDK, not in
+`src/`; the sizes also follow from `mss_main.c:1665`).
 
----
+Side info (type 7), 4 bytes per point in the same order: `int16 snr, int16 noise`, units of 0.1 dB
+(`dpif_pointcloud.h:95-102`).
 
-## 5. Chirp Configuration & CLI Protocol
+Compact point (type 12), 8 bytes per point: `int16 azimSinPhaseQuantized, int16 elevSinPhaseQuantized,
+int16 rangeIdx, int16 dopplerIdx` (`src/ti/datapath/dpc/objectdetection/objdethwaDDMA/objectdetection.h:176-189`).
+These are indices, not metres; the host needs the cfg (range/Doppler resolution) and the phase scaling to
+convert them. The driver reads this type as 12 (`CPSL_TI_Radar_cpp/src/SerialStreamer/UartFrame.cpp:17`).
 
-When the firmware boots, it initializes a command-line interface on the MSS UART control port. The host PC configures the radar parameters by sending ASCII configuration lines.
+Stats (type 6), 24 bytes, six `uint32`: `interFrameProcessingTime`, `transmitOutputTime` (us),
+`interFrameProcessingMargin`, `interChirpProcessingMargin` (us), `activeFrameCPULoad`,
+`interFrameCPULoad` (%) (`mmw_output.h:159-178`).
 
-### 5.1 Key CLI Commands
-* **`sensorCmd`:** Initiates/stops the radar sensor.
-* **`channelCfg`:** Configures active Tx/Rx antennas.
-* **`profileCfg`:** Sets up ramp variables (frequencies, slope, ADC sample rates, ramp times, and idle times).
-* **`chirpCfg`:** Binds profiles to specific chirp indexes.
-* **`frameCfg`:** Sets chirp loops, frame durations, and active captures.
+Temperature (type 9), 28 bytes (`mmw/mss/mmw_mss.h:328-339`): `int32 tempReportValid` (0 = valid), then
+`rlRfTempData_t` (24 bytes, `src/ti/control/mmwavelink/include/rl_sensor.h:1757-1805`): `uint32 time` (ms
+since BSS power-up) and ten `int16` sensors in this order: `tmpRx0..3Sens`, `tmpTx0..2Sens`, `tmpPmSens`,
+`tmpDig0Sens`, `tmpDig1Sens`, 1 LSB = 1 deg C.
 
-### 5.2 TLV Output Packets
-Once active, processed frame targets are streamed over the UART data port using a **Type-Length-Value (TLV)** packet protocol.
+Tracker (type 10), 40 bytes per target (`MmwDemo_tracker_out`, `mmw_output.h:227-231`): nine `float`
+`posX, posY, posZ, velX, velY, velZ, accX, accY, accZ` (m, m/s, m/s^2; the 3D state vector,
+`src/ti/alg/gtrack/include/gtrack_3d.h:111-131`, selected by `#define GTRACK_3D` at `mmw_output.h:53`),
+then `uint32 state`. The target ID is not in this struct.
 
----
+RANSAC mask (type 11): one `uint8` per detected point (`mss_main.c:1739-1741`); the meaning of the
+values was not checked.
 
-## 6. Detailed UART TLV Packet Specifications
+## 7. Raw ADC (LVDS) is not in this image
 
-Every frame packet transmitted over the UART data port consists of a 40-byte Message Header, followed by a variable number of TLV items. Each TLV item consists of an 8-byte TLV Header followed by the TLV payload. The entire packet is padded to a multiple of 32 bytes.
-
-### 6.1 Message Header (40 Bytes)
-The message header is defined by `MmwDemo_output_message_header` in `mmw_output.h`:
-
-| Offset | Field | Type | Size | Description |
-|---|---|---|---|---|
-| 0 | `magicWord` | `uint16_t[4]` | 8 B | Sync pattern. Sourced as `{0x0102, 0x0304, 0x0506, 0x0708}`. Little-endian bytes: `0x02 0x01 0x04 0x03 0x06 0x05 0x08 0x07`. |
-| 8 | `version` | `uint32_t` | 4 B | Firmware SDK version encoded value. |
-| 12 | `totalPacketLen` | `uint32_t` | 4 B | Total packet size in bytes (including header, all TLVs, and padding). |
-| 16 | `platform` | `uint32_t` | 4 B | Platform type identifier (set to `0x2243` for AWR2243 Cascade EVM). |
-| 20 | `frameNumber` | `uint32_t` | 4 B | Sequence counter of the frame. |
-| 24 | `timeCpuCycles` | `uint32_t` | 4 B | DSP cycle count timestamp when packet was compiled. |
-| 28 | `numDetectedObj`| `uint32_t` | 4 B | Total number of detected targets (points) in this frame. |
-| 32 | `numTLVs` | `uint32_t` | 4 B | Number of TLV blocks in the packet. |
-| 36 | `subFrameNumber`| `uint32_t` | 4 B | Sub-frame index (always `0` in standard frame config). |
-
-### 6.2 TLV Header (8 Bytes)
-Each TLV item starts with a header defined by `MmwDemo_output_message_tl`:
-*   **`type`** (`uint32_t`, 4 bytes): Sourced from `MmwDemo_output_message_type` enum.
-*   **`length`** (`uint32_t`, 4 bytes): Length of the payload in bytes (excluding the 8-byte header).
-
-### 6.3 TLV Payload Structures
-
-#### 1. Detected Points (Type 1: `MMWDEMO_OUTPUT_MSG_DETECTED_POINTS`)
-*   **Payload Size:** `16 * numDetectedObj` bytes.
-*   **Element Struct (`DPIF_PointCloudCartesian`):**
-    *   `x` (`float`, 4 bytes): X-coordinate in meters (lateral spacing).
-    *   `y` (`float`, 4 bytes): Y-coordinate in meters (radial range).
-    *   `z` (`float`, 4 bytes): Z-coordinate in meters (vertical height).
-    *   `velocity` (`float`, 4 bytes): Doppler velocity in m/s (positive = moving away).
-
-#### 2. Detected Points Side Info (Type 7: `MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_SIDE_INFO`)
-*   **Payload Size:** `4 * numDetectedObj` bytes.
-*   **Element Struct (`DPIF_PointCloudSideInfo`):**
-    *   `snr` (`int16_t`, 2 bytes): CFAR cell SNR in 0.1 dB steps.
-    *   `noise` (`int16_t`, 2 bytes): CFAR side-band noise floor level in 0.1 dB steps.
-
-#### 3. Compact Point Cloud (Type 104: `MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_COMPACT`)
-*   **Payload Size:** `8 * numDetectedObj` bytes.
-*   **Element Struct (`DPC_ObjectDetection_PointCloudRadialCompact`):**
-    *   `azimSinPhaseQuantized` (`int16_t`, 2 bytes): Quantized azimuth phase angle.
-    *   `elevSinPhaseQuantized` (`int16_t`, 2 bytes): Quantized elevation phase angle.
-    *   `rangeIdx` (`int16_t`, 2 bytes): Range FFT bin index.
-    *   `dopplerIdx` (`int16_t`, 2 bytes): Doppler FFT bin index.
-
-#### 4. Performance Statistics (Type 6: `MMWDEMO_OUTPUT_MSG_STATS`)
-*   **Payload Size:** 24 bytes.
-*   **Struct (`MmwDemo_output_message_stats`):**
-    *   `interFrameProcessingTime` (`uint32_t`, 4 bytes): DSP datapath processing time in microseconds.
-    *   `transmitOutputTime` (`uint32_t`, 4 bytes): UART data transmission time in microseconds.
-    *   `interFrameProcessingMargin` (`uint32_t`, 4 bytes): Idle time remaining before next frame starts (microseconds).
-    *   `interChirpProcessingMargin` (`uint32_t`, 4 bytes): Idle time remaining between chirps (microseconds).
-    *   `activeFrameCPULoad` (`uint32_t`, 4 bytes): CPU load (%) during active chirp frame duration.
-    *   `interFrameCPULoad` (`uint32_t`, 4 bytes): CPU load (%) during inter-frame interval.
-
-#### 5. Frontend Temperatures (Type 9: `MMWDEMO_OUTPUT_MSG_TEMPERATURE_STATS`)
-*   **Payload Size:** 28 bytes.
-*   **Struct (`MmwDemo_temperatureStats`):**
-    *   `tempReportValid` (`int32_t`, 4 bytes): 0 if valid report from BSS, else invalid.
-    *   `temperatureReport` (`rlRfTempData_t`, 24 bytes):
-        *   `time` (`uint32_t`, 4 bytes): Device uptime from powerup in ms.
-        *   `tmpRx0Sens` / `tmpRx1Sens` / `tmpRx2Sens` / `tmpRx3Sens` (`int16_t`, 2 bytes each): Temperature of RX0-RX3 mixers.
-        *   `tmpTx0Sens` / `tmpTx1Sens` / `tmpTx2Sens` (`int16_t`, 2 bytes each): Temperature of TX0-TX2 power amplifiers.
-        *   `tmpPmSens` (`int16_t`, 2 bytes): Temperature of PMIC/power section.
-        *   `tmpDig0Sens` / `tmpDig1Sens` (`int16_t`, 2 bytes each): Temperature of digital logic blocks.
-
-#### 6. Tracked Targets (Type 10: `MMWDEMO_OUTPUT_MSG_TRACKER`)
-*   **Payload Size:** `40 * numTargets` bytes.
-*   **Element Struct (`MmwDemo_tracker_out`):**
-    *   `posVelAcc` (GTRACK State Vector, 36 bytes): position, velocity, and acceleration in 3D:
-        *   `posX`, `posY`, `posZ` (`float`, 4 bytes each): Estimated center coordinates (X, Y, Z) in meters.
-        *   `velX`, `velY`, `velZ` (`float`, 4 bytes each): Estimated velocity vectors (X, Y, Z) in m/s.
-        *   `accX`, `accY`, `accZ` (`float`, 4 bytes each): Estimated acceleration vectors (X, Y, Z) in m/s^2.
-    *   `state` (`uint32_t`, 4 bytes): Track status (e.g., Active, Dynamic, Freeing).
-
----
-
-## 7. LVDS Raw ADC Data Streaming Output Format
-
-When high-speed raw streaming is enabled via the `lvdsStreamCfg` command, the AM273x hardware serialization wrapper (CBUFF) streams raw ADC data over the LVDS lanes. This is captured by the DCA1000 capture card and sent over Ethernet.
-
-### 7.1 DCA1000 UDP Packet Format
-The DCA1000 streams packet payloads over UDP (default host port `4098`). Every UDP packet contains a **10-byte Header** followed by raw payload bytes (up to **1456 bytes**):
-
-```
-+---------------------------------------------------------+
-|                  Sequence Number (4 B)                  |
-+---------------------------------------------------------+
-|                  Byte Count (4 B)                       |
-+---------------------------------------------------------+
-|                  Reserved / Upper Byte Count (2 B)      |
-+---------------------------------------------------------+
-|                  Payload Data (up to 1456 B)            |
-+---------------------------------------------------------+
-```
-
-*   **Sequence Number (Bytes 0-3):** 32-bit little-endian integer, incrementing sequentially with every packet to detect packet drops.
-*   **Byte Count (Bytes 4-7):** 32-bit little-endian integer representing the cumulative index of the first payload byte in this packet since the capture session started.
-*   **Reserved (Bytes 8-9):** Sourced as `0x0000`.
-
-### 7.2 Raw ADC Stream Memory Layout (8-Rx Virtual Array)
-For the 2-chip Cascade EVM, the CBUFF software session is configured to stream **userBuffer0** (CSIRX0 - Master Transceiver) followed immediately by **userBuffer1** (CSIRX1 - Slave Transceiver). The CSIRX buffers store samples in a **non-interleaved** channel format.
-
-Thus, for each chirp, the raw stream buffer received over Ethernet is laid out as follows:
-
-```
-Chirp Raw Stream Buffer:
-+-------------------------------------------------------------------------------+
-|                      Block 0: Master Transceiver (CSIRX0)                     |
-+---------------------------------------+---------------------------------------+
-|  Rx0 Samples (numAdcSamples * 4 B)    |  Rx1 Samples (numAdcSamples * 4 B)    |
-+---------------------------------------+---------------------------------------+
-|  Rx2 Samples (numAdcSamples * 4 B)    |  Rx3 Samples (numAdcSamples * 4 B)    |
-+-------------------------------------------------------------------------------+
-|                      Block 1: Slave Transceiver (CSIRX1)                      |
-+---------------------------------------+---------------------------------------+
-|  Rx4 Samples (numAdcSamples * 4 B)    |  Rx5 Samples (numAdcSamples * 4 B)    |
-+---------------------------------------+---------------------------------------+
-|  Rx6 Samples (numAdcSamples * 4 B)    |  Rx7 Samples (numAdcSamples * 4 B)    |
-+-------------------------------------------------------------------------------+
-```
-
-*   **Block 0 Size:** $S = N_{\text{AdcSamples}} \cdot 4_{\text{Rx}} \cdot 4_{\text{Bytes/Sample}}$ bytes.
-*   **Block 1 Size:** $S = N_{\text{AdcSamples}} \cdot 4_{\text{Rx}} \cdot 4_{\text{Bytes/Sample}}$ bytes.
-*   **Total Chirp Data Size:** $2S$ bytes.
-
-#### Complex Sample Encoding
-Each individual complex sample consists of a 16-bit Real (I) and 16-bit Imaginary (Q) integer pair:
-*   **Bytes 0-1:** Real (I) Component (signed 16-bit integer, `int16_t` in little-endian format)
-*   **Bytes 2-3:** Imaginary (Q) Component (signed 16-bit integer, `int16_t` in little-endian format)
-
-#### Host-Side Reconstruction Map
-When parsing the reconstructed frame buffer (size = $\text{ChirpsPerFrame} \times 2S$) into a multi-dimensional array `cube[Frames][Chirps][RxAntennas (8)][AdcSamples]`:
-1.  Align the payload bytes of successive UDP packets to form the complete frame buffer.
-2.  For a given frame and chirp $c$:
-    *   Set the base chirp offset $A_0 = c \times 2S$.
-    *   **Master Antennas (Rx0 to Rx3):**
-        *   Loop over antenna $a \in [0, 3]$:
-            *   Start reading from offset $A_0 + a \times N_{\text{AdcSamples}} \times 4$.
-            *   Extract $N_{\text{AdcSamples}}$ complex pairs and store them at `cube[f][c][a][s]`.
-    *   **Slave Antennas (Rx4 to Rx7):**
-        *   Set the slave block start offset $A_1 = A_0 + S$.
-        *   Loop over antenna $a \in [0, 3]$ (mapping to physical receiver array indices $4$ to $7$):
-            *   Start reading from offset $A_1 + a \times N_{\text{AdcSamples}} \times 4$.
-            *   Extract $N_{\text{AdcSamples}}$ complex pairs and store them at `cube[f][c][a + 4][s]`.
+`mmw/dss/mmw_lvds_stream.c` and `.h` are set `excludeFromBuild="true"` in
+`src/mmwave2chipCascade_dss.projectspec:148-149`, and `LVDS_STREAM` is not defined in either projectspec
+or any source. The code behind it is therefore not compiled: the `numLvdsLanesCfg` command
+(`mmw_cli.c:2328-2331`) is absent, and there is no `lvdsStreamCfg` command. Nothing in `mmw/` calls
+`MmwDemo_LVDSStreamSwConfig` either. The cascade streams point clouds over UART only; a DCA1000 UDP
+layout and a per-chirp Rx layout cannot be derived from this build. The earlier text is kept, unverified,
+in [`archive/lvds_raw_stream_unverified.md`](archive/lvds_raw_stream_unverified.md).

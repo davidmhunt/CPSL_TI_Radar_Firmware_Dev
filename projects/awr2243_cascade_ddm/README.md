@@ -62,7 +62,6 @@ TI references (not stored): the Two Chip Cascade user guide (in the Radar Toolbo
 
 ## Known limits
 
-- One cfg per power-up (TI known issue).
 - A new board may fail to flash if the QSPI Quad Enable bit is unset ("Possible Flashing Issues" in TI's cascade user
   guide: rebuild `sbl_uart_uniflash` with "Quad Enable Type" = 6).
 - The prebuilt libraries (`.aer5f`, `.ae66`) are not in git; `build.sh` takes them from the Radar Toolbox.

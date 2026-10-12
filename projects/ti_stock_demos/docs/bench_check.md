@@ -17,7 +17,6 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
   SOP0 ON. Then **power-cycle fully (plug USB and 5 V)** before EVERY attempt, retries included; a retry without it fails with
   `Received unexpected data`.
 - Functional mode (SOP 001) for the CLI check: power off, SOP2 OFF (SOP0 stays ON, SOP1 OFF), power on.
-- A cfg is accepted once per power-up; this check sends none.
 
 ## Steps
 
@@ -55,7 +54,7 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
 ## Pass/fail
 
 - Pass when the `SUCCESS!!` line, `rc=0`, the `mmwDemo:/>` prompt and the `version` reply above are all seen. Anything else is
-  fail or partial (say which part). Report the DSLite rc, the `SUCCESS!!` line, the prompt, the `version` reply and any failure log.
+  fail or partial (say which part), with the failure log.
 
 ## Results log
 

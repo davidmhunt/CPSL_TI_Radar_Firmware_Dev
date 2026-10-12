@@ -38,7 +38,7 @@ prints the UniFlash GUI steps and exits 3: flash mode SOP0 + SOP2, Format = "bin
 ## Verify
 
 `./fw verify ti_stock_demos --port <by-id port>` sends `version` (plus `sarStats` on the IWR1843, to tell this image from
-the SAR image). Safe: no cfg command is sent. A good answer is the `version` reply.
+the SAR image). Safe: no cfg command is sent.
 
 ## Bench check
 

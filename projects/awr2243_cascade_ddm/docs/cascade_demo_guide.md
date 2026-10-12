@@ -4,7 +4,7 @@ For firmware and host-driver developers. It covers how the image is built, what 
 the UART packet format in enough detail to write a parser. Paths below are relative to
 `projects/awr2243_cascade_ddm/` unless they start with `mmw/`, which stands for
 `src/ti/demo/am273x/mmw/`. A cite `file:N` is a line in this tree; everything was read from source,
-not from TI documentation. The `.projectspec` files are in `src/`; the older manual `make` build
+not from TI documentation. The older manual `make` build
 and the raw-ADC notes are in [`archive/`](archive/) and are not verified.
 
 ## 1. What runs where
@@ -73,7 +73,7 @@ The tree carries both TI chains, but this project builds only DDM: both projects
 `MMWDEMO_DDM` and none defines `MMWDEMO_TDM` (lines in section 2). `mmw_output.h:47-51` then includes the
 `objdethwaDDMA` chain and `mmw_resDDM.h` supplies the resources. In DDM all enabled transmitters fire in
 every chirp and are separated in the Doppler FFT, which is divided into `numTxAnt + numEmptySubBands`
-sub-bins (`mmw/mss/mss_main.c:1614`, `:3823`); TDM fires them in turn. The shipped cfgs enable TX mask 7 on every chirp (`chirpCfg 0 7 0 0 0 0 0 7`, `configs/cascade_shortrange.cfg:18`). The TDM objects stay in the tree as part of TI's baseline and are not compiled.
+sub-bins (`mmw/mss/mss_main.c:1614`, `:3823`); TDM fires them in turn. The shipped cfgs enable TX mask 7 on every chirp (`chirpCfg 0 7 0 0 0 0 0 7`, `configs/cascade_shortrange.cfg:18`).
 
 ## 5. CLI and the shipped cfgs
 
@@ -81,7 +81,7 @@ sub-bins (`mmw/mss/mss_main.c:1614`, `:3823`); TDM fires them in turn. The shipp
 `Done` or an error. The demo-specific commands are the table at `mmw_cli.c:2153-2403` (for example
 `sensorStart`, `sensorStop`, `guiMonitor`, `cfarCfg`, `aoaFovCfg`, `gtrack`, `ransac`,
 `configDataPort`, `queryDemoStatus`); the chirp commands (`profileCfg`, `chirpCfg`, `frameCfg` and so
-on) are are not in this table. A cfg is accepted once per power-up.
+on) are not in this table. A cfg is accepted once per power-up.
 
 `guiMonitor <subFrame> <detectedObjects> <logMagRange> <noiseProfile> <rangeAzimuthHeatMap>
 <rangeDopplerHeatMap> <statsInfo> <ransacFilterMask> <trackers>` (`mmw_cli.c:2246-2250`, parsed at

@@ -1,46 +1,50 @@
 # 4. Publish to shipped_firmware/
 
-Publishing copies a clean build's flashable images into the parent repo's
-[`shipped_firmware/`](../../../shipped_firmware/README.md) (parent repo), with
-provenance, so users who never build can flash them. Run from `firmware_dev/`.
+Publishing copies a clean build into the parent repo's
+[`shipped_firmware/`](../../../shipped_firmware/README.md) folder, with a record of where it came from.
+Lab users who never build can then flash it. Run all commands from `firmware_dev/`.
+
+## 1. Get a clean build
+
+1. Run the bench check first. Publishing does not check that the firmware was ever flashed.
+2. Commit your changes in `firmware_dev`.
+3. Build again:
+
+   ```bash
+   ./fw build <project>
+   ./fw list
+   ```
+
+4. `./fw list` must show the build as `clean`. If it says `dirty` or `stale`, commit and build again.
+
+## 2. Publish
 
 ```bash
-./fw publish <project> --dry-run      # lists what would be copied and where; writes nothing
-./fw publish <project>                # copies to ../shipped_firmware/<BOARD>/<descriptor>/
+./fw publish <project> --dry-run
+./fw publish <project>
 ```
 
-## What it requires
+1. `--dry-run` lists what would be copied and writes nothing.
+2. The real command copies each image to `../shipped_firmware/<BOARD>/<descriptor>/`.
+3. Next to each image it writes `<image>.provenance.json`. This file records the project, the
+   `firmware_dev` commit, the toolchain, the build time and the image checksum. It also lists the
+   chirp configs.
 
-`publish` refuses (exit 4) unless the build is **clean**: not `dirty` (uncommitted changes), not `stale`
-(commits since the build), not `none`, and the artifacts still match `build/build_info.json`. Fix it by
-committing your changes and rebuilding; check with `./fw list`. That is the whole gate: it does not require
-a flash, a `verify` or a `bench` status, so run the bench check first. Only artifacts that are `flashable`
-*and* have a non-empty `descriptor` are published; the rest are skipped.
+`<BOARD>` and `<descriptor>` come from the project's `project.toml`. The descriptor must already exist
+as a file in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/).
+Use `--dest D` to try it in another folder. All rules and exit codes: [`fw` reference](../reference/fw_cli.md#verbs).
 
-## What it writes
+## 3. Record it in the parent repo
 
-For each published artifact: the image under `shipped_firmware/<BOARD>/<descriptor>/`, plus `<image>.provenance.json`: project, firmware_dev
-commit, variant, toolchain, build time, image sha256, and the path and sha256 of every tracked chirp cfg
-of the project (the `[test].cfgs` globs). Commit the image and its provenance together in the parent repo. `--dest D` publishes
-to another folder (for testing; the layout under it is the same).
+1. Add a row for the image to `shipped_firmware/README.md`.
+2. Commit the images, their provenance files, the new row and the moved `firmware_dev` pointer:
 
-`<BOARD>` is the artifact's `board` field in `project.toml` (for example `IWR1843`). The *descriptor* is
-the artifact's `descriptor` field: the id of a firmware description file the host driver reads,
-`<descriptor>.json` in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/)
-(parent repo). It also supplies the probes `fw verify` sends.
+   ```bash
+   git add shipped_firmware firmware_dev
+   ```
 
-## After publishing
-
-Order matters: commit your `firmware_dev` changes, `./fw build`, then `./fw publish`. The descriptor
-`CPSL_TI_Radar_cpp/config/firmware/<descriptor>.json` must already exist in the parent repo (publish does not
-check; the host driver and `fw verify` need it). Then, in the parent repo:
-
-1. Add the image's row to `shipped_firmware/README.md`.
-2. Commit the images, their provenance, that row and the moved `firmware_dev` pointer (`git add firmware_dev`).
-   Pushing is up to you.
-
-TI-derived binaries may need a licensing decision before a public release; see
-[`docs/firmware.md`](../../../docs/firmware.md) (parent repo), "Open v2.0 items".
+Pushing is up to you. TI-derived binaries may need a licence check before a public release:
+see "Open v2.0 items" in [`docs/firmware.md`](../../../docs/firmware.md).
 
 ## Next
 

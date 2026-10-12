@@ -1,28 +1,30 @@
 # PROJECT_NAME bench check
 
-Run by a person at the bench; not run by `./fw test`. Record the outcome in `project.toml` as a `[[bench]]` entry.
+A person runs this at the bench. `./fw test` does not. Each section: a few lines and the exact commands.
 
 ## Preconditions
 
-- Board, cables and serial ports free (nobody else in the lab is using the board); image built with `./fw build PROJECT_NAME`.
+_What must be true first, for example: board free, image built with `./fw build PROJECT_NAME`._
 
 ## Board state
 
-- Boot-mode jumpers and power state before each step. A cfg is accepted once per power-up on some firmware: power-cycle first.
+_Jumper or switch settings and power state. Say if the board needs a power-cycle before a step._
 
 ## Steps
 
-1. TODO flash with `./fw flash PROJECT_NAME <by-id port>`.
-2. TODO restore run mode, power-cycle, run `./fw verify PROJECT_NAME --port <by-id port>`.
+_Numbered steps with commands. Typically:_
+
+1. `./fw flash PROJECT_NAME <by-id port>`
+2. Return to run mode, power-cycle, then `./fw verify PROJECT_NAME --port <by-id port>`
 
 ## Expected output
 
-- TODO the flasher success line, the CLI banner, the data stream.
+_The exact text to look for: flasher success line, CLI banner, data stream._
 
 ## Pass/fail
 
-- Pass when every expected output above is seen; anything else is fail or partial (say which part).
+Pass when every expected output above appears. Anything else is `fail` or `partial`: say which part.
 
 ## Results log
 
-This file keeps no results. Add a `[[bench]]` entry to `project.toml` (board, date, image sha256, result, this doc) and commit it in `firmware_dev`.
+Keep no results here. Add a `[[bench]]` entry to `project.toml` and commit it in `firmware_dev`.

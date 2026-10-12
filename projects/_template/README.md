@@ -1,51 +1,55 @@
 # PROJECT_NAME
 
+Replace each _italic note_ with a few lines and the commands. Put longer detail in `docs/` and link it.
+Keep every `##` heading: `./fw test` checks them.
+
 ## Purpose
 
-One sentence: what this firmware does and which board it runs on.
+_One or two sentences: what this firmware does and which board it runs on._
 
 ## Status
 
-Quote `./fw list` for this project (status and build state); no dates here, bench records live in `project.toml`.
+_One line copied from `./fw list` for this project. No dates._
 
 ## Build
 
-From `firmware_dev/`: `./fw build PROJECT_NAME` (checks `./fw deps` first) writes `projects/PROJECT_NAME/build/`
-and `build/build_info.json`. Say which `--variant` values exist, if any.
+`./fw build PROJECT_NAME` (run from `firmware_dev/`).
+_Add the `--variant` values, if any, and how long a build takes._
 
 ## Test
 
-`./fw test PROJECT_NAME` runs the hardware-free checks (manifest, descriptors, cfgs, `[test].commands`,
-`build --dry-run`). Name the host tests in `tests/` and what they pin.
+`./fw test PROJECT_NAME`
+_One line per host test in `tests/`: what it checks._
 
 ## Flash
 
-`./fw flash PROJECT_NAME <by-id port> [image]` (a human types the confirmation) or, for scripts,
-`--plan` then `--confirm <token>`. Describe the board's flash mode (jumpers, power) and how to return to run mode.
+`./fw flash PROJECT_NAME <by-id port>`
+_List the jumper or switch settings for flash mode, the power steps, and how to return to run mode.
+Newcomers look here for them._
 
 ## Verify
 
-`./fw verify PROJECT_NAME` sends the descriptor's identify probes. State whether the firmware is safe to probe.
+`./fw verify PROJECT_NAME --port <by-id port>`
+_Say whether the firmware can be probed safely and what a good answer looks like._
 
 ## Bench check
 
-The user-run on-board check is `docs/bench_check.md`; results are recorded as `[[bench]]` in `project.toml`.
+The checks to run on a real board are in [`docs/bench_check.md`](docs/bench_check.md).
 
 ## Layout
 
-| Path | What |
-|------|------|
-| `project.toml` | the manifest |
-| `build.sh`, `flash.sh` | run in the container; read the standard `FW_*` environment |
-| `src/`, `configs/`, `docs/`, `tools/`, `tests/` | source, tracked cfgs, notes, project-only scripts, host tests |
+_List only folders that hold something specific to this project, one line each._
+
+- `project.toml`: the manifest `./fw` reads
+- `build.sh`, `flash.sh`: run in the container
+- `src/`, `configs/`, `docs/`, `tools/`, `tests/`: source, chirp configs, notes, scripts, host tests
 
 ## Changes vs TI
 
-The TI baseline is `[source]` in `project.toml`. List every change on top of it, newest last, so
-`git diff <baseline_commit> -- src/` reads as expected.
+_One bullet per change on top of the TI source, newest last._
 
-- _(none yet: `src/` is the unmodified TI baseline)_
+- _none yet: `src/` is the unmodified TI baseline_
 
 ## Known limits
 
-List what is untested or unsupported.
+_A short list of what is untested or not supported._

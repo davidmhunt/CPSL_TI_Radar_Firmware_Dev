@@ -1,28 +1,21 @@
 # Build and flash notes, troubleshooting
 
-## How the build works
+## Build
 
-Same out-of-tree technique as `projects/ti_stock_demos` (see its README). `build.sh` deletes `build/` and recreates an
-SDK overlay in `build/sdk/`: `packages/` is a symlink farm onto the SDK, except `ti/demo/xwr18xx/mmw`, which is a
-fresh copy of this project's `src/` (TI prebuilt outputs and `docs/` excluded). Every build is a clean build of the
-current `src/`, so local edits are always picked up. After sourcing TI's `setenv.sh` it sets
-`MMWAVE_SDK_DEVICE=iwr18xx` and `MMWAVE_SDK_INSTALL_PATH=build/sdk/packages`, then runs `make mmwDemo` (the MSS-only
-metaimage).
-
-Outputs in `build/`: `iwr1843_sar_lvds.bin` (flash image), `iwr1843_sar_lvds.elf` (MSS `.xer4f`),
-`iwr1843_sar_lvds_mss.map`, `build_info.txt`, `build_info.json` (written by `fw`), `compilers.txt`. Sizes and map facts: [`changes_vs_ti.md`](changes_vs_ti.md).
+`./fw build iwr1843_sar_lvds` builds out of tree like `ti_stock_demos`; the shared SDK overlay mechanism (symlink farm in `build/sdk/`, the
+project's `src/` copied over `ti/demo/xwr18xx/mmw`, `setenv.sh`, `MMWAVE_SDK_INSTALL_PATH`) is in
+[`../../../docs/reference/build_environment.md`](../../../docs/reference/build_environment.md). Every build is a clean build of the current `src/`.
+This project sets `MMWAVE_SDK_DEVICE=iwr18xx` and runs `make mmwDemo` (the MSS-only metaimage). Outputs in `build/`: `iwr1843_sar_lvds.bin`
+(flash image), `iwr1843_sar_lvds.elf` (MSS `.xer4f`), `iwr1843_sar_lvds_mss.map`, `build_info.txt`, `build_info.json` (written by `fw`),
+`compilers.txt`. Sizes and map facts: [`changes_vs_ti.md`](changes_vs_ti.md).
 
 ## Flash
 
-`./fw flash iwr1843_sar_lvds <by-id -if00 port> --dry-run` prints the checklist, the DSLite command and image sha256 and touches no
-port. `flash.sh` calls UniFlash 9.6.0's `DSLite` (in the Docker image) with `configs/iwr1843_uniflash.ccxml` and
-`-f <image>,1`. A real flash runs only from your own interactive terminal: `fw` prints the checklist (SOP0+SOP2 closed
-= flashing mode, nothing else on the port) and you must type `FLASH MODE CONFIRMED`; there is no bypass. It refuses
-without a TTY and if any process holds the port. A port that is not a `/dev/serial/by-id/...-if00` path (that XDS110
-port is the bootloader port) is allowed only at a TTY after you also type `USE THIS PORT`; `--plan`, `--confirm` and
-`--json` refuse it. Success is `SUCCESS!! File type META_IMAGE1` and DSLite rc=0 (`Flashed (DSLite rc=0)`).
-Afterwards set functional mode (SOP0 only), power-cycle, and send a cfg over the CLI port at 115200 baud. Fallback:
-the UniFlash GUI ([`bench_bringup.md`](bench_bringup.md) section 3).
+Steps, jumpers and the typed confirmations: README and [`bench_bringup.md`](bench_bringup.md) section 3. `flash.sh` calls UniFlash 9.6.0's `DSLite`
+(in the Docker image) with `configs/iwr1843_uniflash.ccxml` and `-f <image>,1`; `./fw flash ... --dry-run` prints the command and the image sha256
+and touches no port. A port that is not a `/dev/serial/by-id/...-if00` path (that XDS110 port is the bootloader port) is allowed only at a TTY after
+you also type `USE THIS PORT`; `--plan`, `--confirm` and `--json` refuse it. Success is `SUCCESS!! File type META_IMAGE1` and DSLite rc=0
+(`Flashed (DSLite rc=0)`).
 
 Restore the stock demo with `./fw flash ti_stock_demos <port>` (build it first with `./fw build ti_stock_demos`; image `projects/ti_stock_demos/build/iwr1843_demo.bin`, sha256 `cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559`; `./fw list` shows its status).
 

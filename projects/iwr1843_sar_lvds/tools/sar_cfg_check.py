@@ -5,9 +5,9 @@
                                        [--tb-min US] [--if-margin F] [--lvds-margin X] [--json]
 
 Stdlib only, no hardware. Exit 0 = no violation, 1 = at least one violation, 2 = usage / unreadable file.
-Read docs/sar_cfg_guide.md first: it explains every message and every limit. Limits and their sources are
-tabulated in docs/sar_feasibility.md (a); SDK paths are relative to
-mmwave_sdk_03_06_02_00-LTS/packages/ti and rl_sensor.h is control/mmwavelink/include/rl_sensor.h.
+Read docs/sar_cfg_guide.md first: it explains every message; its section 4 tabulates the limits and their
+sources. SDK paths are relative to mmwave_sdk_03_06_02_00-LTS/packages/ti and rl_sensor.h is
+control/mmwavelink/include/rl_sensor.h.
 
 The profile/chirp/frame arithmetic copies what the SDK CLI does with the typed numbers
 (utils/cli/src/cli_mmwave.c): float32 conversion, truncation toward zero, LSB units. The checker therefore
@@ -22,7 +22,7 @@ import sys
 C = 299792458.0                      # m/s
 FREQ_SCALE = 3.6                     # xWR1xxx 76-81 GHz: 1 LSB start = 3.6e9/2^26 Hz (rl_sensor.h:640-645)
 LVDS_BYTES_PER_US = 2 * 600 / 8      # 2 lanes x 600 Mbps (DDR rate) = 150 MB/s (src/mss/mmw_lvds_stream.c:142)
-ADCBUF_HALF = 16384                  # B: one ping/pong half of the 32 KB ADC buffer (sar_feasibility.md (a))
+ADCBUF_HALF = 16384                  # B: one ping/pong half of the 32 KB ADC buffer (sar_cfg_guide.md section 4)
 MAX_PERIOD_TICKS = (1 << 28) - 1     # frame period 5 ns LSB, max 1.342 s (rl_sensor.h:986-987)
 HPF1_KHZ = (175, 235, 350, 700)      # rl_sensor.h:773-791
 HPF2_KHZ = (350, 700, 1400, 2800)
@@ -185,7 +185,7 @@ def check_profile(p, st, rep, opt):
     elif complex_out and p["rate_ksps"] > 12500:
         rep.err("RATE", "digOutSampleRate %d ksps exceeds 12500 ksps, the IWR1843 complex 1x maximum (datasheet IF 10 MHz)"
                 % p["rate_ksps"])
-    # Samples: 2 to MAX; one chirp must fit a 16 KB ADCBUF half (sar_feasibility.md (a)).
+    # Samples: 2 to MAX; one chirp must fit a 16 KB ADCBUF half (sar_cfg_guide.md section 4).
     if p["ns"] < 2:
         rep.err("ADCBUF", "numAdcSamples %d is below 2" % p["ns"])
     if p["ns"] * bps * nrx > ADCBUF_HALF:
@@ -342,7 +342,7 @@ def check_frame(st, profiles, rep, opt, nrx, bps):
         rep.err("PERIOD", "framePeriodicity %.3f ms exceeds the 1342.177 ms maximum (rl_sensor.h:986-987); use "
                           "fewer chirps per frame (Nc <= (1342.177 ms - Tb)/Tc = %d here)" % (
                     period_us / 1000.0, int((MAX_PERIOD_TICKS * 5 / 1000.0 - opt.tb_min) // tc_us)))
-    # Blank rule: Tb = period - Nc x Tc >= tb-min (sar_feasibility.md (c)).
+    # Blank rule: Tb = period - Nc x Tc >= tb-min (sar_cfg_guide.md section 4).
     if tb_us < opt.tb_min - 1e-6:
         rep.err("TB", "inter-frame blank Tb = framePeriodicity %.4f ms - %d x %.2f us = %.2f us is below the %.0f us "
                       "minimum; framePeriodicity must be at least %.4f ms" % (
@@ -350,9 +350,9 @@ def check_frame(st, profiles, rep, opt, nrx, bps):
     elif tb_us < opt.tb_min + 500:
         rep.warn("TB-OPEN", "Tb %.0f us leaves no time for the APLL (150 us) + synth VCO (350 us) calibrations "
                             "TI runs internally; open pending bench: raise Tb by up to +500 us only if boundary "
-                            "steps show (sar_feasibility.md (c))" % tb_us)
+                            "steps show (sar_cfg_guide.md section 4)" % tb_us)
 
-    # LVDS bytes per chirp (docs/lvds_data_format.md section 1; sar_feasibility.md (b)).
+    # LVDS bytes per chirp (docs/lvds_data_format.md section 1; sar_cfg_guide.md section 4).
     lv = st["lvds"]
     fmt = lv[2] if lv else 0
     hdr = lv[1] if lv else 0
@@ -375,7 +375,7 @@ def check_frame(st, profiles, rep, opt, nrx, bps):
                         "(%.2f us)" % (bchirp, cap, tc_us))
     elif bchirp * opt.lvds_margin > cap:
         rep.err("LVDS", "%d B per chirp uses %.1f%% of the LVDS link, above 1/%.0f of capacity (go/no-go margin, "
-                        "sar_feasibility.md (f)); lengthen Tc or cut samples, or pass --lvds-margin 1 to waive" % (
+                        "sar_cfg_guide.md section 4); lengthen Tc or cut samples, or pass --lvds-margin 1 to waive" % (
                     bchirp, 100.0 * bchirp / cap, opt.lvds_margin))
 
     # Along-track spacing: boundary step = Tc + Tb, in-frame step = Tc.

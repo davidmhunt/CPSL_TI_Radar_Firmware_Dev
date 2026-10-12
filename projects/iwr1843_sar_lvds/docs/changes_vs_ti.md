@@ -1,12 +1,8 @@
 # Changes vs TI
 
-Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`). See every change since with
-`git diff <BASELINE_COMMIT> -- projects/iwr1843_sar_lvds/src`. Changes are listed oldest first.
-
-The baseline was copied verbatim from `packages/ti/demo/xwr18xx/mmw/` of the SDK: `mss/ dss/ include/ makefile
-mmw_res.h` into `src/`, `profiles/*.cfg` and `profiles/mmwDemo_xwr18xx_update_config.pl` into `configs/` and `tools/`
-(both later removed as byte-identical duplicates of `ti_stock_demos/configs/xwr18xx/`). Left out (not source):
-`docs/` (generated doxygen) and TI's prebuilt outputs (`*.bin *.map *.xer4f *.xe674 *.rov.xs`, including the AOP variants).
+Baseline: `project.toml` (`[source]` `baseline`, `baseline_commit`); every change since: `git diff <BASELINE_COMMIT> -- projects/iwr1843_sar_lvds/src`,
+listed oldest first. The baseline is the SDK's `packages/ti/demo/xwr18xx/mmw/` copied verbatim (`mss/ dss/ include/ makefile mmw_res.h` into `src/`,
+the stock profiles and `.pl` helper into `ti_stock_demos`); left out: generated doxygen `docs/` and TI's prebuilt outputs.
 
 ## 1. DSP chain removed, MSS-only, restartable, periodic calibration off
 
@@ -86,14 +82,7 @@ path of the same length.
 
 ## License of the TI sources
 
-The TI sources in `src/`, `configs/` and `tools/` are tracked under TI's own terms. The C sources and
-headers carry TI's BSD-3-clause header ("Redistribution and use in source and binary forms ..."). Files without
-that header fall into two groups:
-
-- **No header at all:** `makefile`, `*.mak`, `*_linker.cmd`, the TI `*.cfg` chirp profiles and the `.pl` helper (now only in `ti_stock_demos`).
-- **Old header:** the XDC/BIOS config `mss/mmw_mss.cfg` carries an older "Copyright 2011 ... Restricted rights"
-  boilerplate instead of the BSD text.
-
-Both groups are covered by the SDK software manifest (`docs/mmwave_sdk_software_manifest.html`: "mmwave drivers,
-control, datapath, utils & demo", `packages\ti\demo`, BSD-3-Clause). Keep these headers when editing. No TI binaries
-are tracked; the open release-gate item on shipping TI binaries publicly is unchanged by this project.
+The TI sources in `src/` are tracked under TI's own terms; the C sources and headers carry TI's BSD-3-clause header. Files without it: the
+makefiles, `*.mak` and `*_linker.cmd` (no header), and `mss/mmw_mss.cfg` (an older "Copyright 2011 ... Restricted rights" boilerplate). Both
+are covered by the SDK software manifest (`docs/mmwave_sdk_software_manifest.html`: `packages\ti\demo`, BSD-3-Clause). Keep these headers
+when editing. No TI binaries are tracked; the open release-gate item on shipping TI binaries publicly is unchanged by this project.

@@ -43,12 +43,12 @@ and reflector runs: [`docs/bench_bringup.md`](docs/bench_bringup.md).
 runners), `build/` (gitignored). Docs, Use:
 
 
-- Design a cfg: [`sar_cfg_guide.md`](docs/sar_cfg_guide.md); checker `tools/sar_cfg_check.py`.
+- Design a cfg (limits, go/no-go): [`sar_cfg_guide.md`](docs/sar_cfg_guide.md); checker `tools/sar_cfg_check.py`.
 - Capture, parse, tune gain/HPF: [`tuning_guide.md`](docs/tuning_guide.md).
 
 
 Reference: [`lvds_data_format.md`](docs/lvds_data_format.md) (packet and metadata format), [`build_flash_notes.md`](docs/build_flash_notes.md) (troubleshooting), [`changes_vs_ti.md`](docs/changes_vs_ti.md),
-[`lvds_code_map.md`](docs/lvds_code_map.md) (source map), [`sar_feasibility.md`](docs/sar_feasibility.md) (limits, go/no-go).
+[`lvds_code_map.md`](docs/lvds_code_map.md) (source map); the old feasibility memo is in `docs/archive/`.
 
 ## Changes vs TI
 

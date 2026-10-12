@@ -1,6 +1,6 @@
 # SAR feasibility memo: IWR1843, SDK 3.6, 1TX/1RX continuous chirp
 
-> Historical design reasoning; the current cfg rules are in [`sar_cfg_guide.md`](sar_cfg_guide.md), which wins on any difference.
+> Archived 2026-10-12: historical design reasoning. The live limits moved to [`../sar_cfg_guide.md`](../sar_cfg_guide.md) section 4, which wins on any difference.
 
 Limits, LVDS/DCA1000 data-rate math and go/no-go criteria for a 1TX/1RX continuous-chirp SAR configuration on the
 IWR1843 with mmWave SDK 3.6.02.00-LTS. Generic: any cfg within the limits qualifies; (e) works one example. Line numbers
@@ -39,7 +39,7 @@ Nc = loops x (chirp indices used), so more than 255 chirps per frame needs sever
 
 Bytes per chirp (HW session, ADC format, HSI header on). TI's demo note says `roundup256(Ns * R * 4 + 52)`, but the HW
 session's header pads only to 16 B (`HSIHeader_createHeader(…, false, …)`; exact layout and the dataFmt 2 size in
-`lvds_data_format.md` §1). The 256-B form, used below, is an estimate (the actual dataFmt 2 packet can be 16 B larger):
+`../lvds_data_format.md` §1). The 256-B form, used below, is an estimate (the actual dataFmt 2 packet can be 16 B larger):
 
     Bchirp <= roundup256(Ns * R * 4 + 52)        4 B per complex sample; 52 B = TI's two header structs
 
@@ -80,7 +80,7 @@ The HSI header cannot carry per-chirp counters: its application extension is sta
 (`utils/hsiheader/hsiprotocol.h:567-572`). Use the HW session's `CBUFF_DataFmt_ADC_USER` (`drivers/cbuff/cbuff.h:349`): a user
 record after each chirp's ADC data, updated by the MSS from the chirp interrupts (CHIRP_START 99, CHIRP_AVAIL 123, FRAME_START 98:
 `ti/common/sys_common_xwr18xx_mss.h:352-374`; `MSS_SYS_VCLK` 200 MHz, `:464`, is the candidate timestamp clock). Its bytes add to `Bchirp`.
-Implemented as dataFmt 2 (64 B per chirp, RTI 100 MHz timestamp): see `lvds_data_format.md`.
+Implemented as dataFmt 2 (64 B per chirp, RTI 100 MHz timestamp): see `../lvds_data_format.md`.
 Fallback: a frame-level record in a per-frame SW session like the TI demo's (`src/mss/mss_main.c:2618-2642` at `bb3a348`; removed with the DSP chain).
 
 ## (e) Worked example (self-contained)

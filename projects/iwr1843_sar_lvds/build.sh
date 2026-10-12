@@ -5,7 +5,7 @@
 # Nothing is written under /opt/ti: the SDK is overlaid in build/sdk/ (symlinks to the SDK,
 # except ti/demo/xwr18xx/mmw, which is a fresh copy of src/ that make builds in). Same technique
 # as projects/ti_stock_demos/build.sh (copied, not sourced: projects are self-contained).
-# Contract (projects/README.md): work from this folder, write only to ./build/. Facts live in project.toml;
+# Contract (docs/reference/projects.md): work from this folder, write only to ./build/. Facts live in project.toml;
 # the few build_info.txt fields below mirror it (keep them in step).
 # Don't call git here: `fw` passes the firmware_dev commit in as FW_COMMIT.
 set -euo pipefail

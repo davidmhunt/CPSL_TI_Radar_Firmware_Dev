@@ -45,7 +45,7 @@ projects, from `./fw list` (the live status and build state are in that command,
 
 ## Where to go next
 
-- Verb, manifest and exit-code reference: [`projects/README.md`](projects/README.md).
+- Verb, manifest and exit-code reference: [`docs/reference/`](docs/reference/fw_cli.md).
 - Full machine contract: [`docs/specs/fw_project_contract.md`](../docs/specs/fw_project_contract.md) (parent repo).
 - Facts for the whole stack (toolchain versions, boards, quirks): [`docs/firmware.md`](../docs/firmware.md) (parent repo).
 - Each project README: build options, flash mode, bench check, and what it changes versus TI.

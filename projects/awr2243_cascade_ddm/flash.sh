@@ -12,7 +12,7 @@
 # The board must be in UART boot mode (J6 jumper on the bottom two pins) and power-cycled first.
 # Afterwards move J6 to the top two pins (QSPI boot) and power-cycle to run the demo.
 #
-# Exit codes (projects/README.md): 0 flashed and confirmed (or dry run ok), 1 failed, 2 bad arguments.
+# Exit codes (docs/reference/projects.md): 0 flashed and confirmed (or dry run ok), 1 failed, 2 bad arguments.
 # Also works natively with TI_ROOT pointing at a host install containing the MCU+ SDK and Radar Toolbox.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"

@@ -7,7 +7,7 @@
 # build/build_info.json (sha256 of every artifact) afterwards. Do not call git here.
 # Nothing is written under /opt/ti: the SDK is overlaid in build/sdk/ (symlinks to the SDK,
 # except the two demo folders, which are real copies that make builds in).
-# Contract (projects/README.md): facts live in project.toml, work from this folder, write only to ./build/.
+# Contract (docs/reference/projects.md): facts live in project.toml, work from this folder, write only to ./build/.
 # A build wipes build/ first, so a one-variant build removes the other family's outputs.
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"

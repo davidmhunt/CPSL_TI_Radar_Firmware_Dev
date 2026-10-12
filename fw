@@ -1,6 +1,6 @@
 #!/bin/bash
 # fw: build, test, flash, verify and publish the firmware projects in projects/.
-# All logic lives in tools/fwcli/ (stdlib Python >= 3.11). Guide: projects/README.md; `./fw help`.
+# All logic lives in tools/fwcli/ (stdlib Python >= 3.11). Reference: docs/reference/fw_cli.md; `./fw help`.
 set -euo pipefail
 FW_ROOT="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 export FW_ROOT

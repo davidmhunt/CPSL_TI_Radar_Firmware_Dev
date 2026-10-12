@@ -11,7 +11,7 @@ from . import procs
 from .core import (DESCRIPTOR_DIR, FAILED, PROJECTS, ROOT, TEMPLATE, USAGE, FwExit, Out, rel)
 from .v_build import build_state, cmd_build, deps_available, effective_status
 
-USAGE_TEXT = """Usage: ./fw <command> [args] [--json]     (run from firmware_dev/; guide: projects/README.md)
+USAGE_TEXT = """Usage: ./fw <command> [args] [--json]     (run from firmware_dev/; reference: docs/reference/fw_cli.md)
 
   list                            Projects: status, board, SDK, baseline, build state
   ports [<project>]               Candidate serial ports (by-id) and whether a process holds them
@@ -104,7 +104,7 @@ def cmd_new(args) -> None:
             if "PROJECT_NAME" in t:
                 f.write_text(t.replace("PROJECT_NAME", p))
     Out.say(f"Created projects/{p}/. Next: fill in the TODOs in projects/{p}/project.toml, add the TI source "
-            f"to src/, write build.sh, then: ./fw test {p} && ./fw build {p}   (walkthrough: projects/README.md)")
+            f"to src/, write build.sh, then: ./fw test {p} && ./fw build {p}   (walkthrough: docs/tutorials/05_new_project.md)")
     raise FwExit(0, "", {"path": f"projects/{p}"})
 
 

@@ -6,7 +6,7 @@
 # FW_IMAGE (container path of the image), FW_DRY_RUN (1 = print the command, flash nothing). The same
 # values arrive as arguments: flash.sh [--dry-run] <port> <image>.
 #
-# Exit codes (projects/README.md): 0 flashed and the flasher confirmed success, 1 flashing failed,
+# Exit codes (docs/reference/projects.md): 0 flashed and the flasher confirmed success, 1 flashing failed,
 # 2 bad arguments, 3 no headless flasher for this board (manual steps printed instead).
 set -euo pipefail
 cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"

@@ -18,20 +18,9 @@ From `firmware_dev/`: `./fw build ti_stock_demos` (checks `./fw deps` first; bui
 `*_demo_{mss,dss}.map`, `build_info.txt`, `compilers.txt`, `build_info.json` (written by `fw`, sha256 of each artifact).
 A build wipes `build/` first, so a one-variant build removes the other family's outputs.
 
-How the out-of-tree build works: TI's demo sources include `<ti/demo/xwr18xx/mmw/...>` and the makefiles write objects and
-images in their own folder, so the demo has to sit at that path under an SDK root that is not `/opt/ti` (root-owned).
-`build.sh` creates an overlay in `build/sdk/`:
-
-- `build/sdk/packages/` is a symlink farm: every SDK `packages/*` entry links to the SDK, except the directories on the path
-  to `ti/demo/xwr18xx/mmw` and `ti/demo/xwr68xx/mmw`, which are real directories. Those two `mmw` folders are real copies
-  (without TI's prebuilt outputs and docs). `build/sdk/firmware` links to the SDK's `firmware/` (radar subsystem images).
-- After sourcing TI's `setenv.sh` (from its own folder; it sets the device to `iwr68xx` by default), `build.sh` sets
-  `MMWAVE_SDK_DEVICE` and points `MMWAVE_SDK_INSTALL_PATH` at the overlay, then runs `make mmwDemo` (18xx) or `make all`
-  (68xx has no `mmwDemo` target; TI's 18xx `all` would also build the AOP variants, which are not built here).
-- Compilers: `setenv.sh` pins ARM CGT 16.9.6.LTS and C6000 8.3.3 (plus XDC 3.50.08.24, BIOS 6.73.01.01); the image's
-  `ti-cgt-arm_20.2.7.LTS` is unused by SDK 3.6. `build.sh` records both compiler banners in `build/build_info.txt`.
-- The `.bin` size depends on the build path (path strings land in `.text`), so a rebuild matches TI's prebuilt in section layout
-  but not byte for byte; two builds at the same path are byte-identical ([`docs/firmware.md`](../../../docs/firmware.md) Quirks, parent repo).
+The demo is built out of tree in an SDK overlay under `build/sdk/` (nothing is written to `/opt/ti`); how the
+overlay works, the compilers used and why the `.bin` size depends on the build path:
+[`docs/reference/build_environment.md`](../../docs/reference/build_environment.md).
 
 ## Test
 

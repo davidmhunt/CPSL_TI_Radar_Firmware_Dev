@@ -5,7 +5,7 @@
 # Headless CCS build from the CCS projectspecs in src/ (mmwave2chipCascade_{dss,mss}.projectspec),
 # matching how TI builds the Radar Toolbox lab. DSS is built first; the MSS post-build step
 # combines both cores into the flashable .appimage.
-# Contract (projects/README.md): work from this folder, write only to ./build/. Standard environment set
+# Contract (docs/reference/projects.md): work from this folder, write only to ./build/. Standard environment set
 # by fw: FW_PROJECT, FW_VARIANT (unused here), FW_COMMIT. `fw build` writes build/build_info.json (sha256
 # of every artifact) afterwards. Don't call git here: the submodule's .git is outside the container.
 #

@@ -1,15 +1,14 @@
 # project.toml: facts about this project, read by `./fw` (contract: docs/specs/fw_project_contract.md).
-# Migrated from project.env (fwstd-04). No firmware change: src/ and the shipped image are untouched.
 
 [project]
 name = "iwr1843_sar_lvds"
 summary = "IWR1843BOOST SAR / LVDS raw-ADC firmware from the SDK 3.6 xwr18xx mmw demo: MSS-only, CBUFF ADC per chirp over LVDS, per-chirp metadata (dataFmt 2), no TLV/data UART"
-status = "bench"               # firmware-17 image bench-passed 2026-10-10 (see [[bench]]); Set B / tuning is still pending firmware-18
+status = "bench"               # current image bench-passed 2026-10-10 (see [[bench]]); the reflector tuning runs are still pending
 
 [deps]
 sdk = "mmwave_sdk"
 sdk_version = "03.06.02.00-LTS"
-# Compilers come from the SDK's setenv.sh (not the image's 20.2.7.LTS). MSS-only image since firmware-07:
+# Compilers come from the SDK's setenv.sh (not the image's 20.2.7.LTS). MSS-only image:
 # no DSP code is built, so the SDK's C6000 compiler is not used.
 toolchain = "ti-cgt-arm 16.9.6.LTS (SDK make, XDC 3.50.08.24, BIOS 6.73.01.01)"
 download_items = [2, 9]        # 2 = mmWave SDK 3.6, 9 = UniFlash 9.6.0 (DSLite)
@@ -50,7 +49,7 @@ mode_steps = [
 after_steps = ["Power off, set functional mode (SOP0 only), power on; then send a cfg at 115200 baud (accepted once per power-up)."]
 success_marker = "SUCCESS!! File type META_IMAGE1"
 
-# Probe set = the descriptor's `identify` block (version, sarStats). The CLI prompt is `mm_sar_lvds:/>` (firmware-17);
+# Probe set = the descriptor's `identify` block (version, sarStats). The CLI prompt is `mm_sar_lvds:/>`;
 # the descriptor, not this table, holds the probes.
 [verify]
 cli_port_glob = "*-if00"
@@ -73,10 +72,10 @@ bench_doc = "docs/bench_check.md"
 
 # Bench records. Sources: docs/RESULTS.md "IWR1843 SAR LVDS firmware ... Set A + 10-min no-reflector soak" and
 # docs/firmware.md "Bench status"; image sha256 as recorded there (equals build/iwr1843_sar_lvds.bin).
-# Partial: flash (rc=0, boots to `mmwDemo:/>`), Set A and the 10-min soak (299,880 chirps, 0 gaps, 0 missing)
-# passed on their gates; NOT evaluated and pending firmware-18 (reflector + GUI): phase continuity (G3), tuned
-# gain/HPF and ADC bits (G4), boundary Tb (G6), saturation-vs-gain, I/Q order. Set A was measured on this
-# pre-firmware-17 image (prompt `mmwDemo:/>`); the firmware-17 image is recorded in a later [[bench]] entry.
+# Partial: flash (rc=0, boots to `mmwDemo:/>`), the no-reflector runs and the 10-min soak (299,880 chirps, 0 gaps, 0 missing)
+# passed on their gates; NOT evaluated, pending the reflector runs: phase continuity, tuned gain/HPF and ADC bits,
+# boundary Tb, saturation-vs-gain, I/Q order. The no-reflector runs were measured on this earlier image (prompt
+# `mmwDemo:/>`); the current image is recorded in the later [[bench]] entry.
 [[bench]]
 board = "IWR1843"
 date = "2026-10-06"
@@ -84,9 +83,9 @@ sha256 = "53948f4d20ca501490dd3d1dbe48229622af5346914dfe33daec33980864267a"
 result = "partial"
 doc = "docs/bench_bringup.md"
 
-# firmware-17 image (prompt `mm_sar_lvds:/>`), IWR1843, 2026-10-10: user flashed from a TTY (SUCCESS), `fw verify` passed
+# Current image (prompt `mm_sar_lvds:/>`), IWR1843, 2026-10-10: user flashed from a TTY (SUCCESS), `fw verify` passed
 # incl. the `mm_sar_lvds:/>` require, bench_check capture ACCEPTED (chirpAvail 2550, 2549/2550 valid, one tolerated 448 B
-# tail hole). Set B (reflector, G3/G4/G6) remains pending firmware-18.
+# tail hole). The reflector runs (phase continuity, tuning, boundary Tb) remain pending.
 [[bench]]
 board = "IWR1843"
 date = "2026-10-10"

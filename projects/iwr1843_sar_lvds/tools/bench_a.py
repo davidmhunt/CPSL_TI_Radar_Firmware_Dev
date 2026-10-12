@@ -1,4 +1,4 @@
-"""Set A bench commands (firmware-10 Step 2.2 and 2.6; NO corner reflector needed). Registered by bench_run.py:
+"""No-reflector bench commands (docs/bench_bringup.md section 7; NO corner reflector needed). Registered by bench_run.py:
 
     ./bench fmt4    2.2 restart with dataFmt 4 (CQ monitors on, then off), then back to dataFmt 2 clean
     ./bench fmt1    2.6.7 dataFmt 1 regression, >= 30 s, then back to dataFmt 2

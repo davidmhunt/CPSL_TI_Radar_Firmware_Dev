@@ -19,7 +19,6 @@ SKIP_PARTS = {".venv", "downloads"}
 # Findings in other projects' docs, owned by fwdocs-02 / fwdocs-03: xfail until those land.
 # Remove an entry when its directive fixes the file (strict: an unexpected pass fails).
 KNOWN = {
-    ("test_no_directive_ids", "projects/iwr1843_sar_lvds/README.md"): "fwdocs-03",
 }
 
 

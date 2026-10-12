@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""One-command bench runs for firmware-10 Step 2.2 / 2.6.0 (run from firmware_dev/; `./bench` is a short wrapper):
+"""One-command bench runs, described in docs/bench_bringup.md sections 6 to 8 (run from firmware_dev/; `./bench` is a short wrapper):
 
     ./bench long       60 s capture: FPGA timer does not cut it off, bytes = chirpAvail x B, 0 sequence gaps
                        (= CONFIG_PACKET_DATA delay unit check)
@@ -8,8 +8,8 @@
     ./bench finite     numFrames 5 run ends by itself; sensorStop still works; chirpAvail = 5 x 255; LVDS frame count
     ./bench start0     `sensorStart 0` restart with no new cfg, capture + parse
     ./bench adc        peak |I|,|Q| of a capture (clipped on purpose) -> which --adc-bits (12: 2048, 16: 32768)
-    ./bench fmt4|fmt1|bsize|bytes|late|irq    Set A, no reflector needed: tools/bench_a.py
-    ./bench tune|sat|endurance|tb             Set B, reflector at a measured range: tools/bench_b.py
+    ./bench fmt4|fmt1|bsize|bytes|late|irq    no-reflector runs (section 7): tools/bench_a.py
+    ./bench tune|sat|endurance|tb             reflector runs, at a measured range (section 8): tools/bench_b.py
 
 Each prints PASS/FAIL lines and a short block to paste back. HARDWARE TOOL: configures the radar over the CLI port
 and records from the DCA1000 (via dca_capture.py, then sar_parse's analysis in-process). The board must be in run mode,

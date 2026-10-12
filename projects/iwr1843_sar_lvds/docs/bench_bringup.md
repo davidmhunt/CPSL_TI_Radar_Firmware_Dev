@@ -1,53 +1,55 @@
 # Bench bring-up: flash the IWR1843BOOST and run the first check
 
-Numbered steps for the person at the bench, with what you should see and what to do if you do not. Steps marked
-"(untested)" are unconfirmed on hardware; sections 3 to 5 (flash, run mode, first check) are confirmed on one board (2026-10-06). Paths are relative to `firmware_dev/` unless noted.
+The full procedure for the person at the bench; the short version is [`bench_check.md`](bench_check.md). Sections 3 to 5 are
+confirmed on one board. Paths are relative to `firmware_dev/`.
 
 ## 1 Before you start
 
-Bring: the IWR1843BOOST, its 5 V supply, a micro-USB cable, the DCA1000EVM with its own 5 V supply, the LVDS cable or
-mounting that joins the two boards (per the DCA1000 guide), and an Ethernet cable from the DCA1000 to the host.
+Bring: the IWR1843BOOST with its 5 V supply and micro-USB cable, the DCA1000EVM with its 5 V supply, the LVDS cable or mounting
+that joins the two boards, and an Ethernet cable from the DCA1000 to the host.
 
 - Image: `projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`, 152132 bytes, sha256
   `a06ee615b56b12282f2fe9b4a02bb556ceaa81a1b72176e2060cd9209a070924` (current image, `firmware_dev` commit 119de4f; the earlier 53948f4d image was built from 946f48d).
   Check: `sha256sum projects/iwr1843_sar_lvds/build/iwr1843_sar_lvds.bin`. A different hash means a different build: stop and ask.
 - Host: your user must be in the `dialout` group (`id -nG | grep dialout`; if missing, add it and log in again).
-- Host tools: `picocom` (`sudo apt install picocom`; verify `command -v picocom`). No-install fallback (pyserial is in the uv env;
-  exit with Ctrl-]): `uv run python -m serial.tools.miniterm <by-id port> 115200`.
-- Ports, once the board is powered and plugged in: `ls /dev/serial/by-id/`. `...XDS110...-if00` is the CLI port
-  (115200 baud, used here); `...-if03` is the data port (unused). Use the by-id names: `/dev/ttyACM*` numbers can change.
+- Terminal: `picocom` (`sudo apt install picocom`), or without installing (exit with Ctrl-]):
+  `uv run python -m serial.tools.miniterm <by-id port> 115200`.
+- Ports: `ls /dev/serial/by-id/`. `...XDS110...-if00` is the CLI port (115200 baud, used here); `...-if03` is the data port (unused).
+  Use the by-id names: `/dev/ttyACM*` numbers can change.
 
 ## 2 Host network (DCA1000)
 
 The DCA1000 uses its factory addresses: FPGA `192.168.33.180`, host NIC `192.168.33.30/24`, command port 4096, data port 4098.
-The tools in `projects/iwr1843_sar_lvds/tools/` default to exactly these.
+The tools in `tools/` default to exactly these.
 
 1. Connect the DCA1000 to the host Ethernet port and power it (5 V). The FPGA/power LEDs light.
-2. Give the host NIC the address: `ip addr` should list `192.168.33.30/24` on the wired interface cabled to the DCA1000. If not,
-   add it (NetworkManager profile or `sudo ip addr add 192.168.33.30/24 dev <nic>`); `CPSL_TI_Radar_cpp/Readme.md`
-   (repository root) covers host prerequisites, including the UDP receive-buffer limit.
-3. `ping -c 3 192.168.33.180` may or may not answer (a bench ping failed; not known to be harmless). The real checks are `ip addr`
-   above, the DCA1000 link LED, and the capture tool in section 5. If the capture sees nothing: check the cable, link LED, power.
-4. DCA1000 switches: for the network address, SW2.6 must be at position 11 (default FPGA addresses; position 6 loads
-   whatever is saved in the EEPROM), per `DCA_Programming/README.md` (repository root). For the LVDS capture mode, see the
-   DCA1000EVM user guide. Do not change switches with power on.
+2. `ip addr` should list `192.168.33.30/24` on the wired interface cabled to the DCA1000. If not, add it (NetworkManager profile or
+   `sudo ip addr add 192.168.33.30/24 dev <nic>`); `CPSL_TI_Radar_cpp/Readme.md` (repository root) covers host prerequisites,
+   including the UDP receive-buffer limit.
+3. `ping -c 3 192.168.33.180` may or may not answer (a bench ping failed; not known to be harmless). The real checks are `ip addr`,
+   the DCA1000 link LED, and the capture in section 5. If the capture sees nothing: check the cable, link LED, power.
+4. DCA1000 switches: SW2.6 at position 11 gives the default FPGA addresses (position 6 loads whatever is saved in the EEPROM), per
+   `DCA_Programming/README.md` (repository root). LVDS capture mode: the DCA1000EVM user guide. Never change switches with power on.
 
 ## 3 Flash (SOP0 + SOP2 closed)
 
-Confirmed on hardware (one IWR1843BOOST, this command): the 2026-10-06 image flashed and booted in SOP 001 to `mmwDemo:/>`; the current image (prompt `mm_sar_lvds:/>`) was flashed and confirmed on 2026-10-10. The stock-demo restore was confirmed on 2026-10-07 and again on 2026-10-10.
-Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md).
+Confirmed on one IWR1843BOOST: the 2026-10-06 image flashed and booted in SOP 001 to `mmwDemo:/>`; the current image (prompt
+`mm_sar_lvds:/>`) on 2026-10-10; the stock-demo restore on 2026-10-07 and 2026-10-10. Route notes:
+[`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md).
 
 1. SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; `readme_images/IWR1843_SOP_nodes.png`, repository root): flash mode
    is SOP2 and SOP0 ON, SOP1 OFF (101). Close every terminal and viewer on the port.
 2. **Power-cycle fully (unplug USB and the 5 V supply, replug both) before EVERY attempt, retries included.** A retry without it
    failed with `XXXX Received unexpected data!!!XXXX` / `Not able to connect to serial port`.
-3. From `firmware_dev/`, dry run first:
-   `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run` (prints the command and image sha256; compare with section 1).
-   Then the same without `--dry-run`, in your own terminal; type `FLASH MODE CONFIRMED` when asked (it refuses without a TTY).
+3. Dry run first: `./fw flash iwr1843_sar_lvds /dev/serial/by-id/<...XDS110...-if00> --dry-run` (prints the command and image sha256;
+   compare with section 1). Then the same without `--dry-run`, in your own terminal; type `FLASH MODE CONFIRMED` when asked (it
+   refuses without a TTY; scripted flashing: [`../../../docs/reference/fw_cli.md`](../../../docs/reference/fw_cli.md)).
 4. Success: `SUCCESS!! File type META_IMAGE1 downloaded successfully to SFLASH.` (after `Erase storage completed successfully!`).
    Observed: exit code 0 (`Flashed (DSLite rc=0)`) and no trailing `Can't Run Target CPU` line. On failure: keep `build/flash_output.log`,
    power-cycle fully, retry once, then stop and report.
-5. Restore the stock demo (also the recovery; the flash formats all SFLASH; confirmed on the bench 2026-10-07): power-cycle in SOP 101, then `./fw flash ti_stock_demos <port>` (build it first: `./fw build ti_stock_demos`; default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates; restore confirmed on the bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001; stock image sha256 cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559).
+5. Restore the stock demo (also the recovery; the flash formats all SFLASH): power-cycle in SOP 101, then `./fw build ti_stock_demos` and
+   `./fw flash ti_stock_demos <port>` (default image `projects/ti_stock_demos/build/iwr1843_demo.bin`; same gates). Confirmed on the
+   bench 2026-10-07: rc=0, `mmwDemo:/>` in SOP 001; stock image sha256 cd43e0dfccc8a96a9ffc571ea36a365830eaba7951000892f02078fd2bdac559.
 6. Fallback only if `./fw flash` fails repeatedly: UniFlash GUI "Generate Package" (device IWR1843, Meta Image 1 = the image, COM port).
 7. Power off and set SOP2 OFF (SOP0 stays ON, 001), then power-cycle (always, even when DSLite reports success). Success is confirmed only in section 4 (the `mm_sar_lvds:/>` prompt).
 
@@ -60,8 +62,7 @@ Route notes: [`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../
 ## 5 First bring-up check
 
 This firmware accepts a cfg re-send without a power cycle (`sensorStop`, `flushCfg`, cfg; observed 2026-10-10); only `channelCfg`/`adcCfg`/`lowPower` changes need one.
-Run from `firmware_dev/`; `bench_check.py` finds the CLI port itself (the single `*XDS110*-if00`; `--cli-port` overrides) and
-prints each reply in full plus a PASS/FAIL line:
+`bench_check.py` finds the CLI port itself (the single `*XDS110*-if00`; `--cli-port` overrides) and prints each reply plus PASS/FAIL:
 ```bash
 BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
 ```
@@ -76,15 +77,14 @@ BC="uv run python projects/iwr1843_sar_lvds/tools/bench_check.py"
    and prints the VERDICT and `chirpAvail` from `/tmp/bringup.cap.sarstats.json`.
    Pass: every line of the second cfg is acked, the parser prints checks 1 to 4 as passing and `VERDICT: ACCEPTED`, and
    `chirpAvail` is 2295 or 2550 (9 or 10 frames of 255 chirps at 510.3 ms; record it).
-   Meaning of each check: `docs/tuning_guide.md` section 5. On `REJECTED`, keep both files and report the failed check.
-   No datagrams at all: recheck section 2 and the DCA1000 switches. The capture options (`--fpga-ip --host-ip --cmd-port
-   --data-port`) default to the factory addresses.
+      The checks: [`tuning_guide.md`](tuning_guide.md) section 5. On `REJECTED`, keep both files and report the failed check.
+   No datagrams at all: recheck section 2 and the DCA1000 switches.
 5. The tool ends the run with `sensorStop`; `sarStats` counters reset at every `sensorStart`, so they are from the capture run.
 
-## 5b Bench runs (Set A and Set B)
+## 6 Common runs
 
-After section 5 passed, from `firmware_dev/` with the board in run mode (no power cycle needed between these; each ends with
-`RESULT: PASS|FAIL` and a short block to paste back; captures and cfgs go to `/tmp/bench_run/`). Source: `tools/bench_run.py`.
+After section 5 passed, board in run mode (no power cycle between these). `./bench <name>` runs one; each ends with
+`RESULT: PASS|FAIL` and a short block to paste back; captures and cfgs go to `/tmp/bench_run/`. Source: `tools/bench_run.py`.
 
 | Command | What it checks |
 |---|---|
@@ -95,61 +95,48 @@ After section 5 passed, from `firmware_dev/` with the board in run mode (no powe
 | `./bench start0` | `sensorStart 0` restart with no new cfg, capture + parse |
 | `./bench adc` | gain 48 capture (reflector close, clipping): peak I and Q counts and the `--adc-bits` it implies (12 or 16); `--capture FILE` re-analyses an old capture |
 
-Set A (no reflector needed; `tools/bench_a.py`, analysis in `tools/bench_stream.py`):
+## 7 No-reflector runs (about 10 min, no physical action)
+
+Source: `tools/bench_a.py`, analysis in `tools/bench_stream.py`. Run in the order below (board in run mode, DCA1000 up); each
+re-sends its own cfg. Stop and report if one FAILs. Power-cycle only if a command left the CLI dead (`fmt4` is last for that reason).
 
 | Command | What it checks | min |
 |---|---|---|
-| `./bench bytes` | 2.6.2 raw byte order (HSI id `DC 0A DC 0A DA 0C DA 0C` at packet start, `"SA" 01 00 "RM"` at M and M+32, unscramble gives `SARM`, every slot k mod 2 validates) and 2.6.4 other-slot regime (k+1 or k-1, >= 1000 packets, last packet of each frame excluded). `--capture FILE` re-analyses an old capture with no board: `./bench bytes --capture /tmp/bench_run/long.cap` | 1 |
-| `./bench irq` | 2.6.1: `sarStats` after `sensorStop`, 2 reads 4 s apart, one more with the cfg re-sent (before the next `sensorStart`): `chirpStartIsr` = `chirpAvail` = `chirps`, nothing moves | 1 |
-| `./bench bsize` | 2.6.3: B for header on (13328), header off (13264), and Ns 3302 (R*Ns = 2 mod 4: H 56, B 13328; cfg-checked), 10 s each | 2 |
-| `./bench late` | 2.6.9: a good capture, then offline copies (first packet cut and renumbered; one datagram dropped), then a capture armed 2 s after `sensorStart` | 2 |
-| `./bench fmt1` | 2.6.7: dataFmt 1 (`-1 1 1 0`) 30 s: 0 gaps, stock frame size, offline decode with the C++ converter's pairing, LVDS frame count, `sarStats`, then back to dataFmt 2 | 2 |
-| `./bench fmt4` | 2.2: dataFmt 4 with CQ monitors on (`analogMonitor 1 1`, `CQSigImgMonitor 0 111 4`), then off, then back to dataFmt 2; sizes, 0 gaps, no frame-end warning, LVDS frame count. dataFmt 4's block contents are NOT parsed (no parser path) | 2 |
+| `./bench bytes` | raw byte order (HSI id `DC 0A DC 0A DA 0C DA 0C` at packet start, `"SA" 01 00 "RM"` at M and M+32, unscramble gives `SARM`, every slot k mod 2 validates) and the other-slot regime (k+1 or k-1, >= 1000 packets, last packet of each frame excluded). `--capture FILE` re-analyses an old capture with no board | 1 |
+| `./bench irq` | `sarStats` after `sensorStop`, 2 reads 4 s apart, one more with the cfg re-sent (before the next `sensorStart`): `chirpStartIsr` = `chirpAvail` = `chirps`, nothing moves | 1 |
+| `./bench bsize` | B for header on (13328), header off (13264), and Ns 3302 (R*Ns = 2 mod 4: H 56, B 13328; cfg-checked), 10 s each | 2 |
+| `./bench late` | a good capture, then offline copies (first packet cut and renumbered; one datagram dropped), then a capture armed 2 s after `sensorStart` | 2 |
+| `./bench fmt1` | dataFmt 1 (`-1 1 1 0`) 30 s: 0 gaps, stock frame size, offline decode with the C++ converter's pairing, LVDS frame count, `sarStats`, then back to dataFmt 2 | 2 |
+| `./bench fmt4` | dataFmt 4 with CQ monitors on (`analogMonitor 1 1`, `CQSigImgMonitor 0 111 4`), then off, then back to dataFmt 2; sizes, 0 gaps, no frame-end warning, LVDS frame count. dataFmt 4's block contents are NOT parsed (no parser path) | 2 |
+| `./bench soak` | NO reflector: the 30 s pre-check, then 600 s of the example cfg as shipped (default gain/HPF, `analogMonitor`/`CQRxSatMonitor` on), `sarStats` each minute, post-stop reads. Needs >= 8 GB free in `/tmp/bench_run/` (else `RESULT: ABORTED`, nothing sent). Saturation counters are recorded, not judged; reflector rows print `NOT EVALUATED (no reflector)`. Writes `/tmp/bench_run/soak_summary.json` + `soak_summary.txt` (<= 40-line paste block). ~4 GB: delete with `rm -f /tmp/bench_run/soak.cap /tmp/bench_run/soak.cap.sarstats.json /tmp/bench_run/endurance_pre*` | 13 |
 
-### 5c Order for Set A (board in run mode, DCA1000 up; no physical action; about 10 min)
+Order: `./bench bytes --capture /tmp/bench_run/long.cap` (offline: the 60 s capture from `./bench long`), then the table top to bottom
+as `bytes`, `irq`, `bsize`, `late`, `fmt1`, `fmt4`, `soak`. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with
+`--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
 
-Run from `firmware_dev/`, in this order. Each re-sends its own cfg (reconfigure after `sensorStop` + `flushCfg`, the same boot as the earlier cycles).
-Stop and report if one FAILs. Power-cycle only if a command left the CLI dead (`fmt4` is last for that reason).
-```
-./bench bytes --capture /tmp/bench_run/long.cap     # offline, no board: the 60 s capture from ./bench long
-./bench bytes
-./bench irq
-./bench bsize
-./bench late
-./bench fmt1
-./bench fmt4
-```
-Paste each block back. If `fmt4` shows frame or `sensorStart` errors with CQ on, rerun with `--tb-add-us 500` (the signal/image monitor adds time to the blank) and report both.
+## 8 Reflector runs (a corner reflector at a measured range)
 
-Set B (a corner reflector at a MEASURED range; pending bench work for phase continuity, tuning and boundary Tb; `tools/bench_b.py`; each prints one `RESULT` line per goal G1-G7 where it applies, then `RESULT: PASS|FAIL`):
+Not yet bench-verified: phase continuity, tuning, boundary Tb. Source: `tools/bench_b.py`; each command prints one `RESULT` line per
+goal G1-G7 where it applies, then `RESULT: PASS|FAIL`. Physical: a static corner reflector (no wind, nobody moving near the beam)
+and a tape measure; M is the boresight range in metres. The 10 min capture is about 4 GB in `/tmp/bench_run/`: delete it afterwards.
 
 | Command | What it does | min |
 |---|---|---|
-| `./bench adc` | (before the others) writes `/tmp/bench_run/adc_bits.txt` once it decides 12 or 16 bit; Set B reads it, or take `--adc-bits N` | 1 |
+| `./bench adc` | (first) writes `/tmp/bench_run/adc_bits.txt` once it decides 12 or 16 bit; the others read it, or take `--adc-bits N` | 1 |
 | `./bench tune --range M` | Gain 24/30/36/42 x HPF 175:350 and 350:700, 5 s each (`--gains`, `--hpf`, `--duration` change it); table of ADC-clipped chirps, firmware saturation flags, noise, reflector SNR; prints the candidates (0 clipped) and the chosen point with the next command | 3 |
-| `./bench sat --range M --gain G --hpf A:B` | 2.6.6: >= 5 gains from the tuned G up (steps of 4) to clipping, 30 s each; firmware `saturatedChirps` vs parser vs ADC-clipped, non-decreasing, 0 at G, > 0 at the top, lag alignment vs no lag | 5 |
-| `./bench endurance --range M --gain G --hpf A:B` | 30 s cross-check through `sar_parse` + `sar_tune_report`, then 600 s with `sarStats` each minute, `sensorStop`, 2 more reads and one before the next start; streaming analysis (the 4 GB capture does not fit `sar_parse`'s in-memory design). G1, G2, G3, G4, G6, G7: 2.6.1, .2, .4, .5, .8 | 15 |
-| `./bench soak` | NO reflector, no `--range/--gain/--hpf`: the 30 s pre-check, then 600 s of the example cfg as shipped (default gain/HPF, `analogMonitor`/`CQRxSatMonitor` on), `sarStats` each minute, post-stop reads. Needs >= 8 GB free in `/tmp/bench_run/` (else `RESULT: ABORTED`, nothing sent). Evaluates only G1, G2 (incl. p99.9), 2.6.1/.2/.4/.5/.8; saturation counters recorded, not judged; G3, G4, G6 and reflector rows print `NOT EVALUATED (no reflector) -> Set B`. Writes `/tmp/bench_run/soak_summary.json` + `soak_summary.txt` (<= 40-line paste block). ~13 min, ~4 GB: delete with `rm -f /tmp/bench_run/soak.cap /tmp/bench_run/soak.cap.sarstats.json /tmp/bench_run/endurance_pre*` | 13 |
+| `./bench sat --range M --gain G --hpf A:B` | >= 5 gains from the tuned G up (steps of 4) to clipping, 30 s each; firmware `saturatedChirps` vs parser vs ADC-clipped, non-decreasing, 0 at G, > 0 at the top, lag alignment vs no lag | 5 |
+| `./bench endurance --range M --gain G --hpf A:B` | 30 s cross-check through `sar_parse` + `sar_tune_report`, then 600 s with `sarStats` each minute, `sensorStop`, 2 more reads and one before the next start; streaming analysis (the 4 GB capture does not fit `sar_parse`'s in-memory design) | 15 |
 | `./bench tb --add-us N --range M --gain G --hpf A:B` | Follow-up (only if endurance reports a step): 60 s with Tb = 300 + N us (N 100..500), same step statistics | 2 |
 
-### 5d Order for Set B (reflector needed)
+Order: (1) reflector at 1-2 m, close enough to clip at the default 48 dB (`./bench adc --gain N` changes it): `./bench adc` (prints
+`saved ... --adc-bits N`), `./bench tune --range 1.5` (use the real range; note the CHOSEN gain G and HPF A:B), `./bench sat --range 1.5
+--gain G --hpf A:B` (the top gain must clip: move the reflector closer if it does not). (2) Move the reflector to a measured 3-10 m and
+leave it for 20 minutes: `./bench endurance --range M --gain G --hpf A:B`. (3) Only if the output says "G6 follow-up" (steps at
+Tb = 300 us): `./bench tb --add-us 100 ...`, then 200 up to 500 until clean. Add `--adc-bits N` to each if `./bench adc` was not run.
+Paste the whole output of each command.
 
-Physical: a corner reflector, static (no wind, no people moving near the beam), and a tape measure; the boresight range M in metres.
-Capture files go to `/tmp/bench_run/` (the 10 min capture is about 4 GB; delete it afterwards).
-```
-# 1. reflector at 1-2 m, close enough to clip at the default 48 dB (./bench adc takes --gain N to change it)
-./bench adc                                   # 1 min; prints "saved ... --adc-bits N"
-./bench tune --range 1.5                      # 3 min; use the real range; note CHOSEN gain G and HPF A:B
-./bench sat --range 1.5 --gain G --hpf A:B    # 5 min; the top gain must clip: move the reflector closer if it does not
-# 2. move the reflector to a measured 3-10 m, do not touch it for the next 20 minutes
-./bench endurance --range M --gain G --hpf A:B   # 15 min
-# 3. only if the output says "G6 follow-up": steps at Tb = 300 us
-./bench tb --add-us 100 --range M --gain G --hpf A:B     # then 200 ... up to 500 until clean
-```
-Add `--adc-bits N` to each if `./bench adc` was not run. Paste the whole output of each command.
+## 9 Hand-off: what to record
 
-## 6 Hand-off: what to record
-
-Write down: the by-id port names, the host and DCA1000 addresses and ports used, the image sha256 flashed, the exact flash
-method and output, each check's result, the `sarStats` and `chirpAvail` numbers, and anything unexpected (extra prompts, LED
-states, error text). Power down, restore the switches as found, and tell whoever tracks bench use the boards are free.
+Write down: the by-id ports, the host and DCA1000 addresses used, the image sha256 flashed, the flash method and output, each
+check's result, the `sarStats` and `chirpAvail` numbers, and anything unexpected. Power down, restore the switches as found, and
+tell whoever tracks bench use the boards are free.

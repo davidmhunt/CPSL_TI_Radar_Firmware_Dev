@@ -1,8 +1,8 @@
-# Tuning guide: gain, HPF corners and capturing a run you can trust
+# Tuning guide: capture a run you can trust and pick gain and HPF
 
 Pick `rxGain` and the two high-pass corners so that nothing clips and the far end of the swath stands above the noise. Run commands
 from `firmware_dev/`. The radar needs a valid cfg ([`sar_cfg_guide.md`](sar_cfg_guide.md)). **HW** marks commands that move hardware.
-Formats: [`lvds_data_format.md`](lvds_data_format.md).
+Byte formats: [`lvds_data_format.md`](lvds_data_format.md).
 
 ## 1 Capture requirement (read this before any capture)
 
@@ -17,15 +17,23 @@ Formats: [`lvds_data_format.md`](lvds_data_format.md).
 
 `rxGain` (24-48 dB, even) amplifies the IF before the 12-bit ADC: more gain lifts weak far returns above the noise but clips strong
 near ones. Two first-order high-pass filters (HPF1 175/235/350/700 kHz, HPF2 350/700/1400/2800 kHz) also sit before it. A target at
-range R has beat frequency 2SR/c, so a corner fc maps to Rc = fc·c/(2S): 11.3 m (175 kHz) and 22.6 m (350 kHz) at slope 2.317 MHz/us. Below its corner each filter rolls off at 20 dB/decade, so the pair gives 40 dB/decade, countering
-the R⁴ excess of near echoes: 175 + 350 kHz attenuates 48 / 36 / 21 / 11 / 5 / 1 dB at 1 / 2 / 5 / 10 / 20 / 50 m
-([`sar_cfg_guide.md`](sar_cfg_guide.md) §5).
+range R has beat frequency 2SR/c, so a corner fc maps to Rc = fc·c/(2S): 11.3 m (175 kHz) and 22.6 m (350 kHz) at slope 2.317 MHz/us.
+Below its corner each filter rolls off at 20 dB/decade, so the pair gives 40 dB/decade, countering the R⁴ excess of near echoes:
+175 + 350 kHz attenuates 48 / 36 / 21 / 11 / 5 / 1 dB at 1 / 2 / 5 / 10 / 20 / 50 m ([`sar_cfg_guide.md`](sar_cfg_guide.md) §5).
 
-## 3 The commands
+## 3 The tools and the commands
 
-Once: `uv sync --group tools` (numpy, matplotlib). `CFG` is your cfg, e.g. `projects/iwr1843_sar_lvds/configs/sar_example_2ms.cfg`. To send it
-(or change gain/HPF) and capture in one go, run a one-point sweep: `--gains 30 --hpf 175:350` (HPF1:HPF2 in kHz, values in §2). It cfg-checks,
-sends the cfg, then captures, parses and reports. `dca_capture.py` alone needs a radar that already holds the cfg.
+Once: `uv sync --group tools` (numpy and matplotlib, for the report and sweep). `CFG` is your cfg, e.g.
+`projects/iwr1843_sar_lvds/configs/sar_example_2ms.cfg`.
+
+| Tool (in `tools/`) | Does | Hardware |
+|---|---|---|
+| `dca_capture.py` | arms the DCA1000, drives `sensorStart` / `sensorStop` / `sarStats` on the CLI port, records the datagrams with their UDP headers, stores `chirpAvail` beside the recording | DCA1000, CLI port |
+| `sar_parse.py` | places packets by DCA1000 byte count, runs checks 1-4, writes `_adc.bin` (int16 I/Q, chirp-major) and `_meta.csv` (saturation lag applied); a rejected recording writes nothing (`--force` writes it for debugging only) | none |
+| `sar_tune_report.py` | peak dBFS, clipped chirps, noise floor, range profile with the HPF response, reflector SNR | none |
+| `sar_tune_sweep.py` | per gain/HPF point: cfg check, send cfg, capture, parse, report, one table; no power cycle | DCA1000, CLI port |
+| `sar_synth.py` | synthetic captures (clean, late, mid-packet, lost datagram, ...) for the tests and for trying the tools | none |
+
 
 ```bash
 T=projects/iwr1843_sar_lvds/tools
@@ -36,8 +44,14 @@ uv run --group tools python $T/sar_tune_sweep.py CFG out1 --cli-port /dev/serial
     --gains 30 --hpf 175:350 --reflector-range 1.5                               # HW: one point
 ```
 
-`dca_capture.py` arms the DCA1000, sends `sensorStart`, waits, sends `sensorStop`, reads `sarStats`, then stops recording; without
-`--cli-port` it arms and asks you to type those three commands and enter `chirpAvail`. DCA1000 address, port and `--timer-s` options: [`capture_parse_tune.md`](capture_parse_tune.md). The report also writes `run1_tune.png`. A sweep needs no power cycle (several points: comma lists; `--dry-run` only cfg-checks).
+`dca_capture.py` alone needs a radar that already holds the cfg; without `--cli-port` it arms and asks you to type the three CLI
+commands and enter `chirpAvail`. To send the cfg (or change gain/HPF) and capture in one go, run a one-point sweep: it cfg-checks,
+sends the cfg, captures, parses and reports. The report also writes `run1_tune.png`. A sweep needs no power cycle (several points:
+comma lists; `--dry-run` only cfg-checks). `--hpf` is HPF1:HPF2 in kHz.
+
+`dca_capture.py` and the sweep default to the factory DCA1000 address (FPGA 192.168.33.180, host 192.168.33.30, ports 4096 and
+4098); other addresses: `--fpga-ip --host-ip --cmd-port --data-port`. `--timer-s` (default 30) is the CONFIG_FPGA_GEN timer byte;
+captures of 60 s and 600 s ran with the default ([`bench_bringup.md`](bench_bringup.md) section 6).
 
 ## 4 `sarStats`: the number that proves the run's length
 
@@ -55,7 +69,7 @@ saturatedChirps 4
 ## 5 The four checks and the discard policy
 
 `sar_parse.py` prints one line per check, then **`VERDICT: ACCEPTED`** or **`VERDICT: REJECTED: capture requirement not met`** naming the
-failing checks. A rejected capture writes no output files (`--force` does, with a warning, for debugging only).
+failing checks.
 
 | # | The check | A typical failure means |
 |---|---|---|
@@ -64,18 +78,17 @@ failing checks. A rejected capture writes no output files (`--force` does, with 
 | 3 | In the last packet (`chirpAvail` − 1) the *other* slot does not hold the run's next chirp | began one packet late (check 2 cannot see it) |
 | 4 | Bytes recorded = `chirpAvail` × B (B = packet size, printed); a lost final datagram is a tolerated tail hole (check 4 then decides check 3) | short at the start or end, or a second run appended; **no `sarStats` reading: fails** |
 
-*Not evaluable* counts as a failure, except check 3 when a lost final datagram held the last record slots: then check 4 decides. Checks 3 and 4 are bench-measured
-([`lvds_data_format.md`](lvds_data_format.md) section 1).
+*Not evaluable* counts as a failure, except check 3 when a lost final datagram held the last record slots: then check 4 decides.
+Checks 3 and 4 are bench-measured ([`lvds_data_format.md`](lvds_data_format.md) section 1).
 
-## 6 Bench procedure
+## 6 Tuning procedure
 
-1. Put a **near reflector at 1-2 m** and run the one-point sweep (§3) at **gain 30 dB, HPF 175:350**.
-2. Capture, parse (§3); go on only if `ACCEPTED`. Run the report with `--reflector-range`.
+1. Put a **near reflector at 1-2 m** and run the one-point sweep (section 3) at **gain 30 dB, HPF 175:350**.
+2. Capture and parse; go on only if `ACCEPTED`. Run the report with `--reflector-range`.
 3. **If chirps clip**, step the HPF up first (re-run with `--hpf 350:700`). Lower the gain only if it still clips.
 4. **Raise the gain** until the swath's far end is clearly above the noise floor with **clipped chirps 0 for the whole capture**.
-5. Record the chosen point (gain, HPF pair, report numbers, cfg). `sar_tune_sweep.py` tabulates steps 2-4.
-
-On the bench `./bench tune --range M` runs steps 1-4 as one 8-point sweep and prints the clean candidates (`bench_bringup.md` §5d).
+5. Record the chosen point (gain, HPF pair, report numbers, cfg). `sar_tune_sweep.py` tabulates steps 2-4; `./bench tune --range M` runs
+   steps 1-4 as one 8-point sweep and prints the clean candidates ([`bench_bringup.md`](bench_bringup.md) section 8).
 
 ## 7 Reading the report and the sweep table
 
@@ -90,12 +103,14 @@ On the bench `./bench tune --range M` runs steps 1-4 as one 8-point sweep and pr
 
 **Lag-1 saturation.** The saturation monitor delivers a chirp's result only once its ADC samples are complete, when its packet starts
 sending, but the packet's record was written earlier, at chirp start. So chirp n's result arrives in chirp n+1's record (`satRefLag` = 1;
-sometimes 2 or 0). The tools subtract the lag: the clipped count and `sat_slices_this_chirp` (`_meta.csv`) name the chirp that saturated. `satSlices` = how many of up to 64 slices of the ADC window saw saturation. 
+sometimes 2 or 0). The tools subtract the lag: the clipped count and `sat_slices_this_chirp` (`_meta.csv`) name the chirp that saturated.
+`satSlices` = how many of up to 64 slices of the ADC window saw saturation.
 
 Sweep table: one row per point, same quantities; `REJECTED` = a check failed (see `note`, redo it), `SKIPPED` = the cfg checker refused it.
 
 ## 8 Pitfalls
 
 - **DC and near-range leakage.** A peak in the first bins that ignores the reflector is leakage: raise the HPF.
-- **A clipped count that is not a clean count.** "Firmware result unknown" (the run's last chirp, or a lost record) is not clean; the saturation result lags by one chirp (section 7), and the tools already correct for it.
+- **A clipped count that is not a clean count.** "Firmware result unknown" is not clean (section 7).
+
 - **No cfg on the radar.** `dca_capture.py` alone does not send a cfg: use the one-point sweep (section 3) or `bench_check.py cfg` first.

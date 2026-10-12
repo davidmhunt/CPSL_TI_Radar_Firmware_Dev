@@ -1,4 +1,4 @@
-"""Set B bench commands (firmware-10 Steps 2.3 to 2.6; a corner reflector at a MEASURED range is needed). Registered by
+"""Reflector bench commands (docs/bench_bringup.md section 8; a corner reflector at a MEASURED range is needed). Registered by
 bench_run.py:
 
     ./bench tune --range M          sweep gain x HPF with sar_tune_sweep's flow; prints clip counts, sat flags, SNR, a chosen point

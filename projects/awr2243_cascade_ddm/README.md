@@ -24,7 +24,7 @@ TI's prebuilt image (`./fw flash awr2243_cascade_ddm <port> prebuilt`) remains t
 
 ## Build
 
-From `firmware_dev/` (prerequisites: the [top README](../../README.md#the-path)):
+From `firmware_dev/` (prerequisites: the [top README](../../README.md#before-you-start)):
 
 ```bash
 ./fw build awr2243_cascade_ddm            # CCS headless, ~15 min; CCS_CONFIG=Debug for a debug build

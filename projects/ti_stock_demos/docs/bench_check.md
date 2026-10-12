@@ -2,6 +2,7 @@
 
 Run by a person at the bench; not run by `./fw test`. Record the outcome in `project.toml` as a `[[bench]]` entry.
 No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no headless flasher and no bench record.
+Terms (SOP, DSLite, `FLASH MODE CONFIRMED`): [glossary](../../../docs/reference/fw_cli.md#glossary).
 
 ## Preconditions
 
@@ -13,10 +14,9 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
 
 ## Board state
 
-- Flash mode (SOP 101): power off (unplug USB and 5 V). Switch S1 (SOP2, SOP1, SOP0 left to right, ON = up): SOP2 ON, SOP1 OFF,
-  SOP0 ON. Then **power-cycle fully (plug USB and 5 V)** before EVERY attempt, retries included; a retry without it fails with
-  `Received unexpected data`.
-- Functional mode (SOP 001) for the CLI check: power off, SOP2 OFF (SOP0 stays ON, SOP1 OFF), power on.
+- Switch S1 as in the README, set with power off. Flash mode (SOP 101: SOP2 ON, SOP1 OFF, SOP0 ON). **Power-cycle fully (unplug, then plug USB and 5 V)** before EVERY
+  attempt, retries included; a retry without it fails with `Received unexpected data`.
+- Run mode (SOP 001: SOP2 OFF, SOP0 ON) for the CLI check, then power on.
 
 ## Steps
 
@@ -31,7 +31,7 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
    ```
 
 2. If it fails: keep `projects/ti_stock_demos/build/flash_output.log`, power-cycle fully, retry once. Still failing: stop and report the log.
-3. Set functional mode (SOP 001), power on, then either `./fw verify ti_stock_demos --port "$PORT"` or by hand:
+3. Set SOP 001, power on, then either `./fw verify ti_stock_demos --port "$PORT"` or by hand:
 
    ```bash
    picocom -b 115200 "$PORT"        # exit: Ctrl-A Ctrl-X
@@ -49,7 +49,7 @@ No cfg is sent. Paths are relative to `firmware_dev/`. The IWR6843 image has no 
   `projects/ti_stock_demos/build/flash_output.log`.
 - CLI, SOP 001, 115200: the `mmwDemo:/>` prompt. `version` reply (observed 2026-10-07): Platform xWR18xx; mmWave SDK 03.06.02.00;
   Device Info IWR18xx non-secure ES 02.00; RF F/W 02.00.00.01.17.10.05; RF patch 01.02.06.11.20.06.02; mmWaveLink 01.02.06.06;
-  Lot/Wafer/X/Y are per chip (seen: 3937325, 2, 5, 34); then `Done`.
+  Lot/Wafer/X/Y differ per chip; then `Done`. `fw verify` also needs `sarStats` to answer "not recognized".
 
 ## Pass/fail
 

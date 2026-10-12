@@ -1,12 +1,12 @@
 # awr2243_cascade_ddm bench check
 
-Run by a person at the bench; not run by `./fw test`. Record the outcome in `project.toml` as a `[[bench]]` entry (board AWR2243_CASCADE, date, image sha256, result, this doc).
+Run by a person at the bench; not run by `./fw test`. Record the outcome in `project.toml` as a `[[bench]]` entry (board AWR2243_CASCADE, date, image sha256, result, this doc). Terms: [glossary](../../../docs/reference/fw_cli.md#glossary).
 
 ## Preconditions
 
 - AWR2243-2X-CAS-EVM on 12 V (USB only enumerates with 12 V on), XDS110 USB connected; claim the board and its ports in `status.md`.
 - Image built: `./fw build awr2243_cascade_ddm`; note the `.appimage` sha256 from `build/build_info.json`.
-- The by-id CLI port (`./fw ports awr2243_cascade_ddm`, ends in `-if00`) is free: no monitor, driver or ModemManager holds it.
+- The by-id CLI port (`./fw ports awr2243_cascade_ddm`, ends in `-if00`) is free: no monitor, driver or ModemManager holds it. The data port `<DATA>` is the same XDS110's other by-id entry, ending in `-if03` (the Auxiliary Data Port; `docs/hardware/cascade_setup.md:59-64` in the parent repo); `<CLI>` is the `-if00` one.
 
 ## Board state
 
@@ -18,7 +18,7 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 
 1. J6 bottom, power-cycle. `./fw flash awr2243_cascade_ddm <by-id -if00 port> --dry-run`, check checklist and sha256, then `./fw flash awr2243_cascade_ddm <by-id -if00 port>` and type `FLASH MODE CONFIRMED`.
 2. Power off, J6 top, power-cycle.
-3. `./fw verify awr2243_cascade_ddm --port <by-id -if00 port>`: listen-only; reports `skipped` (the descriptor's `once_safe` is false) and sends nothing.
+3. `./fw verify awr2243_cascade_ddm --port <by-id -if00 port>`: listen-only; reports `skipped` and sends nothing (the cascade takes one cfg per power-up, so the descriptor marks verify not safe to send).
 4. One configured run (uses the one cfg of this power-up): `docker compose run --rm flash python3 /build_context/projects/awr2243_cascade_ddm/tools/cascade_serial_check.py --cli <CLI> --data <DATA> --cfg /build_context/projects/awr2243_cascade_ddm/configs/cascade_shortrange.cfg` (or the driver with a cascade config). `--skip-config` only listens on the data port of a board that is already configured. The check reads the CLI at 115200 baud and the data port at 3,125,000.
 
 ## Expected output
@@ -33,4 +33,5 @@ Run by a person at the bench; not run by `./fw test`. Record the outcome in `pro
 
 ## Results log
 
-Results are recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc). The current record is a pass for our build: flashed with `fw flash`, `fw verify` skipped (exit 0), then one configured run reached `sensorStart` DONE and received 163 frames with 0 missed. TI's prebuilt image stays the fallback (`./fw flash awr2243_cascade_ddm <port> prebuilt`). The shipped cfgs send compact points (type 12), tracker (10) and RANSAC mask (11) TLVs; see `cascade_demo_guide.md` section 6.
+Recorded in `project.toml` `[[bench]]` (board, date, image sha256, result, this doc). Current record: a pass for our build
+(163 frames, 0 missed). TI's prebuilt image stays the fallback (`./fw flash awr2243_cascade_ddm <port> prebuilt`).

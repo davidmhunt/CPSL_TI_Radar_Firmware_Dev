@@ -3,7 +3,7 @@
 [project]
 name = "awr2243_cascade_ddm"
 summary = "AM273x + 2x AWR2243 (AWR2243-2X-CAS-EVM) 2-chip cascade DDM demo: TLV point cloud over serial, flashed over the UART bootloader"
-status = "built"               # source -> built needs a build record (build/build_info.json); no [[bench]]: never flashed via fw
+status = "bench"               # flashed with fw and run 2026-10-12 (see [[bench]])
 
 [deps]
 sdk = "mmwave_mcuplus_sdk"
@@ -59,6 +59,16 @@ success_marker = "All commands from config file are executed"
 cli_port_glob = "*-if00"
 baud = 115200
 descriptor = "cascade_ddm"     # identify.AWR2243_CASCADE has once_safe false: verify only listens, probe skipped
+
+# Cascade, 2026-10-12 (fwstd-09 Step 3): user flashed our build from their terminal, reported "Cascade finished successfully"
+# (literal `fw flash` output not pasted); `fw verify --json` outcome skipped, exit 0 (once_safe false); one configured GUI/driver
+# run on the next power-up (run 20261012T141433Z_bench_cascade): sensorStart DONE (466 ms), 163 frames, 0 missed.
+[[bench]]
+board = "AWR2243_CASCADE"
+date = "2026-10-12"
+sha256 = "9bf7f418076a1f71720c444c173aaa388a5210326bb031925ba38666af30c770"
+result = "pass"
+doc = "docs/bench_check.md"
 
 [test]
 commands = ["python3 -m unittest discover -s tests"]

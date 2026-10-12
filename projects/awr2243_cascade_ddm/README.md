@@ -8,8 +8,13 @@ TLV point cloud over the data UART; the host driver configures it over the CLI U
 
 ## Status
 
-Quote of `./fw list`: status `built` (a `build/build_info.json` exists); no `[[bench]]` record,
-because this build has never been flashed through `fw` (a bench check is still to do).
+Quote of `./fw list`: status `bench`. Bench record (`project.toml` `[[bench]]`):
+
+| Date | Board | Image sha256 | Result |
+|------|-------|--------------|--------|
+| 2026-10-12 | AWR2243 cascade | `9bf7f418...c30c770` | pass: flashed by the user ("Cascade finished successfully"), `fw verify` skipped (exit 0), one configured run: `sensorStart` DONE, 163 frames, 0 missed |
+
+TI's prebuilt image (`./fw flash awr2243_cascade_ddm <port> prebuilt`) remains the fallback.
 
 - Prebuilt libraries (`.aer5f`/`.ae66`) are not in git here: `build.sh` takes them from the Radar
   Toolbox in the image. The ignore rules still allow committing rebuilt copies under `src/ti/**/lib/`.

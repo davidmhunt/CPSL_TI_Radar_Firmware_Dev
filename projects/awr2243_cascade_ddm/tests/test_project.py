@@ -88,6 +88,29 @@ class ManifestTest(unittest.TestCase):
         self.assertTrue((HERE / "tools" / "cascade_serial_check.py").is_file())
         self.assertFalse((FW_ROOT / "tools" / "cascade_serial_check.py").exists())
 
+    def test_serial_check_tlv_names_match_firmware_enum(self):
+        """TLV_NAMES in the bring-up tool must use the numbers the firmware's mmw_output.h enum assigns."""
+        import ast
+        tree = ast.parse((HERE / "tools" / "cascade_serial_check.py").read_text())
+        names = next(ast.literal_eval(n.value) for n in tree.body
+                     if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "TLV_NAMES")
+        hdr = (HERE / "src/ti/demo/am273x/mmw/include/mmw_output.h").read_text()
+        body = hdr.split("typedef enum MmwDemo_output_message_type_e", 1)[1].split("}", 1)[0]
+        members = re.findall(r"^\s*(MMWDEMO_OUTPUT_\w+)\s*(?:=\s*(\d+))?\s*,", body, re.M)
+        enum, nxt = {}, 0
+        for name, val in members:
+            nxt = int(val) if val else nxt + 1
+            enum[name] = nxt
+        self.assertEqual(enum["MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_COMPACT"], 12)
+        expect = {1: "MMWDEMO_OUTPUT_MSG_DETECTED_POINTS", 6: "MMWDEMO_OUTPUT_MSG_STATS",
+                  7: "MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_SIDE_INFO", 9: "MMWDEMO_OUTPUT_MSG_TEMPERATURE_STATS",
+                  10: "MMWDEMO_OUTPUT_MSG_TRACKER", 11: "MMWDEMO_OUTPUT_MSG_RANSAC_FILTER_MASK",
+                  12: "MMWDEMO_OUTPUT_MSG_DETECTED_POINTS_COMPACT"}
+        self.assertEqual(sorted(names), sorted(expect))
+        for num, sym in expect.items():
+            self.assertEqual(enum[sym], num, sym)
+        self.assertEqual(names[12], "compact")
+
 
 @unittest.skipUnless(DESCRIPTOR.is_file(), "parent descriptor config/firmware/cascade_ddm.json not present")
 class DescriptorTest(unittest.TestCase):

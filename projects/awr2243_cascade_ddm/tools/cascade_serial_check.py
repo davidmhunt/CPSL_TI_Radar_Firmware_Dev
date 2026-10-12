@@ -30,7 +30,7 @@ import serial
 MAGIC = b"\x02\x01\x04\x03\x06\x05\x08\x07"
 HEADER_FMT = "<8sIIIIIIII"  # magic, version, totalPacketLen, platform, frameNumber,
 HEADER_LEN = struct.calcsize(HEADER_FMT)  # timeCpuCycles, numDetectedObj, numTLVs, subFrameNumber
-TLV_NAMES = {1: "points", 6: "stats", 7: "side_info", 9: "temperature", 10: "tracker", 104: "compact"}
+TLV_NAMES = {1: "points", 6: "stats", 7: "side_info", 9: "temperature", 10: "tracker", 11: "ransac_mask", 12: "compact"}
 
 
 def send_config(port, baud, cfg_path, timeout_s):

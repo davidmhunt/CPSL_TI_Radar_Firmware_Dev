@@ -1,7 +1,7 @@
 # 5. Add a new project
 
 This makes a project called `zz_demo`. Use your own name (lowercase letters, digits and `_`).
-Run all commands from `firmware_dev/`. To only try it out, skip the git commands.
+Run commands from `firmware_dev/`. To only try it out, skip the git commands.
 
 ## 1. Create it
 
@@ -15,8 +15,8 @@ The comments in `project.toml` say which tables each status needs.
 
 ## 2. Commit the TI source unchanged
 
-Copy the TI source you start from into `src/`, and commit it before you change anything. Every later change
-is then a diff against that commit. The TI sources are in the image under `/opt/ti`:
+Copy the TI source you start from into `src/` and commit it before changing anything, so every later change
+is a diff. TI sources are in the image under `/opt/ti` (list: `docker compose run --rm firmware-env ls /opt/ti`); the example copies the SDK 3.6 `xwr18xx` demo:
 
 ```bash
 docker compose run --rm --user "$(id -u):$(id -g)" firmware-env \

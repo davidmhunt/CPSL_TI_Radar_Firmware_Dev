@@ -15,20 +15,13 @@ there. `docker-compose.yaml` defines two services from it:
 | `flash` | real flashes (`flash` without `--dry-run`) | extends `firmware-env`; adds `/dev` and the `dialout`, `plugdev` groups, plus cgroup rules for ttyUSB (188) and ttyACM (166), so ports that re-enumerate after a power-cycle stay visible |
 
 Both bind-mount `firmware_dev/` at `/build_context` (`/build_context/projects/<p>/x` is `projects/<p>/x`
-on the host). Git metadata is not usable inside, hence `FW_COMMIT`.
-
-## What `fw` runs
-
-`docker compose run --rm --user <uid>:<gid> -e HOME=/tmp/fwhome -T -e K=V ... <service> bash -c 'mkdir -p "$HOME" && exec "$0" "$@"' /build_context/projects/<p>/<script> [args]`
-
-- `-T`: no TTY. Passed: `FW_PROJECT`, `FW_VARIANT` (build), `FW_PORT`, `FW_IMAGE`, `FW_DRY_RUN` (flash), `FW_COMMIT`
-  (set by `fw`), plus `CCS_CONFIG` and any other `FW_*` from your shell, except `FW_COMMIT`, `FW_ROOT`, `FW_COMPOSE`.
+on the host). Git metadata is not usable inside, hence `FW_COMMIT`. `fw` starts them with `docker compose run --rm
+--user <uid>:<gid> -T` (see `tools/fwcli/procs.py`).
 
 ## Toolchain paths in the image
 
-`ENV` lines in the `Dockerfile` (and `docker-compose.yaml`) set `MMWAVE_SDK_PATH`, `MMWAVE_MCUPLUS_SDK_PATH`,
-`CGT_TI_{ARM_CLANG,C6000,ARM}_PATH`, `SYSCONFIG_PATH`, `RADAR_TOOLBOX_INSTALL_PATH`, `UNIFLASH_PATH` and
-`CCS_INSTALL_PATH`, all under `/opt/ti`. Versions: [`docs/firmware.md`](../../../docs/firmware.md) (parent repo).
+Tool paths (`MMWAVE_SDK_PATH`, `CGT_TI_*_PATH`, `UNIFLASH_PATH`, `CCS_INSTALL_PATH`, ...) are `ENV` lines in the
+`Dockerfile`, all under `/opt/ti`. Versions: [`docs/firmware.md`](../../../docs/firmware.md) (parent repo).
 
 ## Out-of-tree SDK overlay (`ti_stock_demos`, `iwr1843_sar_lvds`)
 

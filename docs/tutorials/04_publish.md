@@ -27,10 +27,10 @@ Lab users who never build can then flash it. Run all commands from `firmware_dev
 1. `--dry-run` lists what would be copied and writes nothing.
 2. The real command copies each image to `../shipped_firmware/<BOARD>/<descriptor>/`.
 3. Next to each image it writes `<image>.provenance.json`, the record of where the image came from
-   (project, `firmware_dev` commit, toolchain, checksum).
+   (fields: [`fw` reference](../reference/fw_cli.md#verbs)).
 
-`<BOARD>` and `<descriptor>` come from the project's `project.toml`. The descriptor must already exist
-as a file in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/).
+`<BOARD>` and `<descriptor>` come from the project's `project.toml`. The descriptor (a JSON file that tells
+the driver how to use the image) must already exist in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/).
 Use `--dest D` to try it in another folder. All rules and exit codes: [`fw` reference](../reference/fw_cli.md#verbs).
 
 ## 3. Record it in the parent repo

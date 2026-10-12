@@ -11,7 +11,7 @@ You need the [build environment](01_build_env.md). Run all commands from `firmwa
 ```
 
 `--dry-run` checks your setup and prints the command; it builds nothing. The last command is the real
-build and always starts from scratch.
+build and always starts from scratch. It checks the installers itself, so `./fw deps` is not required first.
 
 ## 2. See what you got
 
@@ -28,7 +28,7 @@ The build writes `projects/<project>/build/`. It holds:
 
 | Option | Effect |
 |--------|--------|
-| `--variant V` | Build one variant. `ti_stock_demos` has `18xx` and `68xx`. |
+| `--variant V` | Build one variant (a named build option). `ti_stock_demos` has `18xx` and `68xx`. |
 | `CCS_CONFIG=Debug ./fw build ...` | Debug build (cascade only). |
 
 ## Long builds
@@ -41,4 +41,4 @@ setsid nohup ./fw build awr2243_cascade_ddm > build.log 2>&1 &
 
 ## Next
 
-Run the hardware-free checks with `./fw test <project>`. Then [3. Flash and verify](03_flash_verify.md).
+`./fw test <project>` runs checks on the project's files that need no board. Then [3. Flash and verify](03_flash_verify.md).

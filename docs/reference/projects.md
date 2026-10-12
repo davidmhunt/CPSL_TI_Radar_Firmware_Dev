@@ -18,7 +18,7 @@ Projects are self-contained. Shared: the toolchain image, `tools/` (`tools/fwcli
 
 `build.sh` reads `FW_PROJECT`, `FW_VARIANT` (empty if none; also `$1`) and `FW_COMMIT`. `flash.sh` reads
 `FW_PROJECT`, `FW_PORT`, `FW_IMAGE` (container path), `FW_DRY_RUN` (`1` = print only), also as arguments
-`flash.sh [--dry-run] <port> <image>`. Its exit codes: `0` flashed and confirmed, `1` failed, `2` bad
+`flash.sh [--dry-run] <port> <image>`. `CCS_CONFIG` and other `FW_*` set in your shell pass through too. Its exit codes: `0` flashed and confirmed, `1` failed, `2` bad
 arguments, `3` no headless flasher (manual steps printed).
 
 ## `project.toml`

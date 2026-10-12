@@ -7,7 +7,7 @@ For developers and scripts. Run `./fw` from `firmware_dev/`; logic: `tools/fwcli
 
 | Verb | What it does |
 |------|--------------|
-| `list` | Per project: effective status, build state, board, SDK, baseline, artifacts, `[[bench]]` records |
+| `list` | Per project: effective status, build state ([values](projects.md#build-state)), board, SDK, baseline, artifacts, `[[bench]]` records |
 | `ports [<project>]` | By-id serial ports and whether a process holds them; with a project, filtered by `[flash].port_glob` (else `[verify].cli_port_glob`) |
 | `new <project>` | Copy `projects/_template/` to `projects/<project>/`, replacing `PROJECT_NAME`. Names match `[a-z0-9][a-z0-9_]*`; refuses an existing folder (exit 2) |
 | `deps [<project>]` | Check the installers named by `[deps].download_items` exist in `downloads/` (table below); exit 4 if not |
@@ -39,8 +39,8 @@ each `[test].commands` entry runs in the project folder; `build --dry-run` succe
 `verify`: no `--port` means the one by-id port matching `cli_port_glob` (zero or several: exit 4). The port must
 be by-id, matching the glob, and free. It opens at `[verify].baud`, sends each probe, and applies the
 descriptor's `require`/`reject` regexes: `outcome` `pass` or `fail` (exit 1). A probe that looks like a cfg
-(`sensorStart`, `sensorStop`, `flushCfg`, `*Cfg`) is refused (exit 4). With `once_safe: false` in the identify
-entry (the cascade) nothing is sent and the outcome is `skipped` (exit 0). `--dry-run` only lists the probes.
+(`sensorStart`, `sensorStop`, `flushCfg`, `*Cfg`) is refused (exit 4). With `once_safe: false` in the descriptor's identify
+entry (the board takes one cfg per power-up; the cascade) nothing is sent and the outcome is `skipped` (exit 0). `--dry-run` only lists the probes.
 
 `publish`: refuses (exit 4) a build that is `none`, `dirty` or `stale`, or an artifact differing from the
 build record. Only `flashable` artifacts with a non-empty `descriptor` publish; others are listed as `skipped`.
@@ -55,9 +55,10 @@ descriptor, sha256, `chirp_cfg` (path and sha256 of every `[test].cfgs` match) a
 | G1 | Image is inside `firmware_dev/` | 4 |
 | G2 | Port exists | 4 |
 | G3 | No process holds the port (`fuser`, else `lsof`; neither installed: 4) | 4 |
-| G4 | Port is `/dev/serial/by-id/...-if00`. At a terminal another port needs you to type `USE THIS PORT` | wrong phrase 5; under `--json` or `--plan` 4 |
-| G5, G6 | The `[flash].mode_steps` checklist is printed; you type `FLASH MODE CONFIRMED` at a terminal (no terminal and no token: 5) | 5 |
-| G7 | `--dry-run` flashes nothing and touches no port | |
+| G4 | Port is a by-id path, `/dev/serial/by-id/...-if00`. At a terminal another port needs you to type `USE THIS PORT` | wrong phrase 5; under `--json` or `--plan` 4 |
+| G5 | The `[flash].mode_steps` checklist is printed | - |
+| G6 | You type `FLASH MODE CONFIRMED` at a terminal | 5 (also with no terminal and no token) |
+| G7 | `--dry-run` flashes nothing and touches no port | - |
 
 `method = "manual"` prints `mode_steps` and `after_steps` and exits 3. A `manual_images` entry prints
 `flash.sh`'s own steps for `--plan` and `--dry-run` and exits 3 with no token. A real flash holds lock
@@ -66,8 +67,9 @@ descriptor, sha256, `chirp_cfg` (path and sha256 of every `[test].cfgs` match) a
 
 ## Scripted flashing (`--plan` / `--confirm`)
 
-No script may type the phrase. `--plan` runs G1 to G4 (by-id ports only), prints the checklist and returns a
-token; a human does the bench steps; `--confirm TOKEN` flashes.
+No script may type the phrase. Two separate invocations, neither blocks: `--plan` runs G1 to G4 (by-id ports
+only), prints the checklist, returns a token and exits; a human does the bench steps; then `--confirm TOKEN`
+flashes.
 
 - The token is 32 lowercase hex characters stored in `.fw/tokens/` (mode 600), valid 300 s, single use: it is
   consumed even if a later check fails. A new `--plan` for the same resolved port deletes older tokens.
@@ -86,11 +88,9 @@ Add `--json` anywhere. stdout is JSON Lines, human text goes to stderr. Progress
 ## Exit codes
 
 `0` ok. `1` failed (build, flash or probe failed; cancelled). `2` usage error. `3` unsupported, or manual steps
-printed. `4` precondition refused (missing deps, git unavailable, a gate, a lock, build not clean). `5`
-confirmation missing or invalid.
-
-SIGINT or SIGTERM kills the child process group, prints `after_steps` (the board may still be in flash mode)
-and ends with code 1, reason `cancelled`. A lock whose process is dead is reclaimed; a live one gives exit 4.
+printed. `4` precondition refused (missing deps, git unavailable, a gate, a live lock, build not clean). `5`
+confirmation missing or invalid. SIGINT or SIGTERM kills the child process group, prints `after_steps` (the board
+may still be in flash mode) and ends with code 1, reason `cancelled`. A lock whose process is dead is reclaimed.
 
 ## Environment
 
@@ -98,3 +98,11 @@ and ends with code 1, reason `cancelled`. A lock whose process is dead is reclai
   `-dirty` when `git status --porcelain -- projects/<project> fw tools` is not empty; `flash` passes the bare
   hash. Git unavailable: `build` exits 4. Container variables: [build_environment.md](build_environment.md).
 - Test seams: `FW_ROOT`, `FW_SERIAL_BYID_DIR`, `FW_COMPOSE` (replaces `docker compose`). State: `.fw/`, gitignored.
+
+## Glossary
+
+- **Descriptor**: JSON in `CPSL_TI_Radar_cpp/config/firmware/` that tells the driver how to identify a firmware (`identify` probes).
+- **Chirp config / cfg**: text commands that set the radar's chirp and frame parameters, sent over the CLI port.
+- **SOP, J6**: board switches (SOP) or jumper (J6) choosing flash mode or run mode; `[flash].gate` names which a project uses.
+- **`dslite`, `uart_uniflash`, `manual`**: `[flash].method`; TI UniFlash's command-line flasher (IWR boards), the MCU+ SDK's `uart_uniflash.py` (cascade), or printed steps only.
+- **Lock** (`project-<name>`, `port-<device>`): guard so two `fw` runs cannot use the same project or port; a live one gives exit 4.

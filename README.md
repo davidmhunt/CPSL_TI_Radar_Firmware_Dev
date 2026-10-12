@@ -11,7 +11,7 @@ You need:
 
 - Linux, with Docker and `docker compose`. Your user must be in the `docker` group.
 - Your user in the `dialout` group, to reach serial ports.
-- About 25 GB of free disk and Python 3.11 or newer.
+- About 25 GB of free disk and Python 3.11 or newer (`./fw` is a stdlib-only script; install no packages).
 - A serial terminal such as `picocom` for bench work.
 
 ## The path
@@ -24,6 +24,9 @@ You need:
 | 4 | Flash it (a person at the bench) | `./fw flash <project> <port>` | [3](docs/tutorials/03_flash_verify.md) |
 | 5 | Verify it | `./fw verify <project> --port <port>` | [3](docs/tutorials/03_flash_verify.md) |
 
+`firmware_dev/` is normally a submodule of the parent repo `CPSL_TI_Radar`: clone that first. The parent sets
+`update = none`, so `--checkout` is needed to fetch this folder.
+
 Then you can:
 
 - Publish a checked build for other lab users: [tutorial 4](docs/tutorials/04_publish.md).
@@ -32,6 +35,9 @@ Then you can:
 ## Projects
 
 Each folder in `projects/` is one firmware. `./fw list` shows which are built and checked.
+
+Boards: IWR1843 and IWR6843 are single-chip radars; the AWR2243 cascade is two AWR2243 chips plus an AM273x
+processor on one EVM.
 
 | Project | Board | What it is |
 |---------|-------|------------|
@@ -42,11 +48,8 @@ Each folder in `projects/` is one firmware. `./fw list` shows which are built an
 ## Two rules to remember
 
 - Flashing needs a person. Boards are used by one person at a time: ask the lab first. Jumper and
-  switch settings are in each project README, under "Flash".
-- The cascade board accepts a chirp config once per power-up. Power-cycle it before every run that sends one.
+  switch settings (SOP switches or the J6 jumper: flash mode vs run mode) are in each project README, under "Flash".
+- The cascade board accepts a chirp config (the radar's settings, sent as "cfg" commands) once per power-up.
+  Power-cycle it before every run that sends one.
 
-## Where to go
-
-- Step-by-step guides: [`docs/tutorials/`](docs/tutorials/01_build_env.md).
-- Board settings and bench checks: the README of your project.
-- Commands, scripts and file formats: [`docs/reference/`](docs/reference/fw_cli.md).
+Terms: [glossary](docs/reference/fw_cli.md#glossary). Board settings and bench checks: your project README.

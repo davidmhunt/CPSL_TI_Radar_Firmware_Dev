@@ -7,7 +7,8 @@ You need a [build](02_build.md) and a person at the bench. Run all commands from
 1. Make sure nobody else is using the board or its serial ports. Ask the lab.
 2. Read the **Flash** section of your project README. It gives the switch or jumper settings and the
    power steps. Change jumpers only with the power off.
-3. Find the board's port with `./fw ports`. Use the one ending in `-if00`.
+3. Find the board's port with `./fw ports`. Use the one ending in `-if00`: a stable "by-id" path under
+   `/dev/serial/by-id/`. Any other port makes `fw` ask you to type `USE THIS PORT`.
 
 ## Flash
 
@@ -42,12 +43,13 @@ Flashing from a script: [`fw` reference](../reference/fw_cli.md#scripted-flashin
 
 This asks the board which firmware it runs and prints `pass` or `fail`. On the cascade it prints
 `skipped` and sends nothing, because that board accepts only one chirp config per power-up
-([why](../reference/fw_cli.md#verbs)). To check the cascade, follow its `docs/bench_check.md`, then
-power-cycle (12 V).
+([why](../reference/fw_cli.md#verbs)). To check the cascade, follow `projects/awr2243_cascade_ddm/docs/bench_check.md`,
+then power-cycle it (12 V supply off and on).
 
 ## Record a bench check
 
-After a person runs a project's `docs/bench_check.md` on a real board, add this to its `project.toml`:
+A bench check is the test in a project's `docs/bench_check.md`, run by a person on a real board. Afterwards
+add this to its `project.toml`:
 
 ```toml
 [[bench]]

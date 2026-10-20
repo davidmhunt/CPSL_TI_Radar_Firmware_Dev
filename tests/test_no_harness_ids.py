@@ -1,4 +1,4 @@
-"""Guard: tracked non-Markdown files must not cite project-tracking task IDs (e.g. firmware-18)."""
+"""Guard: tracked non-Markdown files must not cite project-tracking task IDs (a lab-area name, a hyphen, two digits)."""
 import re
 import subprocess
 from pathlib import Path

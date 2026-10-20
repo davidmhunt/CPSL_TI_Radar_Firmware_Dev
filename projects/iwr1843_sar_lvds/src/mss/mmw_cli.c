@@ -414,7 +414,7 @@ static int32_t MmwDemo_CLIADCBufCfg (int32_t argc, char* argv[])
     adcBufCfg.chirpThreshold  = (uint8_t) atoi (argv[5]);
 
     /* One chirp per ADCBUF ping/pong half: the HW session streams every chirp
-     * (and firmware-08 hooks per-chirp metadata on the chirp events) */
+     * (and per-chirp metadata is hooked on the chirp events) */
     if (adcBufCfg.chirpThreshold != 1)
     {
         CLI_write("Error: chirpThreshold must be 1, multi-chirp is not allowed\n");

@@ -286,7 +286,7 @@ class Flows(Base):
         for g in ("G3", "G4", "G6"):
             self.assertIn("%s" % g, text)
             self.assertFalse(any(l.startswith("RESULT " + g) for l in out), g)
-        self.assertEqual(sum(1 for l in out if "NOT EVALUATED (no reflector) -> firmware-18" in l), len(B.NOT_EVALUATED))
+        self.assertEqual(sum(1 for l in out if "NOT EVALUATED (no reflector) -> needs a reflector run" in l), len(B.NOT_EVALUATED))
         self.assertTrue(out[-1].startswith("RESULT: PASS"))
         with open(os.path.join(self.tmp, "soak_summary.json")) as fh:
             d = json.load(fh)

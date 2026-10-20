@@ -648,7 +648,7 @@ def soak_summary(G, x, r, cfg, ok, duration, cap, pre):
              saturation_note="recorded, no target", other_slot_regime=x["regime"],
              groups={k: dict(ok=all(c[1] for c in v), passed=sum(1 for c in v if c[1]), total=len(v),
                              failed=[c[0] for c in v if not c[1]]) for k, v in G.items()},
-             not_evaluated=list(NOT_EVALUATED), not_evaluated_reason="no reflector -> firmware-18")
+             not_evaluated=list(NOT_EVALUATED), not_evaluated_reason="no reflector; needs a reflector run")
     L = ["SOAK SUMMARY (no reflector; example cfg, default gain/HPF)  RESULT: %s (evaluated items only)" % d["result"],
          "capture %.0f s: %d chirps (~%d expected), %d datagrams, %.1f MB, %.2f MB/s" % (
              duration, d["chirps"], d["chirps_expected"], d["datagrams"], d["capture_bytes"] / 1e6, d["mb_per_s"]),
@@ -671,7 +671,7 @@ def soak_summary(G, x, r, cfg, ok, duration, cap, pre):
     if pre:
         L.append("pre-check: %s" % ("PASS" if all(c[1] for c in pre) else "FAIL"))
     for n_ in NOT_EVALUATED:
-        L.append("%s: NOT EVALUATED (no reflector) -> firmware-18" % n_)
+        L.append("%s: NOT EVALUATED (no reflector) -> needs a reflector run" % n_)
     L.append("delete capture: rm -f %s %s.sarstats.json (also %s/endurance_pre*)" % (cap, cap, WORKDIR))
     return d, L[:40]
 
@@ -735,7 +735,7 @@ def cmd_soak(dev, a, out=print):
     for l in L:
         out(l)
     out("--- end paste block ---")
-    out("RESULT: %s  (evaluated items only; G3, G4, G6 and the reflector rows are NOT EVALUATED -> firmware-18)" % ("PASS" if ok else "FAIL"))
+    out("RESULT: %s  (evaluated items only; G3, G4, G6 and the reflector rows are NOT EVALUATED -> need a reflector run)" % ("PASS" if ok else "FAIL"))
     return ok
 
 

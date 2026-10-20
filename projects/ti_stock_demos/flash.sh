@@ -52,7 +52,7 @@ mkdir -p build
 DSLITE_LOG="$PWD/build/dslite_flash.log"      # DSLite's own log (-g)
 OUT_LOG="$PWD/build/flash_output.log"         # DSLite's console output
 # The image needs an explicit file order (Meta Image 1 = order 1): FlashPython/mmWaveProgFlash rejects order 0
-# ("File Order number value 0 is not in valid range (1-4)"), seen at the bench, firmware-10 Amendment 3. The
+# ("File Order number value 0 is not in valid range (1-4)"), seen at the bench. The
 # order is given as "<file>,<order>" (accepted on the bench). DSLite's -e is --verbose,
 # NOT erase (it grew dslite_flash.log to 52 MB), so it is not passed: format-on-download comes from the
 # DownloadFormat setting, default true. The success line is an info: line of the flash script; if a run without

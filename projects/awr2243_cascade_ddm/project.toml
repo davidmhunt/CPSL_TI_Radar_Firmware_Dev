@@ -60,7 +60,7 @@ cli_port_glob = "*-if00"
 baud = 115200
 descriptor = "cascade_ddm"     # identify.AWR2243_CASCADE has once_safe false: verify only listens, probe skipped
 
-# Cascade, 2026-10-12 (fwstd-09 Step 3): user flashed our build from their terminal, reported "Cascade finished successfully"
+# Cascade, 2026-10-12 (bench run): user flashed our build from their terminal, reported "Cascade finished successfully"
 # (literal `fw flash` output not pasted); `fw verify --json` outcome skipped, exit 0 (once_safe false); one configured GUI/driver
 # run on the next power-up (run 20261012T141433Z_bench_cascade): sensorStart DONE (466 ms), 163 frames, 0 missed.
 [[bench]]

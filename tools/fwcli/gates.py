@@ -1,6 +1,6 @@
 """Flash gates G1-G7 (A6) as small functions; flash.py sequences them.
 
-Old `gated_flash()` line mapping is recorded in the fwstd-03 directive Log."""
+These replace the old monolithic `gated_flash()`."""
 from __future__ import annotations
 
 import fnmatch

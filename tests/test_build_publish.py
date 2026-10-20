@@ -191,7 +191,7 @@ def test_sigterm_during_build_kills_child_releases_project_lock(tree):
     assert not alive and not (tree.fw / ".fw" / "locks" / "project-proj").exists()
 
 
-# ---- A7 exemption: [[bench]] / [project].status edits do not dirty or stale a build (fwstd-07) ------
+# ---- A7 exemption: [[bench]] / [project].status edits do not dirty or stale a build ------
 def _toml(t):
     return t.fw / "projects" / "proj" / "project.toml"
 

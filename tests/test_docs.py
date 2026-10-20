@@ -16,8 +16,8 @@ FW_CALL = re.compile(r"(?<![\w/.-])\./fw\s+([A-Za-z][\w-]*)")
 DIRECTIVE_ID = re.compile(r"\b(firmware|fwstd|fwdocs|gui|core|rel)-[0-9]{2}\b")
 SKIP_PARTS = {".venv", "downloads"}
 
-# Findings in other projects' docs, owned by fwdocs-02 / fwdocs-03: xfail until those land.
-# Remove an entry when its directive fixes the file (strict: an unexpected pass fails).
+# Findings in other projects' docs, still to be fixed: xfail until they are.
+# Remove an entry when the file is fixed (strict: an unexpected pass fails).
 KNOWN = {
 }
 

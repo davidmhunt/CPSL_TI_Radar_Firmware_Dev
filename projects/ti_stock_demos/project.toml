@@ -74,7 +74,7 @@ commands = ["python3 -m unittest discover -s tests"]
 cfgs = ["configs/xwr18xx/*.cfg", "configs/xwr68xx/*.cfg"]
 bench_doc = "docs/bench_check.md"
 
-# Source: the 2026-10-07 stock-demo bench run (closed directive log): DSLite rc=0, `SUCCESS!! File type META_IMAGE1`,
+# Source: the 2026-10-07 stock-demo bench run (bench log): DSLite rc=0, `SUCCESS!! File type META_IMAGE1`,
 # SOP 001 prompt `mmwDemo:/>` and a `version` reply (xWR18xx, SDK 03.06.02.00). Image sha256 as recorded there.
 [[bench]]
 board = "IWR1843"

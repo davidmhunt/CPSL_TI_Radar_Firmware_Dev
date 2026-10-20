@@ -344,7 +344,7 @@ def test_token_claim_is_atomic_two_confirms_one_wins(built):
 
 
 
-# ---- per-image manual flash ([flash].manual_images, fwstd-07 amendment) --------------------------
+# ---- per-image manual flash ([flash].manual_images) --------------------------
 MANUAL_FLASH_SH = """#!/bin/bash
 DRY=0; POS=()
 for a in "$@"; do case "$a" in --dry-run) DRY=1;; *) POS+=("$a");; esac; done

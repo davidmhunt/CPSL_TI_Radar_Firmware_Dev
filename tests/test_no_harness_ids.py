@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-PATTERN = re.compile(r"\b(radar|core|gui|sensors|release|firmware|docs|rover|nav|create3|ugv)-[0-9]{2}\b")
+PATTERN = re.compile(r"\b(radar|core|gui|sensors|release|firmware|docs|rover|nav|create3|ugv|plumb|docker|tf|fwstd|fwdocs)-[0-9]{2}\b")
 # path -> reason the ID is kept (none today)
 ALLOWLIST: dict[str, str] = {}
 

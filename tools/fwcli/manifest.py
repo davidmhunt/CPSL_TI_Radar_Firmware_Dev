@@ -221,7 +221,7 @@ def load(name: str, allow_template: bool = False) -> Manifest:
     raise FwExit(FAILED, f"projects/{name}: neither project.toml nor project.env found")
 
 
-# ---- project.env fallback (fwstd-03 migration aid; remove at fwstd-08) -------------------------
+# ---- project.env fallback (migration aid; remove once every project has a manifest) -------------------------
 
 LEGACY_DESCRIPTOR = {"ti_stock_demos": "demo", "awr2243_cascade_ddm": "cascade_ddm",
                      "iwr1843_sar_lvds": "iwr1843_sar_lvds"}

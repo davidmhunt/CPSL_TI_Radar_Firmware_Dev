@@ -1,7 +1,7 @@
 # Projects reference
 
 For developers. A project is one folder in `projects/`; `./fw` reads its `project.toml`. Contract:
-[`docs/specs/fw_project_contract.md`](../../../docs/specs/fw_project_contract.md) (parent repo). New project:
+[`docs/specs/fw_project_contract.md`](https://github.com/davidmhunt/CPSL_TI_Radar/blob/main/docs/specs/fw_project_contract.md) (parent repo). New project:
 [`projects/_template/`](../../projects/_template/), [tutorial 5](../tutorials/05_new_project.md). Verbs: [fw_cli.md](fw_cli.md).
 
 ## Folder layout

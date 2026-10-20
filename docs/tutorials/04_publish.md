@@ -1,7 +1,7 @@
 # 4. Publish to shipped_firmware/
 
 Publishing copies a clean build into the parent repo's
-[`shipped_firmware/`](../../../shipped_firmware/README.md) folder, with a record of where it came from.
+[`shipped_firmware/`](https://github.com/davidmhunt/CPSL_TI_Radar/blob/main/shipped_firmware/README.md) folder, with a record of where it came from.
 Lab users who never build can then flash it. Run all commands from `firmware_dev/`.
 
 ## 1. Get a clean build
@@ -30,7 +30,7 @@ Lab users who never build can then flash it. Run all commands from `firmware_dev
    (fields: [`fw` reference](../reference/fw_cli.md#verbs)).
 
 `<BOARD>` and `<descriptor>` come from the project's `project.toml`. The descriptor (a JSON file that tells
-the driver how to use the image) must already exist in [`CPSL_TI_Radar_cpp/config/firmware/`](../../../CPSL_TI_Radar_cpp/config/firmware/).
+the driver how to use the image) must already exist in [`CPSL_TI_Radar_cpp/config/firmware/`](https://github.com/davidmhunt/CPSL_TI_Radar/tree/main/CPSL_TI_Radar_cpp/config/firmware/).
 Use `--dest D` to try it in another folder. All rules and exit codes: [`fw` reference](../reference/fw_cli.md#verbs).
 
 ## 3. Record it in the parent repo
@@ -43,7 +43,7 @@ Use `--dest D` to try it in another folder. All rules and exit codes: [`fw` refe
    ```
 
 Pushing is up to you. TI-derived binaries may need a licence check before a public release:
-see "Open v2.0 items" in [`docs/firmware.md`](../../../docs/firmware.md).
+see [`docs/firmware.md`](https://github.com/davidmhunt/CPSL_TI_Radar/blob/main/docs/firmware.md), "Things to know before flashing".
 
 ## Next
 

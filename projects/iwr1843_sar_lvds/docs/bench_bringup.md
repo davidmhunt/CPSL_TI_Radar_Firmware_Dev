@@ -33,7 +33,7 @@ The DCA1000 uses its factory addresses: FPGA `192.168.33.180`, host NIC `192.168
 
 Confirmed on one IWR1843BOOST: the 2026-10-06 image flashed and booted in SOP 001 to `mmwDemo:/>`; the current image (prompt
 `mm_sar_lvds:/>`) on 2026-10-10; the stock-demo restore on 2026-10-07 and 2026-10-10. Route notes:
-[`docs/research/iwr1843_headless_flash_2026-10-06.md`](../../../../docs/research/iwr1843_headless_flash_2026-10-06.md).
+[`docs/research/iwr1843_headless_flash_2026-10-06.md`](https://github.com/davidmhunt/CPSL_TI_Radar/blob/main/docs/research/iwr1843_headless_flash_2026-10-06.md).
 
 1. SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; `readme_images/IWR1843_SOP_nodes.png`, repository root): flash mode
    is SOP2 and SOP0 ON, SOP1 OFF (101). Close every terminal and viewer on the port.

@@ -21,7 +21,19 @@ on the host). Git metadata is not usable inside, hence `FW_COMMIT`. `fw` starts 
 ## Toolchain paths in the image
 
 Tool paths (`MMWAVE_SDK_PATH`, `CGT_TI_*_PATH`, `UNIFLASH_PATH`, `CCS_INSTALL_PATH`, ...) are `ENV` lines in the
-`Dockerfile`, all under `/opt/ti`. Versions: [`docs/firmware.md`](../../../docs/firmware.md) (parent repo).
+`Dockerfile`, all under `/opt/ti`. Versions installed by the image:
+
+| Tool | Version |
+|------|---------|
+| mmWave MCU+SDK (AM273x) | 04.04.00.01 |
+| mmWave SDK (IWR1843/IWR6843) | 03.06.02.00-LTS |
+| SysConfig | 1.22.0 |
+| TI Arm Clang (AM273x R5F) | 2.1.1.LTS |
+| TI C6000 (AM273x C66x) | 8.3.12 |
+| TI ARM CGT | 20.2.7.LTS (installed; the SDK 3.6 make flow uses its bundled 16.9.6.LTS and C6000 8.3.3) |
+| Radar Toolbox | 4.00.00.05 |
+| Code Composer Studio | 12.8.1, headless only |
+| UniFlash | 9.6.0 |
 
 ## Out-of-tree SDK overlay (`ti_stock_demos`, `iwr1843_sar_lvds`)
 

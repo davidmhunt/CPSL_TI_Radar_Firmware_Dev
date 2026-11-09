@@ -18,7 +18,8 @@ You need a [build](02_build.md) and a person at the bench. Run all commands from
    ./fw flash <project> /dev/serial/by-id/<...>-if00 --dry-run
    ```
 
-2. Put the board in flash mode. Power-cycle it fully (USB and supply). Do this before every attempt,
+2. Power off and disconnect any DCA1000 from the board (an attached one makes the flash fail); reconnect it after you set the
+   board back to run mode. Put the board in flash mode. Power-cycle it fully (USB and supply). Do this before every attempt,
    including retries. A retry without a power-cycle fails.
 3. Run the real flash:
 

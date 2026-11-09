@@ -35,7 +35,8 @@ Confirmed on one IWR1843BOOST: the 2026-10-06 image flashed and booted in SOP 00
 `mm_sar_lvds:/>`) on 2026-10-10; the stock-demo restore on 2026-10-07 and 2026-10-10. Route notes:
 [`docs/developer/radar_notes.md`, "Headless flashing"](https://github.com/davidmhunt/CPSL_TI_Radar/blob/main/docs/developer/radar_notes.md#headless-flashing).
 
-1. SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; `readme_images/IWR1843_SOP_nodes.png`, repository root): flash mode
+1. Power off and disconnect the DCA1000 from the IWR1843BOOST: with it attached `./fw flash` fails. Reconnect it after step 7.
+   SOP switch S1 (SOP2, SOP1, SOP0 left to right, ON = up; [diagram](../../../../docs/images/boot_modes/IWR1843_SOP_nodes.png), repository root): flash mode
    is SOP2 and SOP0 ON, SOP1 OFF (101). Close every terminal and viewer on the port.
 2. **Power-cycle fully (unplug USB and the 5 V supply, replug both) before EVERY attempt, retries included.** A retry without it
    failed with `XXXX Received unexpected data!!!XXXX` / `Not able to connect to serial port`.
